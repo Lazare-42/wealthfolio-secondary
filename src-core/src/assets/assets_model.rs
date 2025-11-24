@@ -1,5 +1,6 @@
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime};
 use diesel::prelude::*;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use crate::errors::Result;
@@ -136,6 +137,28 @@ impl NewAsset {
             asset_sub_class: Some(CASH_ASSET_CLASS.to_string()),
             notes: Some(notes),
             data_source: source.to_string(),
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new liability asset (loan)
+    pub fn new_liability_asset(
+        loan_id: &str,
+        name: &str,
+        currency: &str,
+        notes: Option<String>,
+    ) -> Self {
+        let asset_id = format!("LOAN:{}", loan_id);
+        Self {
+            id: Some(asset_id.clone()),
+            name: Some(name.to_string()),
+            symbol: asset_id,
+            currency: currency.to_string(),
+            asset_type: Some(super::assets_constants::LIABILITY_ASSET_TYPE.to_string()),
+            asset_class: Some("LIABILITY".to_string()),
+            asset_sub_class: None,
+            notes,
+            data_source: DataSource::Manual.as_str().to_string(),
             ..Default::default()
         }
     }
@@ -295,4 +318,29 @@ pub struct QuoteSummary {
     pub score: f64,
     pub type_display: String,
     pub long_name: String,
+}
+
+/// Loan type enumeration
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum LoanType {
+    Mortgage,
+    Personal,
+    Auto,
+    Student,
+    Business,
+    Revolving,
+    Other,
+}
+
+/// Metadata specific to liability assets (loans)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoanMetadata {
+    pub lender: Option<String>,
+    pub interest_rate: Option<Decimal>,
+    pub origination_date: Option<NaiveDate>,
+    pub maturity_date: Option<NaiveDate>,
+    pub loan_type: Option<LoanType>,
+    pub principal_amount: Option<Decimal>,
 }

@@ -113,6 +113,7 @@ impl Position {
     }
 
     /// Recalculates aggregates based on current lots. Operates in the Position's currency.
+    /// Supports negative quantities for liabilities (loans).
     pub fn recalculate_aggregates(&mut self) {
         // Sum quantities and cost basis (in asset currency) from lots
         let total_quantity: Decimal = self.lots.iter().map(|lot| lot.quantity).sum();
@@ -122,19 +123,21 @@ impl Position {
         self.quantity = total_quantity;
         self.total_cost_basis = total_cost_basis; // Already in asset currency
 
-        if self.quantity.is_sign_positive() && is_quantity_significant(&self.quantity) {
+        // Handle both positive (assets) and negative (liabilities) quantities
+        if (self.quantity.is_sign_positive() || self.quantity.is_sign_negative())
+            && is_quantity_significant(&self.quantity)
+        {
             // Calculate average cost (in asset currency) using unrounded values
+            // For negative positions (liabilities), this will be negative
             self.average_cost = self.total_cost_basis / self.quantity;
         } else {
-            // Zero, negative, or insignificant quantity
-            if !self.quantity.is_zero() && !self.quantity.is_sign_negative() {
+            // Zero or insignificant quantity
+            if !self.quantity.is_zero() {
                 warn!("Position {} quantity ({}) became insignificant after recalculation. Average cost zeroed.", self.id, self.quantity);
             }
-            if (self.quantity.is_zero() || self.quantity.is_sign_negative())
-                && !self.lots.is_empty()
-            {
+            if self.quantity.is_zero() && !self.lots.is_empty() {
                 warn!(
-                    "Position {} quantity became zero or negative ({}). Aggregates zeroed, but lots retained.",
+                    "Position {} quantity became zero ({}). Aggregates zeroed, but lots retained.",
                     self.id, self.quantity
                 );
             }
@@ -155,11 +158,12 @@ impl Position {
     /// Costs are stored in the Position's currency (which must match activity currency).
     /// activity_id is used for the Lot ID.
     /// Returns the cost basis of the added lot in the position's currency.
+    /// Supports negative quantities for liabilities (loans).
     pub fn add_lot(&mut self, activity: &Activity) -> Result<Decimal> {
-        if !activity.quantity.is_sign_positive() {
+        if activity.quantity.is_zero() {
             warn!(
-                "Skipping add_lot for activity {} with non-positive quantity: {}",
-                activity.id, activity.quantity
+                "Skipping add_lot for activity {} with zero quantity",
+                activity.id
             );
             // Return zero cost basis if skipped
             return Ok(Decimal::ZERO);

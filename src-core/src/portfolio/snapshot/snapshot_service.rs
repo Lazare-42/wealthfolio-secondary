@@ -727,6 +727,17 @@ impl SnapshotService {
             }
         }
 
+        // Calculate total assets and liabilities from positions
+        let mut total_assets = Decimal::ZERO;
+        let mut total_liabilities = Decimal::ZERO;
+        for position in aggregated_positions.values() {
+            if position.total_cost_basis.is_sign_positive() {
+                total_assets += position.total_cost_basis;
+            } else if position.total_cost_basis.is_sign_negative() {
+                total_liabilities += position.total_cost_basis.abs();
+            }
+        }
+
         Ok(AccountStateSnapshot {
             id: format!(
                 "{}_{}",
@@ -741,6 +752,8 @@ impl SnapshotService {
             cost_basis: overall_cost_basis_base_ccy.round_dp(DECIMAL_PRECISION),
             net_contribution: overall_net_contribution_base_ccy.round_dp(DECIMAL_PRECISION),
             net_contribution_base: overall_net_contribution_base_ccy.round_dp(DECIMAL_PRECISION),
+            total_assets: total_assets.round_dp(DECIMAL_PRECISION),
+            total_liabilities: total_liabilities.round_dp(DECIMAL_PRECISION),
             calculated_at: Utc::now().naive_utc(),
         })
     }
@@ -759,6 +772,8 @@ impl SnapshotService {
             cost_basis: Decimal::ZERO,
             net_contribution: Decimal::ZERO,
             net_contribution_base: Decimal::ZERO,
+            total_assets: Decimal::ZERO,
+            total_liabilities: Decimal::ZERO,
             calculated_at: Utc::now().naive_utc(),
         }
     }

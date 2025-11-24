@@ -80,8 +80,11 @@ impl HoldingsCalculator {
             }
         }
 
-        // Recalculate cost basis in account currency using SNAPSHOT date rates
+        // Recalculate cost basis and separate assets/liabilities in account currency using SNAPSHOT date rates
         let mut final_cost_basis_acct = Decimal::ZERO;
+        let mut total_assets_acct = Decimal::ZERO;
+        let mut total_liabilities_acct = Decimal::ZERO;
+
         for position in next_state.positions.values() {
             let position_currency = &position.currency;
 
@@ -92,32 +95,41 @@ impl HoldingsCalculator {
                 );
                 continue;
             }
-            if position_currency == &account_currency {
-                final_cost_basis_acct += position.total_cost_basis;
-                continue;
-            }
 
-            match self.fx_service.convert_currency_for_date(
-                position.total_cost_basis,
-                position_currency,
-                &account_currency,
-                target_date,
-            ) {
-                Ok(converted_cost) => {
-                    final_cost_basis_acct += converted_cost;
-                }
-                Err(e) => {
-                    error!(
-                         "Holdings Calc (Book Cost): Failed to convert {} {} to {} on {}: {}. Using original unconverted cost for snapshot.",
-                         position.total_cost_basis, position_currency, account_currency, target_date, e
-                     );
-                    if position_currency != &account_currency {
-                        final_cost_basis_acct += position.total_cost_basis;
+            let cost_in_acct = if position_currency == &account_currency {
+                position.total_cost_basis
+            } else {
+                match self.fx_service.convert_currency_for_date(
+                    position.total_cost_basis,
+                    position_currency,
+                    &account_currency,
+                    target_date,
+                ) {
+                    Ok(converted_cost) => converted_cost,
+                    Err(e) => {
+                        error!(
+                             "Holdings Calc (Book Cost): Failed to convert {} {} to {} on {}: {}. Using original unconverted cost for snapshot.",
+                             position.total_cost_basis, position_currency, account_currency, target_date, e
+                         );
+                        position.total_cost_basis
                     }
                 }
+            };
+
+            final_cost_basis_acct += cost_in_acct;
+
+            // Separate assets (positive) from liabilities (negative)
+            if cost_in_acct.is_sign_positive() {
+                total_assets_acct += cost_in_acct;
+            } else if cost_in_acct.is_sign_negative() {
+                // Store liabilities as positive values
+                total_liabilities_acct += cost_in_acct.abs();
             }
         }
+
         next_state.cost_basis = final_cost_basis_acct;
+        next_state.total_assets = total_assets_acct;
+        next_state.total_liabilities = total_liabilities_acct;
 
         next_state.id = format!(
             "{}_{}",

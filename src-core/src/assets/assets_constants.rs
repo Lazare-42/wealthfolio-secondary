@@ -4,5 +4,8 @@ pub const CASH_ASSET_TYPE: &str = "CASH";
 /// Default asset type for currency assets
 pub const FOREX_ASSET_TYPE: &str = "FOREX";
 
+/// Default asset type for liability assets (loans, mortgages, etc.)
+pub const LIABILITY_ASSET_TYPE: &str = "LIABILITY";
+
 /// Default asset class for cash and currency assets
 pub const CASH_ASSET_CLASS: &str = "CASH";

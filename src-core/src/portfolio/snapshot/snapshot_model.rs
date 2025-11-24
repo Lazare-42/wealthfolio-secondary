@@ -37,6 +37,12 @@ pub struct AccountStateSnapshot {
     #[serde(default)]
     pub net_contribution_base: Decimal, // portfolio base currency
 
+    // --- Asset/Liability Separation (Account Currency) ---
+    #[serde(default)]
+    pub total_assets: Decimal, // Sum of positive position values (assets)
+    #[serde(default)]
+    pub total_liabilities: Decimal, // Sum of negative position values (liabilities, as absolute value)
+
     pub calculated_at: NaiveDateTime, // When this snapshot was generated
 }
 
@@ -52,6 +58,8 @@ impl Default for AccountStateSnapshot {
             cost_basis: Decimal::ZERO,
             net_contribution: Decimal::ZERO,
             net_contribution_base: Decimal::ZERO,
+            total_assets: Decimal::ZERO,
+            total_liabilities: Decimal::ZERO,
             calculated_at: Utc::now().naive_utc(),
         }
     }
@@ -88,6 +96,10 @@ pub struct AccountStateSnapshotDB {
     pub calculated_at: String,
     #[diesel(sql_type = Text)]
     pub net_contribution_base: String,
+    #[diesel(sql_type = Text)]
+    pub total_assets: String,
+    #[diesel(sql_type = Text)]
+    pub total_liabilities: String,
 }
 
 // --- Conversions ---
@@ -106,6 +118,8 @@ impl From<AccountStateSnapshotDB> for AccountStateSnapshot {
             cost_basis: Decimal::from_str(&db.cost_basis).unwrap_or_default(),
             net_contribution: Decimal::from_str(&db.net_contribution).unwrap_or_default(),
             net_contribution_base: Decimal::from_str(&db.net_contribution_base).unwrap_or_default(),
+            total_assets: Decimal::from_str(&db.total_assets).unwrap_or_default(),
+            total_liabilities: Decimal::from_str(&db.total_liabilities).unwrap_or_default(),
             calculated_at: NaiveDateTime::parse_from_str(
                 &db.calculated_at,
                 "%Y-%m-%dT%H:%M:%S%.fZ",
@@ -141,6 +155,14 @@ impl From<AccountStateSnapshot> for AccountStateSnapshotDB {
                 .to_string(),
             net_contribution_base: domain
                 .net_contribution_base
+                .round_dp(DECIMAL_PRECISION)
+                .to_string(),
+            total_assets: domain
+                .total_assets
+                .round_dp(DECIMAL_PRECISION)
+                .to_string(),
+            total_liabilities: domain
+                .total_liabilities
                 .round_dp(DECIMAL_PRECISION)
                 .to_string(),
             calculated_at: domain
