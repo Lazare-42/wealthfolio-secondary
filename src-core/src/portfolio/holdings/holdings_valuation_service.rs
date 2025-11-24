@@ -62,7 +62,12 @@ impl HoldingsValuationService {
             .iter()
             .filter_map(|holding| {
                 if holding.holding_type == HoldingType::Security {
-                    holding.instrument.as_ref().map(|inst| inst.symbol.clone())
+                    // Skip liabilities (negative quantity) - they don't need market data
+                    if holding.quantity < Decimal::ZERO {
+                        None
+                    } else {
+                        holding.instrument.as_ref().map(|inst| inst.symbol.clone())
+                    }
                 } else {
                     None // Skip cash holdings
                 }
@@ -100,17 +105,24 @@ impl HoldingsValuationServiceTrait for HoldingsValuationService {
         for holding in holdings.iter_mut() {
             match holding.holding_type {
                 HoldingType::Security => {
-                    if let Some(sym) = holding.instrument.as_ref().map(|i| i.symbol.clone()) {
-                        holding.as_of_date = latest_quote_pairs
-                            .get(&sym)
-                            .map(|qp| qp.latest.timestamp.date_naive())
-                            .unwrap_or(today);
-                    } else {
+                    // Check if this is a liability (negative quantity)
+                    if holding.quantity < Decimal::ZERO {
                         holding.as_of_date = today;
+                        let base_currency = holding.base_currency.clone();
+                        self.calculate_liability_valuation(holding, &base_currency)?;
+                    } else {
+                        if let Some(sym) = holding.instrument.as_ref().map(|i| i.symbol.clone()) {
+                            holding.as_of_date = latest_quote_pairs
+                                .get(&sym)
+                                .map(|qp| qp.latest.timestamp.date_naive())
+                                .unwrap_or(today);
+                        } else {
+                            holding.as_of_date = today;
+                        }
+                        let base_currency = holding.base_currency.clone();
+                        self.calculate_security_valuation(holding, &base_currency, &latest_quote_pairs)
+                            .await?;
                     }
-                    let base_currency = holding.base_currency.clone();
-                    self.calculate_security_valuation(holding, &base_currency, &latest_quote_pairs)
-                        .await?;
                 }
                 HoldingType::Cash => {
                     holding.as_of_date = today;
@@ -368,6 +380,61 @@ impl HoldingsValuationService {
             });
         }
 
+        holding.unrealized_gain = Some(MonetaryValue::zero());
+        holding.unrealized_gain_pct = Some(Decimal::ZERO);
+        holding.day_change = Some(MonetaryValue::zero());
+        holding.day_change_pct = Some(Decimal::ZERO);
+        holding.realized_gain = Some(MonetaryValue::zero());
+        holding.realized_gain_pct = Some(Decimal::ZERO);
+        holding.total_gain = Some(MonetaryValue::zero());
+        holding.total_gain_pct = Some(Decimal::ZERO);
+
+        Ok(())
+    }
+
+    fn calculate_liability_valuation(&self, holding: &mut Holding, base_currency: &str) -> Result<()> {
+        let liability_currency = &holding.local_currency;
+        let liability_quantity = holding.quantity; // Negative quantity
+        let context_msg = format!("HoldingValuation [Liability {}]", holding.instrument.as_ref().map(|i| i.symbol.as_str()).unwrap_or("UNKNOWN"));
+        debug!("{}: Processing liability valuation.", context_msg);
+
+        // Liabilities are always valued at face value (1.0 per unit)
+        holding.price = Some(dec!(1.0));
+
+        let fx_rate_liability_to_base =
+            self.get_fx_rate_or_fallback(liability_currency, base_currency, &context_msg);
+        holding.fx_rate = Some(fx_rate_liability_to_base);
+
+        // Market value = quantity (negative) × price (1.0) × FX rate
+        // This will be negative, which is correct for liabilities
+        let value_local = liability_quantity * dec!(1.0);
+        let value_base = value_local * fx_rate_liability_to_base;
+
+        holding.market_value.base = value_base;
+        holding.market_value.local = value_local;
+
+        // Cost basis is the same as market value for liabilities (valued at face value)
+        if let Some(cost_basis) = &mut holding.cost_basis {
+            cost_basis.base = value_base;
+            cost_basis.local = value_local;
+        } else {
+            holding.cost_basis = Some(MonetaryValue {
+                local: value_local,
+                base: value_base,
+            });
+        }
+
+        if let Some(prev_close) = &mut holding.prev_close_value {
+            prev_close.base = value_base;
+            prev_close.local = value_local;
+        } else {
+            holding.prev_close_value = Some(MonetaryValue {
+                local: value_local,
+                base: value_base,
+            });
+        }
+
+        // No unrealized gains for liabilities (they're at face value)
         holding.unrealized_gain = Some(MonetaryValue::zero());
         holding.unrealized_gain_pct = Some(Decimal::ZERO);
         holding.day_change = Some(MonetaryValue::zero());
