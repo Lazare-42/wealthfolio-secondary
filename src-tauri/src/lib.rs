@@ -1,6 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod ai;
 mod commands;
 mod context;
 mod events;
@@ -144,6 +145,10 @@ pub fn run() {
                     // Make context available to all commands before setup returns
                     handle.manage(context.clone());
 
+                    // Initialize AI provider config (default: disabled)
+                    let ai_config = Arc::new(tokio::sync::RwLock::new(ai::AIProviderConfig::default()));
+                    handle.manage(ai_config);
+
                     // Spawn background non-critical tasks
                     let instance_id = context.instance_id.clone();
                     spawn_background_tasks(handle.clone(), context.clone(), instance_id);
@@ -170,6 +175,11 @@ pub fn run() {
                         Ok(ctx) => {
                             let ctx = Arc::new(ctx);
                             handle_clone.manage(ctx.clone());
+
+                            // Initialize AI provider config (default: disabled)
+                            let ai_config = Arc::new(tokio::sync::RwLock::new(ai::AIProviderConfig::default()));
+                            handle_clone.manage(ai_config);
+
                             // Spawn background non-critical tasks
                             let instance_id = ctx.instance_id.clone();
                             spawn_background_tasks(handle_clone.clone(), ctx.clone(), instance_id);
@@ -237,16 +247,13 @@ pub fn run() {
             commands::utilities::backup_database_to_path,
             commands::utilities::restore_database,
             commands::asset::get_asset_profile,
-            commands::asset::get_assets,
             commands::asset::update_asset_profile,
             commands::asset::update_asset_data_source,
-            commands::asset::delete_asset,
             commands::market_data::search_symbol,
             commands::market_data::sync_market_data,
             commands::market_data::update_quote,
             commands::market_data::delete_quote,
             commands::market_data::get_quote_history,
-            commands::market_data::get_latest_quotes,
             commands::market_data::get_market_data_providers,
             commands::market_data::import_quotes_csv,
             commands::platform::get_platform,
@@ -272,6 +279,9 @@ pub fn run() {
             commands::addon::install_addon_from_staging,
             commands::addon::clear_addon_staging,
             commands::addon::submit_addon_rating,
+            commands::ai_import::suggest_csv_column_mapping,
+            commands::ai_import::get_ai_provider_config,
+            commands::ai_import::set_ai_provider_config,
         ])
         .build(tauri::generate_context!())
         .expect("error while running wealthfolio application");
