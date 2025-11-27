@@ -9,6 +9,7 @@ use wealthfolio_core::{
     activities::{
         ActivityRepository, ActivityService as CoreActivityService, ActivityServiceTrait,
     },
+    ai::AIProviderConfig,
     assets::{AssetRepository, AssetService, AssetServiceTrait},
     db::{self, write_actor},
     fx::{FxRepository, FxService, FxServiceTrait},
@@ -56,6 +57,7 @@ pub struct AppState {
     pub secret_store: Arc<dyn SecretStore>,
     pub event_bus: EventBus,
     pub auth: Option<Arc<AuthManager>>,
+    pub ai_config: Arc<RwLock<AIProviderConfig>>,
 }
 
 pub fn init_tracing() {
@@ -222,6 +224,8 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         .transpose()?
         .map(Arc::new);
 
+    let ai_config = Arc::new(RwLock::new(AIProviderConfig::default()));
+
     Ok(Arc::new(AppState {
         account_service,
         settings_service,
@@ -244,5 +248,6 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         secret_store,
         event_bus,
         auth: auth_manager,
+        ai_config,
     }))
 }

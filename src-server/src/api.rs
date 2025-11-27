@@ -19,6 +19,7 @@ use utoipa::OpenApi;
 mod accounts;
 mod activities;
 mod addons;
+mod ai;
 mod assets;
 mod exchange_rates;
 mod goals;
@@ -80,7 +81,8 @@ pub fn app_router(state: Arc<AppState>, config: &Config) -> Router {
         .merge(secrets::router())
         .merge(limits::router())
         .merge(addons::router())
-        .merge(sync::router());
+        .merge(sync::router())
+        .merge(ai::router());
 
     let protected_api = if requires_auth {
         protected_api.layer(middleware::from_fn_with_state(
