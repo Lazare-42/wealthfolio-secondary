@@ -1,6 +1,7 @@
 pub mod accounts;
 pub mod activities;
 pub mod addons;
+pub mod ai;
 pub mod assets;
 pub mod constants;
 pub mod db;

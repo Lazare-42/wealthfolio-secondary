@@ -35,7 +35,8 @@ pub async fn suggest_csv_column_mapping(
     let config_guard = config.read().await;
 
     // Check if AI is configured
-    let (client, model) = match config_guard.create_client() {
+    let secret_store: std::sync::Arc<dyn SecretStore> = std::sync::Arc::new(KeyringSecretStore::default());
+    let (client, model) = match config_guard.create_client(&secret_store) {
         Ok(Some(c)) => c,
         Ok(None) => {
             return Ok(SuggestMappingResponse {
@@ -111,7 +112,8 @@ pub async fn test_ai_connection(
 ) -> Result<TestConnectionResponse, String> {
     let config_guard = config.read().await;
 
-    let (client, model) = match config_guard.create_client() {
+    let secret_store: std::sync::Arc<dyn SecretStore> = std::sync::Arc::new(KeyringSecretStore::default());
+    let (client, model) = match config_guard.create_client(&secret_store) {
         Ok(Some(c)) => c,
         Ok(None) => {
             return Ok(TestConnectionResponse {
@@ -167,7 +169,8 @@ pub async fn parse_financial_document(
     let config_guard = config.read().await;
 
     // Check if AI is configured
-    let (client, model) = match config_guard.create_client() {
+    let secret_store: std::sync::Arc<dyn SecretStore> = std::sync::Arc::new(KeyringSecretStore::default());
+    let (client, model) = match config_guard.create_client(&secret_store) {
         Ok(Some(c)) => c,
         Ok(None) => return Err("AI provider not configured or API key missing.".to_string()),
         Err(e) => return Err(format!("Failed to create AI client: {}", e)),

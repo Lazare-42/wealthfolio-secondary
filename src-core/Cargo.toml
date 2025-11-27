@@ -38,6 +38,7 @@ urlencoding = "2"
 csv = "1.4.0"
 zip = "2.2.0"
 schemars = "0.8"
+ai-lib = "0.3.4"
 
 
 # SQLite / Diesel
