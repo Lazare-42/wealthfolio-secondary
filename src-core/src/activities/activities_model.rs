@@ -337,17 +337,21 @@ pub struct ActivitySearchResponse {
 }
 
 /// Model for importing activities
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivityImport {
     pub id: Option<String>,
     pub date: String,
     pub symbol: String,
     pub activity_type: String,
+    #[schemars(with = "String")]
     pub quantity: Decimal,
+    #[schemars(with = "String")]
     pub unit_price: Decimal,
     pub currency: String,
+    #[schemars(with = "String")]
     pub fee: Decimal,
+    #[schemars(with = "Option<String>")]
     pub amount: Option<Decimal>,
     pub comment: Option<String>,
     pub account_id: Option<String>,

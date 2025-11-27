@@ -1,6 +1,8 @@
 use ai_lib::{AiClient, ChatCompletionRequest, Content, Message, Role};
+use schemars::schema_for;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use wealthfolio_core::activities::ActivityImport;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MappingSuggestion {
@@ -60,29 +62,36 @@ fn build_mapping_prompt(headers: &[String], sample_rows: &[HashMap<String, Strin
         .collect::<Vec<_>>()
         .join("\n");
 
+    // Generate JSON schema from ActivityImport struct
+    let schema = schema_for!(ActivityImport);
+    let schema_json = serde_json::to_string_pretty(&schema).unwrap_or_default();
+
     format!(
-        r#"You are a financial data mapping assistant. Given CSV headers and sample data, map them to Wealthfolio's import format.
+        r#"You are a financial data mapping assistant. Given CSV headers and sample data, map them to Wealthfolio's ActivityImport schema.
 
 CSV Headers: {headers_list}
 
 Sample Data:
 {sample_data}
 
-Required Fields:
-- date: Transaction date (ISO 8601: YYYY-MM-DD)
-- activityType: Transaction type (BUY, SELL, DIVIDEND, DEPOSIT, WITHDRAWAL, FEE, INTEREST)
-- symbol: Ticker symbol or ISIN
-- quantity: Number of shares
-- unitPrice: Price per share
-- currency: 3-letter currency code
-- fee: Transaction fee
-- amount: Total transaction amount
-- comment: Optional notes
+TARGET SCHEMA (ActivityImport):
+The following JSON Schema defines the exact structure and types expected:
 
-Optional Fields:
-- isin: ISIN code (if different from symbol column)
-- name: Asset name
-- account: Account identifier
+{schema_json}
+
+KEY FIELD DESCRIPTIONS:
+- date (String): Transaction date in ISO 8601 format (YYYY-MM-DD)
+- symbol (String): Asset ticker symbol or ISIN
+- activity_type (String): Type of activity - must be one of: BUY, SELL, DIVIDEND, INTEREST, FEE, TRANSFER_IN, TRANSFER_OUT, CONVERSION_IN, CONVERSION_OUT, DEPOSIT, WITHDRAWAL, TAX, SPLIT
+- quantity (Decimal): Number of shares/units (numeric)
+- unit_price (Decimal): Price per share/unit (numeric)
+- currency (String): 3-letter ISO currency code (USD, EUR, GBP, etc.)
+- fee (Decimal): Transaction fee amount (numeric, default 0)
+- amount (Decimal, optional): Total transaction amount (numeric)
+- comment (String, optional): Additional notes or description
+- account_id (String, optional): Internal account identifier
+- account_name (String, optional): Human-readable account name
+- symbol_name (String, optional): Asset name or description
 
 Respond ONLY with a JSON object in this exact format:
 {{
@@ -92,11 +101,15 @@ Respond ONLY with a JSON object in this exact format:
   ]
 }}
 
-Rules:
+MAPPING RULES:
 1. Only map to columns that exist in the CSV headers
-2. Confidence should be 0-1 (higher = more certain)
-3. If a field like "isin" exists and "symbol" doesn't, map "symbol" to "isin"
-4. Return ONLY the JSON, no explanation"#
+2. Confidence should be 0.0-1.0 (higher = more certain)
+3. If a CSV has "isin" but no "symbol" column, map "symbol" to "isin"
+4. For activity_type, look for columns like "type", "transaction_type", "operation"
+5. For numeric fields (quantity, unit_price, fee, amount), ensure the CSV column contains numbers
+6. For date, look for columns with "date", "time", "timestamp" in the name
+7. Use the JSON Schema above as the authoritative source for field names and types
+8. Return ONLY the JSON, no explanation or markdown formatting"#
     )
 }
 
