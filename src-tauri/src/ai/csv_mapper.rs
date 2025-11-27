@@ -1,4 +1,4 @@
-use super::AIProvider;
+use ai_lib::{AiClient, ChatCompletionRequest, Content, Message, Role};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -16,15 +16,31 @@ pub struct MappingSuggestions {
 
 /// Generate AI-powered column mapping suggestions
 pub async fn suggest_column_mappings(
-    provider: &dyn AIProvider,
+    client: &AiClient,
+    model: &str,
     headers: Vec<String>,
     sample_rows: Vec<HashMap<String, String>>,
 ) -> Result<MappingSuggestions, Box<dyn std::error::Error + Send + Sync>> {
     let prompt = build_mapping_prompt(&headers, &sample_rows);
-    let response = provider.complete(prompt).await?;
+
+    let request = ChatCompletionRequest::new(
+        model.to_string(),
+        vec![Message {
+            role: Role::User,
+            content: Content::Text(prompt),
+            function_call: None,
+        }],
+    );
+
+    let response = client.chat_completion(request).await?;
+    let content = response
+        .choices
+        .first()
+        .map(|c| c.message.content.as_text())
+        .unwrap_or_default();
 
     // Parse the AI response
-    parse_mapping_response(&response, &headers)
+    parse_mapping_response(&content, &headers)
 }
 
 fn build_mapping_prompt(headers: &[String], sample_rows: &[HashMap<String, String>]) -> String {

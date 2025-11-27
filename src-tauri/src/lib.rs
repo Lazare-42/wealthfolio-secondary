@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod ai;
+pub mod ai;
 mod commands;
 mod context;
 mod events;
@@ -146,7 +146,8 @@ pub fn run() {
                     handle.manage(context.clone());
 
                     // Initialize AI provider config (default: disabled)
-                    let ai_config = Arc::new(tokio::sync::RwLock::new(ai::AIProviderConfig::default()));
+                    let ai_config =
+                        Arc::new(tokio::sync::RwLock::new(ai::AIProviderConfig::default()));
                     handle.manage(ai_config);
 
                     // Spawn background non-critical tasks
@@ -177,7 +178,8 @@ pub fn run() {
                             handle_clone.manage(ctx.clone());
 
                             // Initialize AI provider config (default: disabled)
-                            let ai_config = Arc::new(tokio::sync::RwLock::new(ai::AIProviderConfig::default()));
+                            let ai_config =
+                                Arc::new(tokio::sync::RwLock::new(ai::AIProviderConfig::default()));
                             handle_clone.manage(ai_config);
 
                             // Spawn background non-critical tasks
@@ -282,6 +284,10 @@ pub fn run() {
             commands::ai_import::suggest_csv_column_mapping,
             commands::ai_import::get_ai_provider_config,
             commands::ai_import::set_ai_provider_config,
+            commands::ai_import::set_ai_api_key,
+            commands::ai_import::has_ai_api_key,
+            commands::ai_import::test_ai_connection,
+            commands::ai_import::parse_financial_document,
         ])
         .build(tauri::generate_context!())
         .expect("error while running wealthfolio application");
