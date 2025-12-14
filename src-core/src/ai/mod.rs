@@ -1,6 +1,6 @@
 pub mod csv_mapper;
 
-use ai_lib::{AiClient, ConnectionOptions, Provider};
+use ai_lib::{AiClient, ChatCompletionRequest, ConnectionOptions, Content, Message, Provider, Role};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -196,5 +196,29 @@ impl AIProviderConfig {
             }
             AIProviderConfig::Disabled => Ok(None),
         }
+    }
+}
+
+/// Test AI connection by making a simple API call
+pub async fn test_connection(client: &AiClient, model: &str) -> Result<String, String> {
+    let request = ChatCompletionRequest::new(
+        model.to_string(),
+        vec![Message {
+            role: Role::User,
+            content: Content::Text("Hello, respond with 'OK'".to_string()),
+            function_call: None,
+        }],
+    );
+
+    match client.chat_completion(request).await {
+        Ok(response) => {
+            let content = response
+                .choices
+                .first()
+                .map(|c| c.message.content.as_text())
+                .unwrap_or_else(|| "Empty response".to_string());
+            Ok(content)
+        }
+        Err(e) => Err(format!("Connection test failed: {}", e)),
     }
 }

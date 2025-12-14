@@ -114,6 +114,22 @@ export interface ActivityBulkMutationResult {
 export type ActivityImport = z.infer<typeof importActivitySchema>;
 export type ImportMappingData = z.infer<typeof importMappingSchema>;
 
+export interface BackendActivityImport {
+  id?: string;
+  date: string;
+  symbol: string;
+  activityType: string;
+  quantity: string;
+  unitPrice: string;
+  currency: string;
+  fee: string;
+  amount?: string;
+  comment?: string;
+  accountId?: string;
+  accountName?: string;
+  symbolName?: string;
+}
+
 // Define a generic type for the parsed row data
 export type CsvRowData = Record<string, string> & { lineNumber: string };
 export interface CsvRowError {

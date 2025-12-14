@@ -108,6 +108,13 @@ const COMMANDS: CommandMap = {
   sync_now: { method: "POST", path: "/sync/sync-now" },
   initialize_sync_for_existing_data: { method: "POST", path: "/sync/initialize-existing" },
   probe_local_network_access: { method: "POST", path: "/sync/probe" },
+  // AI
+  suggest_csv_column_mapping: { method: "POST", path: "/ai/suggest-mapping" },
+  get_ai_provider_config: { method: "GET", path: "/ai/config" },
+  set_ai_provider_config: { method: "PUT", path: "/ai/config" },
+  set_ai_api_key: { method: "POST", path: "/ai/api-key" },
+  has_ai_api_key: { method: "GET", path: "/ai/api-key" },
+  test_ai_connection: { method: "POST", path: "/ai/test-connection" },
 };
 
 export const invokeWeb = async <T>(
@@ -515,6 +522,27 @@ export const invokeWeb = async <T>(
     case "generate_pairing_payload":
     case "get_sync_status":
     case "initialize_sync_for_existing_data":
+      break;
+    case "suggest_csv_column_mapping": {
+      body = JSON.stringify(payload);
+      break;
+    }
+    case "get_ai_provider_config":
+      break;
+    case "set_ai_provider_config": {
+      body = JSON.stringify(payload);
+      break;
+    }
+    case "set_ai_api_key": {
+      body = JSON.stringify(payload);
+      break;
+    }
+    case "has_ai_api_key": {
+      const { provider } = payload as { provider: string };
+      url += `/${encodeURIComponent(provider)}`;
+      break;
+    }
+    case "test_ai_connection":
       break;
   }
 
