@@ -11,7 +11,8 @@ import { tryParseDate } from "@/lib/utils";
 import { logger } from "@/adapters";
 
 // Ticker symbol validation regex
-const tickerRegex = /^(\$CASH-[A-Z]{3}|[A-Z0-9]{1,10}([.-][A-Z0-9]+){0,2})$/;
+// Supports: AAPL, MSFT.L, BRK-A, $CASH-USD, LOAN:MORTGAGE
+const tickerRegex = /^(\$CASH-[A-Z]{3}|LOAN:[A-Z0-9-]+|[A-Z0-9]{1,10}([.-][A-Z0-9]+){0,2})$/;
 
 // Helper to validate ticker symbol format
 export function validateTickerSymbol(symbol: string): boolean {
