@@ -1,4 +1,9 @@
-import { ActivityType, CASH_ACTIVITY_TYPES, INCOME_ACTIVITY_TYPES } from "./constants";
+import {
+  ActivityType,
+  CASH_ACTIVITY_TYPES,
+  INCOME_ACTIVITY_TYPES,
+  LOAN_ACTIVITY_TYPES,
+} from "./constants";
 import { ActivityDetails } from "./types";
 
 const roundCurrency = (value: number, precision = 6) => {
@@ -58,6 +63,11 @@ export const isTaxActivity = (activityType: string): boolean => {
 // Helper to check if activity is a split type
 export const isSplitActivity = (activityType: string): boolean => {
   return activityType === ActivityType.SPLIT;
+};
+
+// Helper to check if activity is a loan type
+export const isLoanActivity = (activityType: string): boolean => {
+  return (LOAN_ACTIVITY_TYPES as readonly string[]).includes(activityType);
 };
 
 /**

@@ -8,6 +8,7 @@ import {
   isTradeActivity,
   isFeeActivity,
   isSplitActivity,
+  isLoanActivity,
 } from "./activity-utils";
 
 export const importMappingSchema = z.object({
@@ -169,7 +170,8 @@ export const importActivitySchema = z
         !(data.symbol && isCashTransfer(data.activityType as string, data.symbol)) &&
         !isTradeActivity(data.activityType as string) &&
         !isFeeActivity(data.activityType as string) &&
-        !isSplitActivity(data.activityType as string);
+        !isSplitActivity(data.activityType as string) &&
+        !isLoanActivity(data.activityType as string);
 
       if (isNonCashNonTradeActivity) {
         return data.quantity !== undefined && data.quantity > 0;
