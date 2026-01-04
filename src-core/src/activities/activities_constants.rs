@@ -43,6 +43,14 @@ pub const ACTIVITY_TYPE_ADD_HOLDING: &str = "ADD_HOLDING";
 /// Write-off, gift, or expire a position without recording a sale. Fee only, decreases quantity.
 pub const ACTIVITY_TYPE_REMOVE_HOLDING: &str = "REMOVE_HOLDING";
 
+/// Create a liability (loan, mortgage). Creates negative position, no cash impact.
+/// Use quantity as the principal amount (will be stored as negative internally).
+pub const ACTIVITY_TYPE_LOAN_ORIGINATION: &str = "LOAN_ORIGINATION";
+
+/// Payment on a loan. Amount splits into principal (reduces liability) and interest (expense).
+/// The `quantity` field is principal portion, `fee` field is interest portion.
+pub const ACTIVITY_TYPE_LOAN_PAYMENT: &str = "LOAN_PAYMENT";
+
 /// Trading activity types
 pub const TRADING_ACTIVITY_TYPES: [&str; 5] = [
     ACTIVITY_TYPE_BUY,

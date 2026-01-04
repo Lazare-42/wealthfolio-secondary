@@ -482,6 +482,8 @@ pub enum ActivityType {
     Split,
     AddHolding,
     RemoveHolding,
+    LoanOrigination,
+    LoanPayment,
 }
 
 impl ActivityType {
@@ -501,6 +503,8 @@ impl ActivityType {
             ActivityType::Split => ACTIVITY_TYPE_SPLIT,
             ActivityType::AddHolding => ACTIVITY_TYPE_ADD_HOLDING,
             ActivityType::RemoveHolding => ACTIVITY_TYPE_REMOVE_HOLDING,
+            ActivityType::LoanOrigination => ACTIVITY_TYPE_LOAN_ORIGINATION,
+            ActivityType::LoanPayment => ACTIVITY_TYPE_LOAN_PAYMENT,
         }
     }
 }
@@ -524,6 +528,8 @@ impl FromStr for ActivityType {
             s if s == ACTIVITY_TYPE_SPLIT => Ok(ActivityType::Split),
             s if s == ACTIVITY_TYPE_ADD_HOLDING => Ok(ActivityType::AddHolding),
             s if s == ACTIVITY_TYPE_REMOVE_HOLDING => Ok(ActivityType::RemoveHolding),
+            s if s == ACTIVITY_TYPE_LOAN_ORIGINATION => Ok(ActivityType::LoanOrigination),
+            s if s == ACTIVITY_TYPE_LOAN_PAYMENT => Ok(ActivityType::LoanPayment),
             _ => Err(format!("Unknown activity type: {}", s)),
         }
     }

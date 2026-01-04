@@ -264,7 +264,46 @@ const activityLogicMap: Partial<Record<ActivityType, ActivityLogicConfig>> = {
     calculateAmount: () => 0, // SPLIT has no cash impact according to docs
     calculateFee: () => 0, // SPLIT typically has no fee
   },
-  // ... Add configurations for other ActivityTypes (TAX, TRANSFER_IN, TRANSFER_OUT, etc.)
+  [ActivityType.LOAN_ORIGINATION]: {
+    // Loan origination creates a liability position
+    // symbol: the loan asset (e.g., LOAN:MORTGAGE)
+    // quantity: principal amount (stored as negative internally)
+    // unitPrice: 1 (face value)
+    // fee: origination fees if any
+    calculateSymbol: (activity) => activity.symbol,
+    calculateAmount: (activity) => {
+      if (
+        activity.quantity &&
+        Math.abs(activity.quantity) > 0 &&
+        activity.unitPrice &&
+        Math.abs(activity.unitPrice) > 0
+      ) {
+        return Math.abs(activity.quantity) * Math.abs(activity.unitPrice);
+      }
+      return activity.amount ? Math.abs(activity.amount) : activity.amount;
+    },
+    calculateFee: (activity) => (activity.fee ? Math.abs(activity.fee) : 0),
+  },
+  [ActivityType.LOAN_PAYMENT]: {
+    // Loan payment reduces liability and pays interest
+    // symbol: the loan asset
+    // quantity: principal portion being paid
+    // unitPrice: 1 (face value)
+    // fee: interest portion of the payment
+    calculateSymbol: (activity) => activity.symbol,
+    calculateAmount: (activity) => {
+      // Amount is total payment (principal * unitPrice + interest)
+      const principal =
+        activity.quantity && activity.unitPrice
+          ? Math.abs(activity.quantity) * Math.abs(activity.unitPrice)
+          : activity.amount
+            ? Math.abs(activity.amount)
+            : 0;
+      const interest = activity.fee ? Math.abs(activity.fee) : 0;
+      return principal + interest;
+    },
+    calculateFee: (activity) => (activity.fee ? Math.abs(activity.fee) : 0), // Interest portion
+  },
 };
 
 // Default logic if type-specific logic isn't found

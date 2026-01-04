@@ -116,6 +116,8 @@ export const ActivityType = {
   FEE: "FEE",
   TAX: "TAX",
   SPLIT: "SPLIT",
+  LOAN_ORIGINATION: "LOAN_ORIGINATION",
+  LOAN_PAYMENT: "LOAN_PAYMENT",
 } as const;
 
 export type ActivityType = (typeof ActivityType)[keyof typeof ActivityType];
@@ -140,6 +142,11 @@ export const CASH_ACTIVITY_TYPES = [
 
 export const INCOME_ACTIVITY_TYPES = [ActivityType.DIVIDEND, ActivityType.INTEREST] as const;
 
+export const LOAN_ACTIVITY_TYPES = [
+  ActivityType.LOAN_ORIGINATION,
+  ActivityType.LOAN_PAYMENT,
+] as const;
+
 // Zod schema for activity type validation
 export const activityTypeSchema = z.enum([
   ActivityType.BUY,
@@ -155,6 +162,8 @@ export const activityTypeSchema = z.enum([
   ActivityType.FEE,
   ActivityType.TAX,
   ActivityType.SPLIT,
+  ActivityType.LOAN_ORIGINATION,
+  ActivityType.LOAN_PAYMENT,
 ]);
 
 export const ActivityTypeNames: Record<ActivityType, string> = {
@@ -171,6 +180,8 @@ export const ActivityTypeNames: Record<ActivityType, string> = {
   [ActivityType.FEE]: "Fee",
   [ActivityType.TAX]: "Tax",
   [ActivityType.SPLIT]: "Split",
+  [ActivityType.LOAN_ORIGINATION]: "Loan Origination",
+  [ActivityType.LOAN_PAYMENT]: "Loan Payment",
 };
 
 // Asset subclass types (from Rust AssetSubClass enum)

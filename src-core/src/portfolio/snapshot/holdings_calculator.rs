@@ -217,6 +217,12 @@ impl HoldingsCalculator {
                 self.handle_transfer_out(activity, state, account_currency, amount_acct, fee_acct)
             }
             ActivityType::Split => Ok(()),
+            ActivityType::LoanOrigination => {
+                self.handle_loan_origination(activity, state, account_currency)
+            }
+            ActivityType::LoanPayment => {
+                self.handle_loan_payment(activity, state, account_currency)
+            }
         }
     }
 
@@ -919,6 +925,161 @@ impl HoldingsCalculator {
                     .or_insert(Decimal::ZERO) -= fee_acct;
             }
         }
+        Ok(())
+    }
+
+    /// Handles loan origination - creates a negative position (liability) and adds proceeds to cash.
+    /// The quantity represents the principal amount borrowed.
+    /// Cash increases by the loan amount (you receive the money).
+    /// A negative position is created (you owe the money).
+    fn handle_loan_origination(
+        &self,
+        activity: &Activity,
+        state: &mut AccountStateSnapshot,
+        account_currency: &str,
+    ) -> Result<()> {
+        let activity_currency = &activity.currency;
+        let activity_date = activity.activity_date.naive_utc().date();
+
+        // Create position for the loan (will have negative quantity)
+        let position = self.get_or_create_position_mut(
+            state,
+            &activity.asset_id,
+            activity_currency,
+            activity.activity_date,
+        )?;
+
+        // Create a modified activity with negative quantity to represent liability
+        let mut loan_activity = activity.clone();
+        loan_activity.quantity = -activity.quantity.abs(); // Ensure negative
+
+        let cost_basis_asset_curr = position.add_lot(&loan_activity)?;
+
+        // Calculate the loan proceeds (positive amount received)
+        let loan_proceeds = activity.quantity.abs() * activity.unit_price;
+
+        // Convert loan proceeds to account currency
+        let proceeds_acct = match self.fx_service.convert_currency_for_date(
+            loan_proceeds,
+            activity_currency,
+            account_currency,
+            activity_date,
+        ) {
+            Ok(converted) => converted,
+            Err(e) => {
+                warn!(
+                    "Holdings Calc (LoanOrigination {}): Failed conversion {} {}->{} on {}: {}. Using original amount.",
+                    activity.id, loan_proceeds, activity_currency, account_currency, activity_date, e
+                );
+                loan_proceeds
+            }
+        };
+
+        // Add loan proceeds to cash (you receive the money)
+        *state
+            .cash_balances
+            .entry(account_currency.to_string())
+            .or_insert(Decimal::ZERO) += proceeds_acct;
+
+        // Deduct any origination fee from cash
+        if activity.fee > Decimal::ZERO {
+            let fee_acct = match self.fx_service.convert_currency_for_date(
+                activity.fee,
+                activity_currency,
+                account_currency,
+                activity_date,
+            ) {
+                Ok(converted) => converted,
+                Err(_) => activity.fee,
+            };
+            *state
+                .cash_balances
+                .entry(account_currency.to_string())
+                .or_insert(Decimal::ZERO) -= fee_acct;
+        }
+
+        debug!(
+            "LoanOrigination: Created liability position {} with cost basis {} {}, added {} {} to cash",
+            activity.asset_id, cost_basis_asset_curr, activity_currency, proceeds_acct, account_currency
+        );
+
+        Ok(())
+    }
+
+    /// Handles loan payment - reduces the liability (principal) and records interest expense.
+    /// - quantity: principal portion (reduces the negative position toward zero)
+    /// - fee: interest portion (expense, reduces cash)
+    fn handle_loan_payment(
+        &self,
+        activity: &Activity,
+        state: &mut AccountStateSnapshot,
+        account_currency: &str,
+    ) -> Result<()> {
+        let activity_currency = &activity.currency;
+        let activity_date = activity.activity_date.naive_utc().date();
+
+        // Get the total payment amount (principal + interest)
+        let principal = activity.quantity.abs();
+        let interest = activity.fee;
+        let total_payment = principal * activity.unit_price + interest;
+
+        // Convert total payment to account currency for cash deduction
+        let total_payment_acct = match self.fx_service.convert_currency_for_date(
+            total_payment,
+            activity_currency,
+            account_currency,
+            activity_date,
+        ) {
+            Ok(converted) => converted,
+            Err(e) => {
+                warn!(
+                    "Holdings Calc (LoanPayment {}): Failed conversion {} {}->{} on {}: {}. Using original amount.",
+                    activity.id, total_payment, activity_currency, account_currency, activity_date, e
+                );
+                total_payment
+            }
+        };
+
+        // Deduct total payment from cash
+        *state
+            .cash_balances
+            .entry(account_currency.to_string())
+            .or_insert(Decimal::ZERO) -= total_payment_acct;
+
+        // Reduce the liability position by the principal amount
+        // We add a positive quantity to reduce the negative position
+        if let Some(position) = state.positions.get_mut(&activity.asset_id) {
+            let mut payment_activity = activity.clone();
+            payment_activity.quantity = principal; // Positive to reduce negative position
+            payment_activity.fee = Decimal::ZERO; // Fee handled separately as cash expense
+
+            let _ = position.add_lot(&payment_activity)?;
+
+            debug!(
+                "LoanPayment: Reduced liability {} by {} {}, interest expense {} {}",
+                activity.asset_id, principal, activity_currency, interest, activity_currency
+            );
+        } else {
+            warn!(
+                "LoanPayment: No position found for {} - creating one",
+                activity.asset_id
+            );
+            // Position doesn't exist, which is unexpected for a payment
+            // Create the position and add the payment (will result in positive position)
+            let position = self.get_or_create_position_mut(
+                state,
+                &activity.asset_id,
+                activity_currency,
+                activity.activity_date,
+            )?;
+
+            let mut payment_activity = activity.clone();
+            payment_activity.quantity = principal;
+            payment_activity.fee = Decimal::ZERO;
+
+            let _ = position.add_lot(&payment_activity)?;
+        }
+
         Ok(())
     }
 
