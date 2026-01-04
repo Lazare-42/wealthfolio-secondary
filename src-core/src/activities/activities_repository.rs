@@ -613,7 +613,7 @@ impl ActivityRepositoryTrait for ActivityRepository {
     // Import session methods
 
     /// Creates a new import session
-    pub async fn create_import_session(
+    async fn create_import_session(
         &self,
         new_session: super::import_session_model::NewImportSession,
     ) -> Result<super::import_session_model::ImportSession> {
@@ -623,7 +623,7 @@ impl ActivityRepositoryTrait for ActivityRepository {
         let session_id = session_db.id.clone();
 
         self.writer
-            .exec_write(move |conn| {
+            .exec(move |conn| {
                 diesel::insert_into(import_sessions::table)
                     .values(&session_db)
                     .execute(conn)?;
@@ -635,7 +635,7 @@ impl ActivityRepositoryTrait for ActivityRepository {
     }
 
     /// Gets an import session by ID
-    pub fn get_import_session(
+    fn get_import_session(
         &self,
         session_id: &str,
     ) -> Result<super::import_session_model::ImportSession> {
@@ -651,7 +651,7 @@ impl ActivityRepositoryTrait for ActivityRepository {
     }
 
     /// Gets all import sessions for an account
-    pub fn get_import_sessions_by_account(
+    fn get_import_sessions_by_account(
         &self,
         account_id: &str,
     ) -> Result<Vec<super::import_session_model::ImportSessionSummary>> {
@@ -704,7 +704,7 @@ impl ActivityRepositoryTrait for ActivityRepository {
     }
 
     /// Gets all import sessions (across all accounts)
-    pub fn get_all_import_sessions(
+    fn get_all_import_sessions(
         &self,
     ) -> Result<Vec<super::import_session_model::ImportSessionSummary>> {
         use crate::schema::{accounts, import_sessions};
@@ -755,7 +755,7 @@ impl ActivityRepositoryTrait for ActivityRepository {
     }
 
     /// Updates an import session's counts
-    pub async fn update_import_session_counts(
+    async fn update_import_session_counts(
         &self,
         session_id: String,
         activity_count: i32,
@@ -765,7 +765,7 @@ impl ActivityRepositoryTrait for ActivityRepository {
         use crate::schema::import_sessions;
 
         self.writer
-            .exec_write(move |conn| {
+            .exec(move |conn| {
                 diesel::update(import_sessions::table.find(&session_id))
                     .set((
                         import_sessions::activity_count.eq(activity_count),
@@ -780,7 +780,7 @@ impl ActivityRepositoryTrait for ActivityRepository {
     }
 
     /// Deletes an import session and its associated activities
-    pub async fn delete_import_session(&self, session_id: String) -> Result<i32> {
+    async fn delete_import_session(&self, session_id: String) -> Result<i32> {
         use crate::schema::{activities, import_sessions};
 
         // First count the activities that will be deleted
@@ -794,7 +794,7 @@ impl ActivityRepositoryTrait for ActivityRepository {
 
         // Delete activities first (due to foreign key), then the session
         self.writer
-            .exec_write(move |conn| {
+            .exec(move |conn| {
                 // Delete associated activities
                 diesel::delete(activities::table.filter(activities::import_session_id.eq(&session_id)))
                     .execute(conn)?;
@@ -810,7 +810,7 @@ impl ActivityRepositoryTrait for ActivityRepository {
     }
 
     /// Creates activities with an import session ID
-    pub async fn create_activities_with_session(
+    async fn create_activities_with_session(
         &self,
         activities_vec: Vec<NewActivity>,
         session_id: String,
@@ -828,7 +828,7 @@ impl ActivityRepositoryTrait for ActivityRepository {
         let count = activities_db.len();
 
         self.writer
-            .exec_write(move |conn| {
+            .exec(move |conn| {
                 diesel::insert_into(activities::table)
                     .values(&activities_db)
                     .execute(conn)?;
