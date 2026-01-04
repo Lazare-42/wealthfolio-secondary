@@ -141,8 +141,32 @@ impl NewAsset {
         }
     }
 
-    /// Creates a new liability asset (loan)
+    /// Creates a new liability asset (loan) with optional metadata
     pub fn new_liability_asset(
+        loan_id: &str,
+        name: &str,
+        currency: &str,
+        metadata: Option<LoanMetadata>,
+    ) -> Self {
+        let asset_id = format!("LOAN:{}", loan_id);
+        // Serialize metadata to notes field as JSON
+        let notes = metadata.and_then(|m| serde_json::to_string(&m).ok());
+        Self {
+            id: Some(asset_id.clone()),
+            name: Some(name.to_string()),
+            symbol: asset_id,
+            currency: currency.to_string(),
+            asset_type: Some(super::assets_constants::LIABILITY_ASSET_TYPE.to_string()),
+            asset_class: Some("LIABILITY".to_string()),
+            asset_sub_class: None,
+            notes,
+            data_source: DataSource::Manual.as_str().to_string(),
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new liability asset (loan) with simple notes string
+    pub fn new_liability_asset_simple(
         loan_id: &str,
         name: &str,
         currency: &str,
@@ -334,6 +358,7 @@ pub enum LoanType {
 }
 
 /// Metadata specific to liability assets (loans)
+/// Stored as JSON in the asset's notes field
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoanMetadata {
@@ -343,4 +368,11 @@ pub struct LoanMetadata {
     pub maturity_date: Option<NaiveDate>,
     pub loan_type: Option<LoanType>,
     pub principal_amount: Option<Decimal>,
+}
+
+impl LoanMetadata {
+    /// Parse loan metadata from asset notes field
+    pub fn from_notes(notes: &str) -> Option<Self> {
+        serde_json::from_str(notes).ok()
+    }
 }
