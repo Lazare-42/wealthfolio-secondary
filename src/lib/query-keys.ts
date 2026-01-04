@@ -33,6 +33,7 @@ export const QueryKeys = {
   ASSETS: "assets",
   LATEST_QUOTES: "latest_quotes",
   IMPORT_MAPPING: "import_mapping",
+  IMPORT_SESSIONS: "import_sessions",
 
   PERFORMANCE_SUMMARY: "performanceSummary",
   PERFORMANCE_HISTORY: "performanceHistory",

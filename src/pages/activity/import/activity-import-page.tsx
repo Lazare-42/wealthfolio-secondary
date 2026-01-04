@@ -161,6 +161,7 @@ const ActivityImportPage = () => {
             headers={headers}
             accounts={accounts}
             activities={activities}
+            fileName={selectedFile?.name}
             onNext={handlePreviewComplete}
             onBack={goToPreviousStep}
           />

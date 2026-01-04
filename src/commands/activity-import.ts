@@ -1,4 +1,10 @@
-import { ActivityImport, ImportMappingData } from "@/lib/types";
+import {
+  ActivityImport,
+  ImportMappingData,
+  ImportSession,
+  ImportSessionSummary,
+  ImportWithSessionResponse,
+} from "@/lib/types";
 import { getRunEnv, RUN_ENV, invokeTauri, invokeWeb } from "@/adapters";
 import { logger } from "@/adapters";
 
@@ -88,6 +94,104 @@ export const saveAccountImportMapping = async (
     }
   } catch (error) {
     logger.error("Error saving mapping.");
+    throw error;
+  }
+};
+
+// Import session commands
+
+export const importActivitiesWithSession = async ({
+  activities,
+  fileName,
+}: {
+  activities: ActivityImport[];
+  fileName?: string;
+}): Promise<ImportWithSessionResponse> => {
+  try {
+    switch (getRunEnv()) {
+      case RUN_ENV.DESKTOP:
+        return invokeTauri("import_activities_with_session", {
+          accountId: activities[0].accountId,
+          activities,
+          fileName: fileName ?? null,
+        });
+      case RUN_ENV.WEB:
+        return invokeWeb("import_activities_with_session", {
+          accountId: activities[0].accountId,
+          activities,
+          fileName: fileName ?? null,
+        });
+      default:
+        throw new Error(`Unsupported`);
+    }
+  } catch (error) {
+    logger.error("Error importing activities with session.");
+    throw error;
+  }
+};
+
+export const getImportSessions = async (): Promise<ImportSessionSummary[]> => {
+  try {
+    switch (getRunEnv()) {
+      case RUN_ENV.DESKTOP:
+        return invokeTauri("get_import_sessions", {});
+      case RUN_ENV.WEB:
+        return invokeWeb("get_import_sessions", {});
+      default:
+        throw new Error(`Unsupported`);
+    }
+  } catch (error) {
+    logger.error("Error fetching import sessions.");
+    throw error;
+  }
+};
+
+export const getImportSessionsByAccount = async (
+  accountId: string,
+): Promise<ImportSessionSummary[]> => {
+  try {
+    switch (getRunEnv()) {
+      case RUN_ENV.DESKTOP:
+        return invokeTauri("get_import_sessions_by_account", { accountId });
+      case RUN_ENV.WEB:
+        return invokeWeb("get_import_sessions_by_account", { accountId });
+      default:
+        throw new Error(`Unsupported`);
+    }
+  } catch (error) {
+    logger.error("Error fetching import sessions by account.");
+    throw error;
+  }
+};
+
+export const getImportSession = async (sessionId: string): Promise<ImportSession> => {
+  try {
+    switch (getRunEnv()) {
+      case RUN_ENV.DESKTOP:
+        return invokeTauri("get_import_session", { sessionId });
+      case RUN_ENV.WEB:
+        return invokeWeb("get_import_session", { sessionId });
+      default:
+        throw new Error(`Unsupported`);
+    }
+  } catch (error) {
+    logger.error("Error fetching import session.");
+    throw error;
+  }
+};
+
+export const deleteImportSession = async (sessionId: string): Promise<number> => {
+  try {
+    switch (getRunEnv()) {
+      case RUN_ENV.DESKTOP:
+        return invokeTauri("delete_import_session", { sessionId });
+      case RUN_ENV.WEB:
+        return invokeWeb("delete_import_session", { sessionId });
+      default:
+        throw new Error(`Unsupported`);
+    }
+  } catch (error) {
+    logger.error("Error deleting import session.");
     throw error;
   }
 };

@@ -41,6 +41,11 @@ export const ResultStep = ({ activities, accounts, onBack, onReset }: ResultStep
     navigate("/activities");
   };
 
+  // Navigate to import history
+  const goToImportHistory = () => {
+    navigate("/import/history");
+  };
+
   // Start a new import
   const startNewImport = () => {
     onReset();
@@ -187,6 +192,11 @@ export const ResultStep = ({ activities, accounts, onBack, onReset }: ResultStep
           <Button variant="outline" onClick={startNewImport}>
             <Icons.Import className="mr-2 h-4 w-4" />
             Import Another File
+          </Button>
+
+          <Button variant="outline" onClick={goToImportHistory}>
+            <Icons.Clock className="mr-2 h-4 w-4" />
+            Import History
           </Button>
 
           <Button onClick={goToActivities}>

@@ -1,4 +1,5 @@
 use super::activities_model::*;
+use super::import_session_model::{ImportSession, ImportSessionSummary, NewImportSession};
 use crate::Result;
 use async_trait::async_trait;
 use chrono::DateTime;
@@ -51,6 +52,25 @@ pub trait ActivityRepositoryTrait: Send + Sync {
     fn calculate_average_cost(&self, account_id: &str, asset_id: &str) -> Result<Decimal>;
     fn get_income_activities_data(&self) -> Result<Vec<IncomeData>>;
     fn get_first_activity_date_overall(&self) -> Result<DateTime<Utc>>;
+
+    // Import session methods
+    async fn create_import_session(&self, new_session: NewImportSession) -> Result<ImportSession>;
+    fn get_import_session(&self, session_id: &str) -> Result<ImportSession>;
+    fn get_import_sessions_by_account(&self, account_id: &str) -> Result<Vec<ImportSessionSummary>>;
+    fn get_all_import_sessions(&self) -> Result<Vec<ImportSessionSummary>>;
+    async fn update_import_session_counts(
+        &self,
+        session_id: String,
+        activity_count: i32,
+        success_count: i32,
+        failed_count: i32,
+    ) -> Result<()>;
+    async fn delete_import_session(&self, session_id: String) -> Result<i32>;
+    async fn create_activities_with_session(
+        &self,
+        activities: Vec<NewActivity>,
+        session_id: String,
+    ) -> Result<usize>;
 }
 
 /// Trait defining the contract for Activity service operations.
@@ -97,4 +117,16 @@ pub trait ActivityServiceTrait: Send + Sync {
         &self,
         mapping_data: ImportMappingData,
     ) -> Result<ImportMappingData>;
+
+    // Import session methods
+    async fn import_activities_with_session(
+        &self,
+        account_id: String,
+        activities: Vec<ActivityImport>,
+        file_name: Option<String>,
+    ) -> Result<(Vec<ActivityImport>, ImportSession)>;
+    fn get_import_sessions(&self) -> Result<Vec<ImportSessionSummary>>;
+    fn get_import_sessions_by_account(&self, account_id: &str) -> Result<Vec<ImportSessionSummary>>;
+    fn get_import_session(&self, session_id: &str) -> Result<ImportSession>;
+    async fn delete_import_session(&self, session_id: String) -> Result<i32>;
 }

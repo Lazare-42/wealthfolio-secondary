@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Icons } from "@/components/ui/icons";
 import { ProgressIndicator } from "@/components/ui/progress-indicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Account, ActivityImport, CsvRowData } from "@/lib/types";
+import { Account, ActivityImport, CsvRowData, ImportWithSessionResponse } from "@/lib/types";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { CSVFileViewer } from "../components/csv-file-viewer";
@@ -16,6 +16,7 @@ interface DataPreviewStepProps {
   headers: string[];
   activities?: ActivityImport[];
   accounts: Account[];
+  fileName?: string;
   onNext: (processedActivities: ActivityImport[]) => void;
   onBack: () => void;
   onError?: () => void;
@@ -26,6 +27,7 @@ export const DataPreviewStep = ({
   data,
   accounts,
   activities = [],
+  fileName,
   onNext,
   onBack,
   onError,
@@ -58,7 +60,8 @@ export const DataPreviewStep = ({
     if (confirmImportMutation.isSuccess || confirmImportMutation.isError) {
       timer = setTimeout(() => {
         if (confirmImportMutation.isSuccess) {
-          onNext((confirmImportMutation.data as ActivityImport[]) || []);
+          const response = confirmImportMutation.data as ImportWithSessionResponse;
+          onNext(response?.activities || []);
         }
         confirmImportMutation.reset();
         setConfirmationState("initial");
@@ -161,6 +164,7 @@ export const DataPreviewStep = ({
     // Ensure we have a single transaction for data integrity
     confirmImportMutation.mutate({
       activities: validActivities,
+      fileName,
     });
   };
 

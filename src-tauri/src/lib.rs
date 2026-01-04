@@ -184,8 +184,13 @@ pub fn run() {
             commands::activity::delete_activity,
             commands::activity::check_activities_import,
             commands::activity::import_activities,
+            commands::activity::import_activities_with_session,
             commands::activity::get_account_import_mapping,
             commands::activity::save_account_import_mapping,
+            commands::activity::get_import_sessions,
+            commands::activity::get_import_sessions_by_account,
+            commands::activity::get_import_session,
+            commands::activity::delete_import_session,
             // Settings commands
             commands::settings::get_settings,
             commands::settings::is_auto_update_check_enabled,

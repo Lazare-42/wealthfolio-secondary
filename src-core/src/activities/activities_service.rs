@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::accounts::{Account, AccountServiceTrait};
 use crate::activities::activities_errors::ActivityError;
 use crate::activities::activities_model::*;
+use crate::activities::import_session_model::{ImportSession, ImportSessionSummary, NewImportSession};
 use crate::activities::{ActivityRepositoryTrait, ActivityServiceTrait};
 use crate::assets::AssetServiceTrait;
 use crate::fx::FxServiceTrait;
@@ -420,5 +421,98 @@ impl ActivityServiceTrait for ActivityService {
             .save_import_mapping(&mapping)
             .await?;
         Ok(mapping_data)
+    }
+
+    /// Imports activities with session tracking
+    async fn import_activities_with_session(
+        &self,
+        account_id: String,
+        activities: Vec<ActivityImport>,
+        file_name: Option<String>,
+    ) -> Result<(Vec<ActivityImport>, ImportSession)> {
+        let validated_activities = self
+            .check_activities_import(account_id.clone(), activities)
+            .await?;
+
+        // Count valid and invalid activities
+        let total_count = validated_activities.len() as i32;
+        let valid_activities: Vec<&ActivityImport> = validated_activities
+            .iter()
+            .filter(|a| a.is_valid && a.errors.as_ref().map(|e| e.is_empty()).unwrap_or(true))
+            .collect();
+        let success_count = valid_activities.len() as i32;
+        let failed_count = total_count - success_count;
+
+        // Create the import session first
+        let new_session = NewImportSession {
+            account_id: account_id.clone(),
+            file_name,
+            activity_count: total_count,
+            success_count,
+            failed_count,
+        };
+        let session = self
+            .activity_repository
+            .create_import_session(new_session)
+            .await?;
+
+        // If there are errors, return early with the session info
+        if failed_count > 0 {
+            return Ok((validated_activities, session));
+        }
+
+        // Create activities with session ID
+        let new_activities: Vec<NewActivity> = validated_activities
+            .iter()
+            .map(|activity| NewActivity {
+                id: activity.id.clone(),
+                account_id: activity.account_id.clone().unwrap_or_default(),
+                asset_id: activity.symbol.clone(),
+                asset_data_source: None,
+                activity_type: activity.activity_type.clone(),
+                activity_date: activity.date.clone(),
+                quantity: Some(activity.quantity),
+                unit_price: Some(activity.unit_price),
+                currency: activity.currency.clone(),
+                fee: Some(activity.fee),
+                amount: activity.amount,
+                is_draft: activity.is_draft,
+                comment: activity.comment.clone(),
+            })
+            .collect();
+
+        let count = self
+            .activity_repository
+            .create_activities_with_session(new_activities, session.id.clone())
+            .await?;
+        debug!(
+            "Successfully imported {} activities in session {}",
+            count, session.id
+        );
+
+        Ok((validated_activities, session))
+    }
+
+    /// Gets all import sessions
+    fn get_import_sessions(&self) -> Result<Vec<ImportSessionSummary>> {
+        self.activity_repository.get_all_import_sessions()
+    }
+
+    /// Gets import sessions for a specific account
+    fn get_import_sessions_by_account(&self, account_id: &str) -> Result<Vec<ImportSessionSummary>> {
+        self.activity_repository
+            .get_import_sessions_by_account(account_id)
+    }
+
+    /// Gets a specific import session
+    fn get_import_session(&self, session_id: &str) -> Result<ImportSession> {
+        self.activity_repository.get_import_session(session_id)
+    }
+
+    /// Deletes an import session and all its associated activities
+    async fn delete_import_session(&self, session_id: String) -> Result<i32> {
+        self.activity_repository
+            .delete_import_session(session_id)
+            .await
     }
 }

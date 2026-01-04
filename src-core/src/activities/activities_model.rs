@@ -98,6 +98,7 @@ pub struct ActivityDB {
     pub comment: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    pub import_session_id: Option<String>,
 }
 
 /// Input model for creating a new activity
@@ -679,6 +680,7 @@ impl From<NewActivity> for ActivityDB {
             comment: domain.comment,
             created_at: now.to_rfc3339(),
             updated_at: now.to_rfc3339(),
+            import_session_id: None,
         }
     }
 }
@@ -751,6 +753,7 @@ impl From<ActivityUpdate> for ActivityDB {
             comment: domain.comment,
             created_at: now.to_rfc3339(), // This should ideally preserve original created_at. Need to fetch before update.
             updated_at: now.to_rfc3339(),
+            import_session_id: None, // Updates don't change import session
         }
     }
 }

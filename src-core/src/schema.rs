@@ -31,6 +31,7 @@ diesel::table! {
         comment -> Nullable<Text>,
         created_at -> Text,
         updated_at -> Text,
+        import_session_id -> Nullable<Text>,
     }
 }
 
@@ -143,6 +144,20 @@ diesel::table! {
 }
 
 diesel::table! {
+    import_sessions (id) {
+        id -> Text,
+        account_id -> Text,
+        file_name -> Nullable<Text>,
+        imported_at -> Timestamp,
+        activity_count -> Integer,
+        success_count -> Integer,
+        failed_count -> Integer,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     market_data_providers (id) {
         id -> Text,
         name -> Text,
@@ -183,8 +198,10 @@ diesel::table! {
 }
 
 diesel::joinable!(accounts -> platforms (platform_id));
+diesel::joinable!(activities -> import_sessions (import_session_id));
 diesel::joinable!(goals_allocation -> accounts (account_id));
 diesel::joinable!(goals_allocation -> goals (goal_id));
+diesel::joinable!(import_sessions -> accounts (account_id));
 diesel::joinable!(quotes -> assets (symbol));
 
 diesel::allow_tables_to_appear_in_same_query!(
@@ -198,6 +215,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     goals,
     goals_allocation,
     holdings_snapshots,
+    import_sessions,
     market_data_providers,
     platforms,
     quotes,

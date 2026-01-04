@@ -1,26 +1,32 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { logger } from "@/adapters";
-import { importActivities } from "@/commands/activity-import";
+import { importActivitiesWithSession } from "@/commands/activity-import";
 import { toast } from "@/components/ui/use-toast";
+import { QueryKeys } from "@/lib/query-keys";
+import type { ActivityImport, ImportWithSessionResponse } from "@/lib/types";
 
 export function useActivityImportMutations({
   onSuccess,
   onError,
 }: {
-  onSuccess?: (activities: unknown[]) => void;
+  onSuccess?: (activities: ActivityImport[], sessionId?: string) => void;
   onError?: (error: string) => void;
 } = {}) {
+  const queryClient = useQueryClient();
+
   const confirmImportMutation = useMutation({
-    mutationFn: importActivities,
-    onSuccess: async (result: unknown) => {
+    mutationFn: importActivitiesWithSession,
+    onSuccess: async (result: ImportWithSessionResponse) => {
+      // Invalidate import sessions cache
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.IMPORT_SESSIONS] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.ACTIVITIES] });
+
       // Call the provided onSuccess callback if it exists
       if (onSuccess) {
-        // Ensure we pass an array of activities to the callback
-        const activities = Array.isArray(result) ? result : [result];
-        onSuccess(activities);
+        onSuccess(result.activities, result.session.id);
         toast({
           title: "Import successful",
-          description: "Activities have been imported successfully.",
+          description: `${result.session.successCount} activities have been imported successfully.`,
         });
       }
     },

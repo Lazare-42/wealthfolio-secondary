@@ -4,6 +4,7 @@ pub(crate) mod activities_model;
 pub(crate) mod activities_repository;
 pub(crate) mod activities_service;
 pub(crate) mod activities_traits;
+pub(crate) mod import_session_model;
 
 pub use activities_constants::*;
 pub use activities_errors::ActivityError;
@@ -16,3 +17,4 @@ pub use activities_model::{
 pub use activities_repository::ActivityRepository;
 pub use activities_service::ActivityService;
 pub use activities_traits::{ActivityRepositoryTrait, ActivityServiceTrait};
+pub use import_session_model::{ImportSession, ImportSessionDB, ImportSessionSummary, NewImportSession};

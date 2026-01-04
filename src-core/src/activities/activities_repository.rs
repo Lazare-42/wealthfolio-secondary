@@ -609,4 +609,233 @@ impl ActivityRepositoryTrait for ActivityRepository {
             None => Ok(None), // If no activity found, return None
         }
     }
+
+    // Import session methods
+
+    /// Creates a new import session
+    pub async fn create_import_session(
+        &self,
+        new_session: super::import_session_model::NewImportSession,
+    ) -> Result<super::import_session_model::ImportSession> {
+        use crate::schema::import_sessions;
+
+        let session_db: super::import_session_model::ImportSessionDB = new_session.into();
+        let session_id = session_db.id.clone();
+
+        self.writer
+            .exec_write(move |conn| {
+                diesel::insert_into(import_sessions::table)
+                    .values(&session_db)
+                    .execute(conn)?;
+                Ok(())
+            })
+            .await?;
+
+        self.get_import_session(&session_id)
+    }
+
+    /// Gets an import session by ID
+    pub fn get_import_session(
+        &self,
+        session_id: &str,
+    ) -> Result<super::import_session_model::ImportSession> {
+        use crate::schema::import_sessions;
+
+        let mut conn = get_connection(&self.pool)?;
+        let session_db = import_sessions::table
+            .find(session_id)
+            .first::<super::import_session_model::ImportSessionDB>(&mut conn)
+            .map_err(|e| Error::from(ActivityError::NotFound(e.to_string())))?;
+
+        Ok(super::import_session_model::ImportSession::from(session_db))
+    }
+
+    /// Gets all import sessions for an account
+    pub fn get_import_sessions_by_account(
+        &self,
+        account_id: &str,
+    ) -> Result<Vec<super::import_session_model::ImportSessionSummary>> {
+        use crate::schema::{accounts, import_sessions};
+
+        let mut conn = get_connection(&self.pool)?;
+
+        let results = import_sessions::table
+            .inner_join(accounts::table.on(import_sessions::account_id.eq(accounts::id)))
+            .filter(import_sessions::account_id.eq(account_id))
+            .select((
+                import_sessions::id,
+                import_sessions::account_id,
+                accounts::name,
+                import_sessions::file_name,
+                import_sessions::imported_at,
+                import_sessions::activity_count,
+                import_sessions::success_count,
+                import_sessions::failed_count,
+            ))
+            .order(import_sessions::imported_at.desc())
+            .load::<(
+                String,
+                String,
+                String,
+                Option<String>,
+                NaiveDateTime,
+                i32,
+                i32,
+                i32,
+            )>(&mut conn)?;
+
+        Ok(results
+            .into_iter()
+            .map(
+                |(id, account_id, account_name, file_name, imported_at, activity_count, success_count, failed_count)| {
+                    super::import_session_model::ImportSessionSummary {
+                        id,
+                        account_id,
+                        account_name,
+                        file_name,
+                        imported_at: imported_at.to_string(),
+                        activity_count,
+                        success_count,
+                        failed_count,
+                    }
+                },
+            )
+            .collect())
+    }
+
+    /// Gets all import sessions (across all accounts)
+    pub fn get_all_import_sessions(
+        &self,
+    ) -> Result<Vec<super::import_session_model::ImportSessionSummary>> {
+        use crate::schema::{accounts, import_sessions};
+
+        let mut conn = get_connection(&self.pool)?;
+
+        let results = import_sessions::table
+            .inner_join(accounts::table.on(import_sessions::account_id.eq(accounts::id)))
+            .select((
+                import_sessions::id,
+                import_sessions::account_id,
+                accounts::name,
+                import_sessions::file_name,
+                import_sessions::imported_at,
+                import_sessions::activity_count,
+                import_sessions::success_count,
+                import_sessions::failed_count,
+            ))
+            .order(import_sessions::imported_at.desc())
+            .load::<(
+                String,
+                String,
+                String,
+                Option<String>,
+                NaiveDateTime,
+                i32,
+                i32,
+                i32,
+            )>(&mut conn)?;
+
+        Ok(results
+            .into_iter()
+            .map(
+                |(id, account_id, account_name, file_name, imported_at, activity_count, success_count, failed_count)| {
+                    super::import_session_model::ImportSessionSummary {
+                        id,
+                        account_id,
+                        account_name,
+                        file_name,
+                        imported_at: imported_at.to_string(),
+                        activity_count,
+                        success_count,
+                        failed_count,
+                    }
+                },
+            )
+            .collect())
+    }
+
+    /// Updates an import session's counts
+    pub async fn update_import_session_counts(
+        &self,
+        session_id: String,
+        activity_count: i32,
+        success_count: i32,
+        failed_count: i32,
+    ) -> Result<()> {
+        use crate::schema::import_sessions;
+
+        self.writer
+            .exec_write(move |conn| {
+                diesel::update(import_sessions::table.find(&session_id))
+                    .set((
+                        import_sessions::activity_count.eq(activity_count),
+                        import_sessions::success_count.eq(success_count),
+                        import_sessions::failed_count.eq(failed_count),
+                        import_sessions::updated_at.eq(chrono::Utc::now().naive_utc()),
+                    ))
+                    .execute(conn)?;
+                Ok(())
+            })
+            .await
+    }
+
+    /// Deletes an import session and its associated activities
+    pub async fn delete_import_session(&self, session_id: String) -> Result<i32> {
+        use crate::schema::{activities, import_sessions};
+
+        // First count the activities that will be deleted
+        let count = {
+            let mut conn = get_connection(&self.pool)?;
+            activities::table
+                .filter(activities::import_session_id.eq(&session_id))
+                .count()
+                .get_result::<i64>(&mut conn)? as i32
+        };
+
+        // Delete activities first (due to foreign key), then the session
+        self.writer
+            .exec_write(move |conn| {
+                // Delete associated activities
+                diesel::delete(activities::table.filter(activities::import_session_id.eq(&session_id)))
+                    .execute(conn)?;
+
+                // Delete the import session
+                diesel::delete(import_sessions::table.find(&session_id)).execute(conn)?;
+
+                Ok(())
+            })
+            .await?;
+
+        Ok(count)
+    }
+
+    /// Creates activities with an import session ID
+    pub async fn create_activities_with_session(
+        &self,
+        activities_vec: Vec<NewActivity>,
+        session_id: String,
+    ) -> Result<usize> {
+        let activities_db: Vec<ActivityDB> = activities_vec
+            .into_iter()
+            .map(|activity| {
+                let mut db: ActivityDB = activity.into();
+                db.id = Uuid::new_v4().to_string();
+                db.import_session_id = Some(session_id.clone());
+                db
+            })
+            .collect();
+
+        let count = activities_db.len();
+
+        self.writer
+            .exec_write(move |conn| {
+                diesel::insert_into(activities::table)
+                    .values(&activities_db)
+                    .execute(conn)?;
+                Ok(())
+            })
+            .await?;
+
+        Ok(count)
+    }
 }

@@ -116,6 +116,35 @@ export interface ActivityBulkMutationResult {
 export type ActivityImport = z.infer<typeof importActivitySchema>;
 export type ImportMappingData = z.infer<typeof importMappingSchema>;
 
+// Import session types
+export interface ImportSession {
+  id: string;
+  accountId: string;
+  fileName: string | null;
+  importedAt: string;
+  activityCount: number;
+  successCount: number;
+  failedCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ImportSessionSummary {
+  id: string;
+  accountId: string;
+  accountName: string;
+  fileName: string | null;
+  importedAt: string;
+  activityCount: number;
+  successCount: number;
+  failedCount: number;
+}
+
+export interface ImportWithSessionResponse {
+  activities: ActivityImport[];
+  session: ImportSession;
+}
+
 // Define a generic type for the parsed row data
 export type CsvRowData = Record<string, string> & { lineNumber: string };
 export interface CsvRowError {

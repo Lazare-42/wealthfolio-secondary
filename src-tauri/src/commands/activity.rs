@@ -6,7 +6,8 @@ use log::debug;
 use tauri::{AppHandle, State};
 use wealthfolio_core::activities::{
     Activity, ActivityBulkMutationRequest, ActivityBulkMutationResult, ActivityImport,
-    ActivitySearchResponse, ActivityUpdate, ImportMappingData, NewActivity, Sort,
+    ActivitySearchResponse, ActivityUpdate, ImportMappingData, ImportSession, ImportSessionSummary,
+    NewActivity, Sort,
 };
 
 use serde_json::json;
@@ -240,4 +241,106 @@ pub async fn import_activities(
     );
 
     Ok(result)
+}
+
+/// Import session response containing both activities and session info
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportWithSessionResponse {
+    pub activities: Vec<ActivityImport>,
+    pub session: ImportSession,
+}
+
+#[tauri::command]
+pub async fn import_activities_with_session(
+    account_id: String,
+    activities: Vec<ActivityImport>,
+    file_name: Option<String>,
+    state: State<'_, Arc<ServiceContext>>,
+    handle: AppHandle,
+) -> Result<ImportWithSessionResponse, String> {
+    debug!(
+        "Importing activities with session for account: {}",
+        account_id
+    );
+
+    let (result, session) = state
+        .activity_service()
+        .import_activities_with_session(account_id.clone(), activities, file_name)
+        .await?;
+
+    emit_resource_changed(
+        &handle,
+        ResourceEventPayload::new(
+            "activity",
+            "imported",
+            json!({
+                "account_id": account_id,
+                "session_id": session.id,
+                "activity_count": session.activity_count,
+                "success_count": session.success_count,
+            }),
+        ),
+    );
+
+    Ok(ImportWithSessionResponse {
+        activities: result,
+        session,
+    })
+}
+
+#[tauri::command]
+pub async fn get_import_sessions(
+    state: State<'_, Arc<ServiceContext>>,
+) -> Result<Vec<ImportSessionSummary>, String> {
+    debug!("Fetching all import sessions");
+    Ok(state.activity_service().get_import_sessions()?)
+}
+
+#[tauri::command]
+pub async fn get_import_sessions_by_account(
+    account_id: String,
+    state: State<'_, Arc<ServiceContext>>,
+) -> Result<Vec<ImportSessionSummary>, String> {
+    debug!("Fetching import sessions for account: {}", account_id);
+    Ok(state
+        .activity_service()
+        .get_import_sessions_by_account(&account_id)?)
+}
+
+#[tauri::command]
+pub async fn get_import_session(
+    session_id: String,
+    state: State<'_, Arc<ServiceContext>>,
+) -> Result<ImportSession, String> {
+    debug!("Fetching import session: {}", session_id);
+    Ok(state.activity_service().get_import_session(&session_id)?)
+}
+
+#[tauri::command]
+pub async fn delete_import_session(
+    session_id: String,
+    state: State<'_, Arc<ServiceContext>>,
+    handle: AppHandle,
+) -> Result<i32, String> {
+    debug!("Deleting import session: {}", session_id);
+
+    let deleted_count = state
+        .activity_service()
+        .delete_import_session(session_id.clone())
+        .await?;
+
+    emit_resource_changed(
+        &handle,
+        ResourceEventPayload::new(
+            "activity",
+            "import-session-deleted",
+            json!({
+                "session_id": session_id,
+                "deleted_activities": deleted_count,
+            }),
+        ),
+    );
+
+    Ok(deleted_count)
 }
