@@ -312,6 +312,39 @@ export interface Asset {
   url?: string | null;
 }
 
+// Loan types for liability assets
+export const LoanType = {
+  MORTGAGE: "MORTGAGE",
+  PERSONAL: "PERSONAL",
+  AUTO: "AUTO",
+  STUDENT: "STUDENT",
+  BUSINESS: "BUSINESS",
+  REVOLVING: "REVOLVING",
+  OTHER: "OTHER",
+} as const;
+
+export type LoanType = (typeof LoanType)[keyof typeof LoanType];
+
+// Metadata for liability assets (stored as JSON in asset.notes)
+export interface LoanMetadata {
+  lender?: string | null;
+  interestRate?: number | null;
+  originationDate?: string | null; // ISO date
+  maturityDate?: string | null; // ISO date
+  loanType?: LoanType | null;
+  principalAmount?: number | null;
+}
+
+// Helper to parse LoanMetadata from asset notes
+export function parseLoanMetadata(notes: string | null | undefined): LoanMetadata | null {
+  if (!notes) return null;
+  try {
+    return JSON.parse(notes) as LoanMetadata;
+  } catch {
+    return null;
+  }
+}
+
 export interface Quote {
   id: string;
   createdAt: string;
