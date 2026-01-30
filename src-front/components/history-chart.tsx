@@ -176,6 +176,7 @@ export function HistoryChart({
           </linearGradient>
         </defs>
         <Tooltip
+          cursor={false}
           position={isMobile ? { y: 60 } : { y: -20 }}
           content={(props) => (
             <CustomTooltip
@@ -186,7 +187,21 @@ export function HistoryChart({
           )}
         />
         <XAxis hide dataKey="date" type="category" />
-        <YAxis hide type="number" domain={["auto", "auto"]} />
+        <YAxis
+          type="number"
+          domain={["auto", "auto"]}
+          mirror={true}
+          tickFormatter={(value: number) => {
+            if (isBalanceHidden) return "****";
+            if (Math.abs(value) >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+            if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(0)}K`;
+            return value.toFixed(0);
+          }}
+          tick={{ fontSize: 12 }}
+          tickLine={false}
+          axisLine={false}
+          width={55}
+        />
         <Area
           isAnimationActive={true}
           animationDuration={300}
