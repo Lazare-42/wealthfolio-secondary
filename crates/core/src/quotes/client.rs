@@ -39,7 +39,7 @@ use crate::secrets::SecretStore;
 use wealthfolio_market_data::{
     mic_to_currency, mic_to_exchange_name, yahoo_exchange_to_mic, yahoo_suffix_to_mic,
     AlphaVantageProvider, AssetProfile as MarketAssetProfile, FinnhubProvider,
-    MarketDataAppProvider, MetalPriceApiProvider, ProviderId, ProviderRegistry,
+    MarketDataAppProvider, MetalPriceApiProvider, OpenFigiProvider, ProviderId, ProviderRegistry,
     Quote as MarketQuote, QuoteContext, ResolverChain, SearchResult as MarketSearchResult,
     YahooProvider,
 };
@@ -205,6 +205,17 @@ impl MarketDataClient {
                 }
                 Ok(None)
             }
+            DATA_SOURCE_OPENFIGI => {
+                // OpenFIGI works without an API key (lower rate limits).
+                // If a key is configured, it gets higher rate limits.
+                let api_key = secret_store
+                    .get_secret(provider_id)
+                    .ok()
+                    .flatten()
+                    .filter(|k| !k.is_empty());
+                let provider = OpenFigiProvider::new(api_key);
+                Ok(Some(Arc::new(provider)))
+            }
             _ => {
                 warn!("Unknown provider ID: {}", provider_id);
                 Ok(None)
@@ -327,6 +338,7 @@ impl MarketDataClient {
             DATA_SOURCE_MARKET_DATA_APP => DataSource::MarketDataApp,
             DATA_SOURCE_METAL_PRICE_API => DataSource::MetalPriceApi,
             DATA_SOURCE_FINNHUB => DataSource::Finnhub,
+            DATA_SOURCE_OPENFIGI => DataSource::OpenFigi,
             DATA_SOURCE_MANUAL => DataSource::Manual,
             _ => DataSource::Yahoo, // Default fallback
         };

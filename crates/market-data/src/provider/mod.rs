@@ -26,6 +26,7 @@ pub mod alpha_vantage;
 pub mod finnhub;
 pub mod marketdata_app;
 pub mod metal_price_api;
+pub mod openfigi;
 pub mod yahoo;
 
 // Re-exports

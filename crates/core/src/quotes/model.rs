@@ -18,6 +18,7 @@ pub const DATA_SOURCE_MARKET_DATA_APP: &str = "MARKETDATA_APP";
 pub const DATA_SOURCE_ALPHA_VANTAGE: &str = "ALPHA_VANTAGE";
 pub const DATA_SOURCE_METAL_PRICE_API: &str = "METAL_PRICE_API";
 pub const DATA_SOURCE_FINNHUB: &str = "FINNHUB";
+pub const DATA_SOURCE_OPENFIGI: &str = "OPENFIGI";
 
 // =============================================================================
 // Data Source
@@ -43,6 +44,8 @@ pub enum DataSource {
     MetalPriceApi,
     /// Finnhub - global stock data with real-time quotes
     Finnhub,
+    /// OpenFIGI - ISIN resolution and security metadata (no quotes)
+    OpenFigi,
     /// Manual entry by user
     #[default]
     Manual,
@@ -57,6 +60,7 @@ impl DataSource {
             DataSource::AlphaVantage => DATA_SOURCE_ALPHA_VANTAGE,
             DataSource::MetalPriceApi => DATA_SOURCE_METAL_PRICE_API,
             DataSource::Finnhub => DATA_SOURCE_FINNHUB,
+            DataSource::OpenFigi => DATA_SOURCE_OPENFIGI,
             DataSource::Manual => DATA_SOURCE_MANUAL,
         }
     }
@@ -76,6 +80,7 @@ impl From<&str> for DataSource {
             DATA_SOURCE_ALPHA_VANTAGE => DataSource::AlphaVantage,
             DATA_SOURCE_METAL_PRICE_API => DataSource::MetalPriceApi,
             DATA_SOURCE_FINNHUB => DataSource::Finnhub,
+            "OPENFIGI" => DataSource::OpenFigi,
             _ => DataSource::Manual,
         }
     }
