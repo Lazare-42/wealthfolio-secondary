@@ -390,6 +390,7 @@ pub fn run() {
             commands::brokers_sync::get_user_info,
             commands::brokers_sync::get_broker_sync_states,
             commands::brokers_sync::get_import_runs,
+            commands::brokers_sync::delete_import_run,
             // Device sync commands
             commands::device_sync::enroll_device,
             commands::device_sync::get_device,

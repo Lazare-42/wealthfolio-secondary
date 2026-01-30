@@ -965,6 +965,10 @@ impl BrokerSyncServiceTrait for BrokerSyncService {
         Ok(())
     }
 
+    async fn delete_import_run(&self, run_id: &str) -> Result<u32> {
+        self.import_run_repository.delete_import_run(run_id).await
+    }
+
     async fn save_broker_holdings(
         &self,
         account_id: String,

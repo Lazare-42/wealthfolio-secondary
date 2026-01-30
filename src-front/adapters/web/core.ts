@@ -177,6 +177,7 @@ export const COMMANDS: CommandMap = {
   get_platforms: { method: "GET", path: "/connect/platforms" },
   get_broker_sync_states: { method: "GET", path: "/connect/sync-states" },
   get_import_runs: { method: "GET", path: "/connect/import-runs" },
+  delete_import_run: { method: "DELETE", path: "/connect/import-runs" },
   // Device Sync / Enrollment
   get_device_sync_state: { method: "GET", path: "/connect/device/sync-state" },
   enable_device_sync: { method: "POST", path: "/connect/device/enable" },
@@ -956,6 +957,11 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
       if (offset !== undefined) params.set("offset", String(offset));
       const qs = params.toString();
       if (qs) url += `?${qs}`;
+      break;
+    }
+    case "delete_import_run": {
+      const { runId } = (payload ?? {}) as { runId: string };
+      url = `${baseUrl}/connect/import-runs/${runId}`;
       break;
     }
     // Net Worth commands

@@ -292,6 +292,20 @@ pub async fn get_import_runs(
         .map_err(|e| format!("Failed to get import runs: {}", e))
 }
 
+/// Delete an import run and all its associated activities
+#[tauri::command]
+pub async fn delete_import_run(
+    run_id: String,
+    state: State<'_, Arc<ServiceContext>>,
+) -> Result<u32, String> {
+    debug!("Deleting import run: {}", run_id);
+    state
+        .sync_service()
+        .delete_import_run(&run_id)
+        .await
+        .map_err(|e| format!("Failed to delete import run: {}", e))
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Foreground Sync Command
 // ─────────────────────────────────────────────────────────────────────────────

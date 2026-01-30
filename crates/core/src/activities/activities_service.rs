@@ -1264,7 +1264,7 @@ impl ActivityServiceTrait for ActivityService {
 
         let count = self
             .activity_repository
-            .create_activities(new_activities)
+            .create_activities_with_import_run(new_activities, import_run_id.clone())
             .await?;
         debug!("Successfully imported {} activities", count);
 

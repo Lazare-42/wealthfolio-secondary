@@ -202,6 +202,7 @@ export {
   getUserInfo,
   getBrokerSyncStates,
   getImportRuns,
+  deleteImportRun,
   getDeviceSyncState,
   enableDeviceSync,
   clearDeviceSyncData,

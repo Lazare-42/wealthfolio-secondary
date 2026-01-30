@@ -622,6 +622,38 @@ impl ActivityRepositoryTrait for ActivityRepository {
             .await
     }
 
+    async fn create_activities_with_import_run(
+        &self,
+        activities_vec: Vec<NewActivity>,
+        import_run_id: String,
+    ) -> Result<usize> {
+        if activities_vec.is_empty() {
+            return Ok(0);
+        }
+        for new_act in &activities_vec {
+            new_act.validate()?;
+        }
+        let activities_db_owned: Vec<ActivityDB> = activities_vec
+            .into_iter()
+            .map(|new_act| {
+                let mut db: ActivityDB = new_act.into();
+                db.id = Uuid::new_v4().to_string();
+                db.import_run_id = Some(import_run_id.clone());
+                db
+            })
+            .collect();
+
+        self.writer
+            .exec(move |conn: &mut SqliteConnection| -> Result<usize> {
+                let num_inserted = diesel::insert_into(activities::table)
+                    .values(&activities_db_owned)
+                    .execute(conn)
+                    .map_err(StorageError::from)?;
+                Ok(num_inserted)
+            })
+            .await
+    }
+
     /// Fetches contribution-eligible activities (DEPOSIT, TRANSFER_IN, TRANSFER_OUT, CREDIT)
     /// for the given accounts within the date range.
     fn get_contribution_activities(

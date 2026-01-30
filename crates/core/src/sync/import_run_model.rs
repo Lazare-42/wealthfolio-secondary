@@ -191,4 +191,7 @@ pub trait ImportRunRepositoryTrait: Send + Sync {
 
     /// Get recent import runs for an account
     fn get_recent_for_account(&self, account_id: &str, limit: i64) -> Result<Vec<ImportRun>>;
+
+    /// Delete an import run and all associated activities
+    async fn delete_import_run(&self, id: &str) -> Result<u32>;
 }

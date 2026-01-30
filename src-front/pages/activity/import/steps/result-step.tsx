@@ -189,6 +189,11 @@ export const ResultStep = ({ activities, accounts, onBack, onReset }: ResultStep
             Import Another File
           </Button>
 
+          <Button variant="outline" onClick={() => navigate("/import/history")}>
+            <Icons.Clock className="mr-2 h-4 w-4" />
+            Import History
+          </Button>
+
           <Button onClick={goToActivities}>
             <Icons.Activity className="mr-2 h-4 w-4" />
             View All Activities

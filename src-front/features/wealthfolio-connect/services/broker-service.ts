@@ -14,6 +14,7 @@ import {
   getUserInfo as getUserInfoAdapter,
   getBrokerSyncStates as getBrokerSyncStatesAdapter,
   getImportRuns as getImportRunsAdapter,
+  deleteImportRun as deleteImportRunAdapter,
 } from "@/adapters";
 import type { Account, Platform } from "@/lib/types";
 import type {
@@ -136,6 +137,15 @@ export const getImportRuns = async (
     return await getImportRunsAdapter({ runType, limit, offset });
   } catch (error) {
     logger.error("Error getting import runs.");
+    throw error;
+  }
+};
+
+export const deleteImportRun = async (runId: string): Promise<number> => {
+  try {
+    return await deleteImportRunAdapter(runId);
+  } catch (error) {
+    logger.error("Error deleting import run.");
     throw error;
   }
 };

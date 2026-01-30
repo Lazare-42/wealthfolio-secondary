@@ -114,6 +114,35 @@ impl ImportRunRepository {
         Ok(results.into_iter().map(Into::into).collect())
     }
 
+    /// Delete an import run and all activities linked to it
+    pub async fn delete_import_run(&self, id: &str) -> Result<u32> {
+        use crate::schema::activities;
+
+        let id_owned = id.to_string();
+        self.writer
+            .exec(move |conn| {
+                // Count activities that will be deleted
+                let activity_count: i64 = activities::table
+                    .filter(activities::import_run_id.eq(&id_owned))
+                    .count()
+                    .get_result(conn)
+                    .map_err(StorageError::from)?;
+
+                // Delete activities linked to this import run
+                diesel::delete(activities::table.filter(activities::import_run_id.eq(&id_owned)))
+                    .execute(conn)
+                    .map_err(StorageError::from)?;
+
+                // Delete the import run itself
+                diesel::delete(import_runs::table.find(&id_owned))
+                    .execute(conn)
+                    .map_err(StorageError::from)?;
+
+                Ok(activity_count as u32)
+            })
+            .await
+    }
+
     /// Get import runs by run type (SYNC or IMPORT) with pagination
     pub fn get_by_run_type(
         &self,
@@ -151,5 +180,9 @@ impl ImportRunRepositoryTrait for ImportRunRepository {
 
     fn get_recent_for_account(&self, account_id: &str, limit: i64) -> Result<Vec<ImportRun>> {
         ImportRunRepository::get_recent_for_account(self, account_id, limit)
+    }
+
+    async fn delete_import_run(&self, id: &str) -> Result<u32> {
+        ImportRunRepository::delete_import_run(self, id).await
     }
 }

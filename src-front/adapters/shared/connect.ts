@@ -70,6 +70,10 @@ export async function getImportRuns(request?: ImportRunsRequest): Promise<Import
   });
 }
 
+export async function deleteImportRun(runId: string): Promise<number> {
+  return invoke<number>("delete_import_run", { runId });
+}
+
 // ============================================================================
 // Device Sync Commands (DeviceEnrollService)
 // ============================================================================

@@ -141,6 +141,10 @@ pub trait BrokerSyncServiceTrait: Send + Sync {
         error: Option<String>,
     ) -> Result<()>;
 
+    /// Delete an import run and all its associated activities.
+    /// Returns the number of activities deleted.
+    async fn delete_import_run(&self, run_id: &str) -> Result<u32>;
+
     /// Save broker holdings as a snapshot with source=BROKER_IMPORTED.
     /// Returns (positions_saved, assets_created, new_asset_ids).
     async fn save_broker_holdings(

@@ -48,6 +48,11 @@ pub trait ActivityRepositoryTrait: Send + Sync {
         delete_ids: Vec<String>,
     ) -> Result<ActivityBulkMutationResult>;
     async fn create_activities(&self, activities: Vec<NewActivity>) -> Result<usize>;
+    async fn create_activities_with_import_run(
+        &self,
+        activities: Vec<NewActivity>,
+        import_run_id: String,
+    ) -> Result<usize>;
     fn get_first_activity_date(
         &self,
         account_ids: Option<&[String]>,
