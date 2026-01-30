@@ -72,6 +72,31 @@ pub struct OptionSpec {
     pub occ_symbol: Option<String>,
 }
 
+/// Loan type classification for liability assets
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum LoanType {
+    Mortgage,
+    Personal,
+    Auto,
+    Student,
+    Business,
+    Revolving,
+    Other,
+}
+
+/// Loan-specific metadata stored in Asset.metadata.loan
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoanSpec {
+    pub loan_type: LoanType,
+    pub lender: Option<String>,
+    pub interest_rate: Option<Decimal>,
+    pub origination_date: Option<chrono::NaiveDate>,
+    pub maturity_date: Option<chrono::NaiveDate>,
+    pub principal_amount: Option<Decimal>,
+}
+
 /// Domain model representing an asset in the system
 /// Provider-agnostic: no data_source or quote_symbol (use provider_overrides instead)
 /// Classification is handled via taxonomy system, not legacy fields
@@ -279,6 +304,17 @@ impl Asset {
             .and_then(|v| serde_json::from_value(v.clone()).ok())
     }
 
+    /// Get loan metadata if this is a liability
+    pub fn loan_spec(&self) -> Option<LoanSpec> {
+        if self.kind != AssetKind::Liability {
+            return None;
+        }
+        self.metadata
+            .as_ref()
+            .and_then(|m| m.get("loan"))
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+    }
+
     /// Get the kind (backward compat alias)
     pub fn effective_kind(&self) -> AssetKind {
         self.kind.clone()
@@ -457,6 +493,25 @@ impl NewAsset {
             symbol: currency_upper.clone(), // Symbol is just the currency code
             currency: currency_upper,
             pricing_mode: PricingMode::None,
+            is_active: true,
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new liability asset for loan tracking.
+    ///
+    /// Uses canonical ID format: `LIAB:{symbol}:{currency}` (e.g., "LIAB:Mortgage:USD")
+    pub fn new_liability_asset(symbol: &str, currency: &str, name: Option<&str>) -> Self {
+        let currency_upper = currency.to_uppercase();
+        let asset_id =
+            canonical_asset_id(&AssetKind::Liability, symbol, None, &currency_upper);
+        Self {
+            id: Some(asset_id),
+            kind: AssetKind::Liability,
+            symbol: symbol.to_string(),
+            currency: currency_upper,
+            pricing_mode: PricingMode::Manual,
+            name: name.map(String::from),
             is_active: true,
             ..Default::default()
         }

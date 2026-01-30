@@ -214,6 +214,12 @@ impl HoldingsCalculator {
                 // Currently just skip - specific handling will be added as needed
                 Ok(())
             }
+            ActivityType::LoanOrigination => {
+                self.handle_loan_origination(activity, state, account_currency, asset_currency_cache)
+            }
+            ActivityType::LoanPayment => {
+                self.handle_loan_payment(activity, state, account_currency, asset_currency_cache)
+            }
             ActivityType::Unknown => {
                 warn!(
                     "Unknown activity type for activity {}. Skipping.",
@@ -725,6 +731,102 @@ impl HoldingsCalculator {
                 );
             }
         }
+        Ok(())
+    }
+
+    /// Handle LOAN_ORIGINATION activity.
+    /// Creates a liability position (positive quantity per v3 convention).
+    /// Books cash inflow = principal - origination_fee (net proceeds).
+    /// Does NOT affect net_contribution (a loan is not new capital).
+    fn handle_loan_origination(
+        &self,
+        activity: &Activity,
+        state: &mut AccountStateSnapshot,
+        _account_currency: &str,
+        asset_currency_cache: &mut HashMap<String, (String, bool)>,
+    ) -> Result<()> {
+        let activity_currency = &activity.currency;
+        let asset_id = activity.asset_id.as_deref().unwrap_or("");
+
+        if asset_id.is_empty() {
+            return Err(Error::Calculation(CalculatorError::InvalidActivity(
+                format!(
+                    "LOAN_ORIGINATION activity {} requires an asset_id (liability asset)",
+                    activity.id
+                ),
+            )));
+        }
+
+        // Create/get position for the liability asset (positive quantity = outstanding balance)
+        let position = self.get_or_create_position_mut_cached(
+            state,
+            asset_id,
+            activity_currency,
+            activity.activity_date,
+            asset_currency_cache,
+        )?;
+
+        // Add lot: quantity = principal, unit_price = 1.0 (face value), fee = origination fees
+        let _cost_basis = position.add_lot_values(
+            activity.id.clone(),
+            activity.qty(),
+            activity.price(), // Typically 1.0 for loans at face value
+            activity.fee_amt(),
+            activity.activity_date,
+            None,
+        )?;
+
+        // Book cash inflow: net proceeds = principal - origination fees
+        let net_proceeds = (activity.qty() * activity.price()) - activity.fee_amt();
+        add_cash(state, activity_currency, net_proceeds);
+
+        // Loan origination does NOT affect net_contribution
+        // (borrowing is not new capital entering the portfolio)
+
+        Ok(())
+    }
+
+    /// Handle LOAN_PAYMENT activity.
+    /// Reduces the liability position by the principal portion.
+    /// Books cash outflow = principal + interest (fee).
+    /// Does NOT affect net_contribution.
+    fn handle_loan_payment(
+        &self,
+        activity: &Activity,
+        state: &mut AccountStateSnapshot,
+        _account_currency: &str,
+        _asset_currency_cache: &mut HashMap<String, (String, bool)>,
+    ) -> Result<()> {
+        let activity_currency = &activity.currency;
+        let asset_id = activity.asset_id.as_deref().unwrap_or("");
+
+        if asset_id.is_empty() {
+            return Err(Error::Calculation(CalculatorError::InvalidActivity(
+                format!(
+                    "LOAN_PAYMENT activity {} requires an asset_id (liability asset)",
+                    activity.id
+                ),
+            )));
+        }
+
+        // Book cash outflow: total payment = (principal * unit_price) + interest (fee)
+        let total_payment = (activity.qty() * activity.price()) + activity.fee_amt();
+        add_cash(state, activity_currency, -total_payment);
+
+        // Reduce the liability position by the principal portion
+        if let Some(position) = state.positions.get_mut(asset_id) {
+            let (_qty_reduced, _cost_basis_removed) =
+                position.reduce_lots_fifo(activity.qty())?;
+        } else {
+            warn!(
+                "LOAN_PAYMENT activity {} references non-existent liability position {}. Cash effect applied only.",
+                activity.id, asset_id
+            );
+        }
+
+        // Loan payment does NOT affect net_contribution
+        // (repaying a loan is not a withdrawal of capital)
+
         Ok(())
     }
 

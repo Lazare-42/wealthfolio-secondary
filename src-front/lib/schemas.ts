@@ -8,6 +8,7 @@ import {
   isTradeActivity,
   isFeeActivity,
   isSplitActivity,
+  isLoanActivity,
 } from "./activity-utils";
 
 /**
@@ -102,9 +103,15 @@ export const importActivitySchema = z
     symbol: z
       .string()
       .min(1, { message: "Symbol is required" })
-      .refine((val) => /^(\$CASH-[A-Z]{3}|[A-Z0-9]{1,10}([.-][A-Z0-9]+){0,2})$/.test(val.trim()), {
-        message: "Invalid symbol format",
-      }),
+      .refine(
+        (val) =>
+          /^(\$CASH-[A-Z]{3}|LIAB:[A-Za-z0-9_-]+|[A-Z0-9]{1,10}([.-][A-Z0-9]+){0,2})$/.test(
+            val.trim(),
+          ),
+        {
+          message: "Invalid symbol format",
+        },
+      ),
     amount: z.coerce
       .number({
         required_error: "Should be a valid amount.",
@@ -208,7 +215,8 @@ export const importActivitySchema = z
         !(data.symbol && isCashTransfer(data.activityType as string, data.symbol)) &&
         !isTradeActivity(data.activityType as string) &&
         !isFeeActivity(data.activityType as string) &&
-        !isSplitActivity(data.activityType as string);
+        !isSplitActivity(data.activityType as string) &&
+        !isLoanActivity(data.activityType as string);
 
       if (isNonCashNonTradeActivity) {
         return data.quantity !== undefined && data.quantity > 0;

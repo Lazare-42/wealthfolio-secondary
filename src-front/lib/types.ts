@@ -32,6 +32,7 @@ export {
   HoldingType,
   ImportFormat,
   isAlternativeAssetType,
+  LOAN_ACTIVITY_TYPES,
   PricingMode,
   isLiabilityType,
   SUBTYPE_DISPLAY_NAMES,
@@ -1139,6 +1140,47 @@ export interface PreciousMetalMetadata {
   unit?: "oz" | "g" | "kg";
   purchasePricePerUnit?: string;
   purchaseDate?: string;
+}
+
+/**
+ * Loan type classification for activity-based loan tracking.
+ * Used with LOAN_ORIGINATION and LOAN_PAYMENT activity types.
+ */
+export const LoanType = {
+  MORTGAGE: "MORTGAGE",
+  PERSONAL: "PERSONAL",
+  AUTO: "AUTO",
+  STUDENT: "STUDENT",
+  BUSINESS: "BUSINESS",
+  REVOLVING: "REVOLVING",
+  OTHER: "OTHER",
+} as const;
+
+export type LoanType = (typeof LoanType)[keyof typeof LoanType];
+
+/**
+ * Loan-specific metadata stored in Asset.metadata.loan
+ * For assets tracked via LOAN_ORIGINATION/LOAN_PAYMENT activities.
+ */
+export interface LoanMetadata {
+  loanType: LoanType;
+  lender?: string;
+  interestRate?: number;
+  originationDate?: string;
+  maturityDate?: string;
+  principalAmount?: number;
+}
+
+/**
+ * Parses loan metadata from an asset's metadata JSON.
+ * Returns undefined if no loan metadata is found.
+ */
+export function parseLoanMetadata(
+  metadata: Record<string, unknown> | undefined | null,
+): LoanMetadata | undefined {
+  if (!metadata) return undefined;
+  const loan = metadata.loan as LoanMetadata | undefined;
+  return loan ?? undefined;
 }
 
 /**

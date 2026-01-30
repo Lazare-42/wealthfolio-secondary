@@ -11,8 +11,8 @@ import { tryParseDate } from "@/lib/utils";
 import { logger } from "@/adapters";
 import { SUBTYPES_BY_ACTIVITY_TYPE, SUBTYPE_DISPLAY_NAMES } from "@/lib/constants";
 
-// Ticker symbol validation regex
-const tickerRegex = /^(\$CASH-[A-Z]{3}|[A-Z0-9]{1,10}([.-][A-Z0-9]+){0,2})$/;
+// Ticker symbol validation regex (includes LIAB: prefix for loan activities)
+const tickerRegex = /^(\$CASH-[A-Z]{3}|LIAB:[A-Za-z0-9_-]+|[A-Z0-9]{1,10}([.-][A-Z0-9]+){0,2})$/;
 
 // Helper to validate ticker symbol format
 export function validateTickerSymbol(symbol: string): boolean {
@@ -302,7 +302,38 @@ const activityLogicMap: Partial<Record<ActivityType, ActivityLogicConfig>> = {
     calculateAmount: () => 0, // SPLIT has no cash impact according to docs
     calculateFee: () => 0, // SPLIT typically has no fee
   },
-  // ... Add configurations for other ActivityTypes (TAX, TRANSFER_IN, TRANSFER_OUT, etc.)
+  [ActivityType.LOAN_ORIGINATION]: {
+    calculateSymbol: (activity) => activity.symbol, // Keep LIAB:xxx symbol
+    calculateAmount: (activity) => {
+      // Amount = principal (|quantity| * |unitPrice|)
+      if (
+        activity.quantity &&
+        Math.abs(activity.quantity) > 0 &&
+        activity.unitPrice &&
+        Math.abs(activity.unitPrice) > 0
+      ) {
+        return Math.abs(activity.quantity) * Math.abs(activity.unitPrice);
+      }
+      return activity.amount ? Math.abs(activity.amount) : activity.amount;
+    },
+    calculateFee: (activity) => (activity.fee ? Math.abs(activity.fee) : 0), // Origination fees
+  },
+  [ActivityType.LOAN_PAYMENT]: {
+    calculateSymbol: (activity) => activity.symbol, // Keep LIAB:xxx symbol
+    calculateAmount: (activity) => {
+      // Amount = principal portion (|quantity| * |unitPrice|)
+      if (
+        activity.quantity &&
+        Math.abs(activity.quantity) > 0 &&
+        activity.unitPrice &&
+        Math.abs(activity.unitPrice) > 0
+      ) {
+        return Math.abs(activity.quantity) * Math.abs(activity.unitPrice);
+      }
+      return activity.amount ? Math.abs(activity.amount) : activity.amount;
+    },
+    calculateFee: (activity) => (activity.fee ? Math.abs(activity.fee) : 0), // Interest portion
+  },
 };
 
 // Default logic if type-specific logic isn't found

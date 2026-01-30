@@ -50,8 +50,18 @@ pub const ACTIVITY_TYPE_CREDIT: &str = "CREDIT";
 /// Examples: option expire worthless, RoC basis adjustment, merger/spinoff compiler input.
 pub const ACTIVITY_TYPE_ADJUSTMENT: &str = "ADJUSTMENT";
 
+/// Loan origination: creates a liability position. Loan proceeds go to cash, origination fees deducted.
+pub const ACTIVITY_TYPE_LOAN_ORIGINATION: &str = "LOAN_ORIGINATION";
+
+/// Loan payment: reduces a liability. Principal reduces the liability balance, interest recorded as fee.
+pub const ACTIVITY_TYPE_LOAN_PAYMENT: &str = "LOAN_PAYMENT";
+
 /// Unknown or unmapped activity type. Requires user review.
 pub const ACTIVITY_TYPE_UNKNOWN: &str = "UNKNOWN";
+
+/// Loan activity types
+pub const LOAN_ACTIVITY_TYPES: [&str; 2] =
+    [ACTIVITY_TYPE_LOAN_ORIGINATION, ACTIVITY_TYPE_LOAN_PAYMENT];
 
 /// Trading activity types
 pub const TRADING_ACTIVITY_TYPES: [&str; 3] =
