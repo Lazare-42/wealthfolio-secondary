@@ -4,7 +4,8 @@ use std::time::Instant;
 
 use crate::{
     ai_environment::ServerAiEnvironment, auth::AuthManager, config::Config,
-    domain_events::WebDomainEventSink, events::EventBus, secrets::build_secret_store,
+    domain_events::WebDomainEventSink, events::EventBus, pdf_import::StagingStore,
+    secrets::build_secret_store,
 };
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::{fmt, EnvFilter};
@@ -108,6 +109,8 @@ pub struct AppState {
     pub device_sync_runtime: Arc<DeviceSyncRuntimeState>,
     pub health_service: Arc<dyn HealthServiceTrait + Send + Sync>,
     pub reconciliation_service: Arc<dyn ReconciliationServiceTrait + Send + Sync>,
+    pub ai_environment: Arc<ServerAiEnvironment>,
+    pub pdf_staging: Arc<StagingStore>,
     pub token_cache: tokio::sync::RwLock<Option<CachedAccessToken>>,
 }
 
@@ -378,7 +381,16 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         performance_service.clone(),
         income_service.clone(),
     ));
-    let ai_chat_service = Arc::new(ChatService::new(ai_environment, ChatConfig::default()));
+    let ai_chat_service = Arc::new(ChatService::new(
+        ai_environment.clone(),
+        ChatConfig::default(),
+    ));
+
+    // PDF import staging store + ensure directories
+    let pdf_staging = Arc::new(StagingStore::new());
+    if let Err(e) = crate::pdf_import::ensure_pdf_dirs(&data_root) {
+        tracing::warn!("Failed to create PDF import directories: {}", e);
+    }
 
     // Device enroll service for E2EE sync
     let cloud_api_url = crate::features::cloud_api_base_url().unwrap_or_default();
@@ -471,6 +483,8 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         device_sync_runtime,
         health_service,
         reconciliation_service,
+        ai_environment,
+        pdf_staging,
         token_cache: tokio::sync::RwLock::new(None),
     }))
 }

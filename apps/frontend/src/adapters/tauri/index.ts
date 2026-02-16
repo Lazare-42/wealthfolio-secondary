@@ -112,6 +112,10 @@ export * from "../shared/health";
 // Reconciliation Commands
 export * from "../shared/reconciliation";
 
+// PDF Import Commands
+export * from "../shared/pdf-import";
+export { uploadPdf } from "./pdf-import";
+
 // ============================================================================
 // Platform-specific modules (different implementations)
 // ============================================================================

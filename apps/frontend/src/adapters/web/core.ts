@@ -260,6 +260,13 @@ export const COMMANDS: CommandMap = {
   reconciliation_resolve: { method: "POST", path: "/reconciliation/resolve" },
   get_reconciliation_config: { method: "GET", path: "/reconciliation/config" },
   update_reconciliation_config: { method: "PUT", path: "/reconciliation/config" },
+  // PDF Import
+  pdf_imports_staged: { method: "GET", path: "/pdf-imports/staged" },
+  pdf_import_detail: { method: "GET", path: "/pdf-imports/staged" },
+  pdf_import_confirm: { method: "POST", path: "/pdf-imports/staged" },
+  pdf_import_check: { method: "POST", path: "/pdf-imports/staged" },
+  pdf_import_discard: { method: "DELETE", path: "/pdf-imports/staged" },
+  pdf_import_upload: { method: "POST", path: "/pdf-imports/upload" },
 };
 
 /**
@@ -1222,6 +1229,37 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
     case "update_reconciliation_config": {
       const { config: cfg } = payload as { config: Record<string, unknown> };
       body = JSON.stringify(cfg);
+      break;
+    }
+    // PDF Import
+    case "pdf_imports_staged":
+      break;
+    case "pdf_import_detail": {
+      const { id: pdfId } = payload as { id: string };
+      url += `/${encodeURIComponent(pdfId)}`;
+      break;
+    }
+    case "pdf_import_confirm": {
+      const { id: confirmId, request: confirmReq } = payload as {
+        id: string;
+        request: Record<string, unknown>;
+      };
+      url += `/${encodeURIComponent(confirmId)}/confirm`;
+      body = JSON.stringify(confirmReq);
+      break;
+    }
+    case "pdf_import_check": {
+      const { id: checkId, request: checkReq } = payload as {
+        id: string;
+        request: Record<string, unknown>;
+      };
+      url += `/${encodeURIComponent(checkId)}/check`;
+      body = JSON.stringify(checkReq);
+      break;
+    }
+    case "pdf_import_discard": {
+      const { id: discardId } = payload as { id: string };
+      url += `/${encodeURIComponent(discardId)}`;
       break;
     }
   }

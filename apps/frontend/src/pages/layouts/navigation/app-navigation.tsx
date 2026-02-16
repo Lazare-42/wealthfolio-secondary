@@ -54,6 +54,13 @@ const staticNavigation: NavigationProps = {
       label: "Reconcile Statements",
     },
     {
+      icon: <Icons.Upload className="size-6" />,
+      title: "PDF Import",
+      href: "/pdf-import",
+      keywords: ["pdf", "import", "ai", "statement", "parse"],
+      label: "AI PDF Import",
+    },
+    {
       icon: <Icons.Sparkles className="size-6" />,
       title: "Assistant",
       href: "/assistant",

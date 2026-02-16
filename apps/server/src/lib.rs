@@ -8,6 +8,7 @@ pub mod events;
 pub mod features;
 mod main_lib;
 pub mod models;
+pub mod pdf_import;
 pub mod secrets;
 
 pub use ai_environment::ServerAiEnvironment;

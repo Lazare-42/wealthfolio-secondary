@@ -281,6 +281,22 @@ export {
   updateReconciliationConfig,
 } from "../shared/reconciliation";
 
+// PDF Import Commands
+export {
+  getPdfImportsStaged,
+  getPdfImportDetail,
+  confirmPdfImport,
+  checkPdfImport,
+  discardPdfImport,
+} from "../shared/pdf-import";
+export { uploadPdf } from "./pdf-import";
+export type {
+  StagedImportSummary,
+  StagedImport,
+  PdfImportConfirmRequest,
+  PdfImportCheckRequest,
+} from "../shared/pdf-import";
+
 // ============================================================================
 // Platform-specific modules (different implementations for web vs desktop)
 // ============================================================================

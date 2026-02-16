@@ -52,6 +52,7 @@ pub mod env;
 pub mod error;
 #[cfg(test)]
 pub mod eval;
+pub mod pdf_parser;
 pub mod prompt_template;
 pub mod prompt_template_service;
 pub mod provider_model;
@@ -66,6 +67,7 @@ pub use chat::{ChatConfig, ChatService};
 pub use env::AiEnvironment;
 pub use error::AiError;
 pub use providers::ProviderService;
+pub use pdf_parser::{PdfTransactionParser, PdfTransactionParserTrait, RawPdfTransaction};
 pub use title_generator::{
     truncate_to_title, FakeTitleGenerator, TitleGenerator, TitleGeneratorConfig,
     TitleGeneratorTrait,

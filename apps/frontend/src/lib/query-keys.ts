@@ -128,6 +128,11 @@ export const QueryKeys = {
   reconciliationDetail: (runId: string) => [QueryKeys.RECONCILIATION_DETAIL, runId],
   RECONCILIATION_CONFIG: "reconciliationConfig",
 
+  // PDF Import
+  PDF_IMPORTS_STAGED: "pdfImportsStaged",
+  PDF_IMPORT_DETAIL: "pdfImportDetail",
+  pdfImportDetail: (id: string) => [QueryKeys.PDF_IMPORT_DETAIL, id],
+
   // Legacy alias for backwards compatibility
   MANUAL_SNAPSHOTS: "snapshots",
   manualSnapshots: (accountId: string) => [QueryKeys.SNAPSHOTS, accountId],
