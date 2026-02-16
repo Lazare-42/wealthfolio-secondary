@@ -935,6 +935,70 @@ export interface BrokerSyncState {
 }
 
 // ============================================================================
+// Reconciliation Types
+// ============================================================================
+
+export type MatchStatus = "MATCHED" | "UNMATCHED" | "CONFLICT" | "MISSING";
+export type UserAction = "ACCEPT" | "REJECT";
+
+export interface ReconciliationItem {
+  rowIndex: number;
+  activityDate: string;
+  description?: string;
+  amount: number;
+  currency: string;
+  rawType?: string;
+  matchStatus: MatchStatus;
+  matchedActivity?: Activity;
+  draftActivityId?: string;
+  confidence: number;
+  mappedActivityType?: string;
+}
+
+export interface ReconciliationResult {
+  importRun: ImportRun;
+  filePath: string;
+  fileName: string;
+  accountId: string;
+  items: ReconciliationItem[];
+  summary: ImportRunSummary;
+}
+
+export interface ScanResult {
+  filesFound: number;
+  filesNew: number;
+  filesSkipped: number;
+  reconciliations: ReconciliationResult[];
+}
+
+export interface StatementFieldMappings {
+  dateColumn: string;
+  amountColumn: string;
+  descriptionColumn?: string;
+  typeColumn?: string;
+  defaultCurrency?: string;
+}
+
+export interface StatementAccountMapping {
+  filePattern: string;
+  accountId: string;
+  fieldMappings: StatementFieldMappings;
+  parseConfig?: ParseConfig;
+}
+
+export interface ReconciliationConfig {
+  statementsDir: string;
+  mappings: StatementAccountMapping[];
+  amountTolerance?: number;
+}
+
+export interface ResolveRequest {
+  importRunId: string;
+  acceptIds: string[];
+  rejectIds: string[];
+}
+
+// ============================================================================
 // Alternative Assets Types
 // ============================================================================
 

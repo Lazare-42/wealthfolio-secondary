@@ -253,6 +253,13 @@ export const COMMANDS: CommandMap = {
   unlink_liability: { method: "DELETE", path: "/alternative-assets" },
   update_alternative_asset_metadata: { method: "PUT", path: "/alternative-assets" },
   get_alternative_holdings: { method: "GET", path: "/alternative-holdings" },
+  // Reconciliation
+  reconciliation_scan: { method: "POST", path: "/reconciliation/scan" },
+  reconciliation_pending: { method: "GET", path: "/reconciliation/pending" },
+  reconciliation_detail: { method: "GET", path: "/reconciliation" },
+  reconciliation_resolve: { method: "POST", path: "/reconciliation/resolve" },
+  get_reconciliation_config: { method: "GET", path: "/reconciliation/config" },
+  update_reconciliation_config: { method: "PUT", path: "/reconciliation/config" },
 };
 
 /**
@@ -1194,6 +1201,27 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
     case "get_ai_thread_tags": {
       const { threadId } = payload as { threadId: string };
       url += `/${encodeURIComponent(threadId)}/tags`;
+      break;
+    }
+    // Reconciliation
+    case "reconciliation_scan":
+    case "reconciliation_pending":
+      break;
+    case "reconciliation_detail": {
+      const { runId } = payload as { runId: string };
+      url += `/${encodeURIComponent(runId)}`;
+      break;
+    }
+    case "reconciliation_resolve": {
+      const { request } = payload as { request: Record<string, unknown> };
+      body = JSON.stringify(request);
+      break;
+    }
+    case "get_reconciliation_config":
+      break;
+    case "update_reconciliation_config": {
+      const { config: cfg } = payload as { config: Record<string, unknown> };
+      body = JSON.stringify(cfg);
       break;
     }
   }

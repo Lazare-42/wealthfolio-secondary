@@ -11,6 +11,7 @@ pub struct Config {
     pub addons_root: String,
     pub secret_key: String,
     pub auth: Option<AuthConfig>,
+    pub statements_dir: Option<String>,
 }
 
 impl Config {
@@ -64,6 +65,10 @@ impl Config {
                     access_token_ttl: Duration::from_secs(ttl_minutes.saturating_mul(60)),
                 }
             });
+        let statements_dir = std::env::var("WF_STATEMENTS_DIR")
+            .ok()
+            .filter(|s| !s.is_empty());
+
         Self {
             listen_addr,
             db_path,
@@ -73,6 +78,7 @@ impl Config {
             addons_root,
             secret_key,
             auth,
+            statements_dir,
         }
     }
 }

@@ -47,6 +47,13 @@ const staticNavigation: NavigationProps = {
       label: "View Activities",
     },
     {
+      icon: <Icons.FileText className="size-6" />,
+      title: "Reconciliation",
+      href: "/reconciliation",
+      keywords: ["reconcile", "bank", "statements", "match"],
+      label: "Reconcile Statements",
+    },
+    {
       icon: <Icons.Sparkles className="size-6" />,
       title: "Assistant",
       href: "/assistant",

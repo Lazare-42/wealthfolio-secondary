@@ -271,6 +271,16 @@ export {
   updateHealthConfig,
 } from "../shared/health";
 
+// Reconciliation Commands
+export {
+  reconciliationScan,
+  getReconciliationPending,
+  getReconciliationDetail,
+  reconciliationResolve,
+  getReconciliationConfig,
+  updateReconciliationConfig,
+} from "../shared/reconciliation";
+
 // ============================================================================
 // Platform-specific modules (different implementations for web vs desktop)
 // ============================================================================

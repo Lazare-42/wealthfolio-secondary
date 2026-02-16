@@ -122,6 +122,12 @@ export const QueryKeys = {
   // Snapshot Management
   SNAPSHOTS: "snapshots",
   snapshots: (accountId: string) => [QueryKeys.SNAPSHOTS, accountId],
+  // Reconciliation
+  RECONCILIATION_PENDING: "reconciliationPending",
+  RECONCILIATION_DETAIL: "reconciliationDetail",
+  reconciliationDetail: (runId: string) => [QueryKeys.RECONCILIATION_DETAIL, runId],
+  RECONCILIATION_CONFIG: "reconciliationConfig",
+
   // Legacy alias for backwards compatibility
   MANUAL_SNAPSHOTS: "snapshots",
   manualSnapshots: (accountId: string) => [QueryKeys.SNAPSHOTS, accountId],

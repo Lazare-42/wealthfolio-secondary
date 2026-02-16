@@ -109,6 +109,9 @@ export * from "../shared/ai-threads";
 // Health Center Commands
 export * from "../shared/health";
 
+// Reconciliation Commands
+export * from "../shared/reconciliation";
+
 // ============================================================================
 // Platform-specific modules (different implementations)
 // ============================================================================
