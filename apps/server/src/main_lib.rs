@@ -107,7 +107,7 @@ pub struct AppState {
     pub app_sync_repository: Arc<AppSyncRepository>,
     pub device_sync_runtime: Arc<DeviceSyncRuntimeState>,
     pub health_service: Arc<dyn HealthServiceTrait + Send + Sync>,
-    pub reconciliation_service: Option<Arc<dyn ReconciliationServiceTrait + Send + Sync>>,
+    pub reconciliation_service: Arc<dyn ReconciliationServiceTrait + Send + Sync>,
     pub token_cache: tokio::sync::RwLock<Option<CachedAccessToken>>,
 }
 
@@ -397,18 +397,14 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
     let health_service: Arc<dyn HealthServiceTrait + Send + Sync> =
         Arc::new(HealthService::new(health_dismissal_repository));
 
-    // Reconciliation service - only created when WF_STATEMENTS_DIR is configured
-    let reconciliation_service: Option<Arc<dyn ReconciliationServiceTrait + Send + Sync>> =
-        config.statements_dir.as_ref().map(|dir| {
-            tracing::info!("Reconciliation enabled, statements dir: {}", dir);
-            Arc::new(ReconciliationService::new(
-                activity_service.clone(),
-                import_run_repository.clone(),
-                settings_service.clone(),
-                domain_event_sink.clone(),
-                Some(dir.clone()),
-            )) as Arc<dyn ReconciliationServiceTrait + Send + Sync>
-        });
+    let reconciliation_service: Arc<dyn ReconciliationServiceTrait + Send + Sync> =
+        Arc::new(ReconciliationService::new(
+            activity_service.clone(),
+            import_run_repository.clone(),
+            settings_service.clone(),
+            domain_event_sink.clone(),
+            config.statements_dir.clone(),
+        ));
 
     let event_bus = EventBus::new(256);
     let device_sync_runtime = Arc::new(DeviceSyncRuntimeState::new());

@@ -99,15 +99,19 @@ async fn run_scheduled_sync(state: &Arc<AppState>) {
     run_reconciliation_scan(state).await;
 }
 
-/// Runs a reconciliation scan if the service is configured.
+/// Runs a reconciliation scan if configured (has statementsDir + mappings).
 async fn run_reconciliation_scan(state: &Arc<AppState>) {
-    let service = match state.reconciliation_service.as_deref() {
-        Some(s) => s,
-        None => return,
+    // Skip if not configured
+    let config = match state.reconciliation_service.get_config() {
+        Ok(c) => c,
+        Err(_) => return,
     };
+    if config.statements_dir.is_empty() || config.mappings.is_empty() {
+        return;
+    }
 
     info!("Running scheduled reconciliation scan...");
-    match service.scan_directory().await {
+    match state.reconciliation_service.scan_directory().await {
         Ok(result) => {
             info!(
                 "Reconciliation scan completed: {} files found, {} new, {} reconciliations",

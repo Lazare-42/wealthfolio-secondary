@@ -1,7 +1,13 @@
-import { useReconciliationPending, useReconciliationScan } from "@/hooks/use-reconciliation";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  useReconciliationPending,
+  useReconciliationScan,
+  useReconciliationConfig,
+} from "@/hooks/use-reconciliation";
 import type { MatchStatus, ReconciliationResult } from "@/lib/types";
 import { Badge, Button, Icons, Page, PageContent, PageHeader, Skeleton } from "@wealthfolio/ui";
-import { useNavigate } from "react-router-dom";
+import { ReconciliationSettingsSheet } from "./components/reconciliation-settings-sheet";
 
 const STATUS_COLORS: Record<MatchStatus, string> = {
   MATCHED: "bg-success/15 text-success",
@@ -48,6 +54,25 @@ function ReconciliationCard({ result }: { result: ReconciliationResult }) {
   );
 }
 
+function SetupEmptyState({ onConfigure }: { onConfigure: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20">
+      <div className="bg-muted mb-6 flex h-16 w-16 items-center justify-center rounded-full">
+        <Icons.Settings className="text-muted-foreground h-8 w-8" />
+      </div>
+      <h2 className="mb-2 text-lg font-semibold">Configure Reconciliation</h2>
+      <p className="text-muted-foreground mb-6 max-w-sm text-center text-sm">
+        Set up your statements directory and account mappings to start reconciling bank statements
+        against existing activities.
+      </p>
+      <Button onClick={onConfigure}>
+        <Icons.Settings className="mr-2 h-4 w-4" />
+        Configure Settings
+      </Button>
+    </div>
+  );
+}
+
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-20">
@@ -64,42 +89,32 @@ function EmptyState() {
 }
 
 export default function ReconciliationPage() {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { data: config } = useReconciliationConfig();
   const { data: pending, isLoading, error } = useReconciliationPending();
   const scanMutation = useReconciliationScan();
 
+  const isConfigured =
+    config && config.statementsDir && config.mappings && config.mappings.length > 0;
+
   const headerActions = (
     <div className="flex items-center gap-2">
-      <Button size="sm" onClick={() => scanMutation.mutate()} disabled={scanMutation.isPending}>
-        {scanMutation.isPending ? (
-          <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <Icons.Search className="mr-2 h-4 w-4" />
-        )}
-        Scan Statements
+      {isConfigured && (
+        <Button size="sm" onClick={() => scanMutation.mutate()} disabled={scanMutation.isPending}>
+          {scanMutation.isPending ? (
+            <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Icons.Search className="mr-2 h-4 w-4" />
+          )}
+          Scan Statements
+        </Button>
+      )}
+      <Button size="sm" variant="outline" onClick={() => setSettingsOpen(true)}>
+        <Icons.Settings className="mr-2 h-4 w-4" />
+        Settings
       </Button>
     </div>
   );
-
-  if (error) {
-    return (
-      <Page>
-        <PageHeader
-          heading="Reconciliation"
-          text="Match bank statements against existing activities"
-          actions={headerActions}
-        />
-        <PageContent className="pt-4">
-          <div className="flex min-h-[300px] flex-col items-center justify-center">
-            <div className="bg-destructive/10 mb-4 flex h-12 w-12 items-center justify-center rounded-full">
-              <Icons.AlertCircle className="text-destructive h-6 w-6" />
-            </div>
-            <h2 className="mb-1 text-base font-medium">Failed to load reconciliations</h2>
-            <p className="text-muted-foreground mb-4 text-sm">{error.message}</p>
-          </div>
-        </PageContent>
-      </Page>
-    );
-  }
 
   return (
     <Page>
@@ -116,22 +131,37 @@ export default function ReconciliationPage() {
             {scanMutation.data.reconciliations.length} reconciliations created.
           </div>
         )}
-        {isLoading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-16 rounded-lg" />
-            <Skeleton className="h-16 rounded-lg" />
-            <Skeleton className="h-16 rounded-lg" />
+        {error && (
+          <div className="flex min-h-[300px] flex-col items-center justify-center">
+            <div className="bg-destructive/10 mb-4 flex h-12 w-12 items-center justify-center rounded-full">
+              <Icons.AlertCircle className="text-destructive h-6 w-6" />
+            </div>
+            <h2 className="mb-1 text-base font-medium">Failed to load reconciliations</h2>
+            <p className="text-muted-foreground mb-4 text-sm">{error.message}</p>
           </div>
-        ) : pending && pending.length > 0 ? (
-          <div className="space-y-2">
-            {pending.map((result) => (
-              <ReconciliationCard key={result.importRun.id} result={result} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState />
+        )}
+        {!error && !isConfigured && <SetupEmptyState onConfigure={() => setSettingsOpen(true)} />}
+        {!error && isConfigured && (
+          <>
+            {isLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-16 rounded-lg" />
+                <Skeleton className="h-16 rounded-lg" />
+                <Skeleton className="h-16 rounded-lg" />
+              </div>
+            ) : pending && pending.length > 0 ? (
+              <div className="space-y-2">
+                {pending.map((result) => (
+                  <ReconciliationCard key={result.importRun.id} result={result} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState />
+            )}
+          </>
         )}
       </PageContent>
+      <ReconciliationSettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
     </Page>
   );
 }
