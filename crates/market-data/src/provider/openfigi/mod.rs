@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use log::debug;
+use log::{debug, warn};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -195,15 +195,10 @@ impl OpenFigiProvider {
     }
 }
 
-/// Validate an ISIN check digit using the Luhn algorithm.
-/// Returns true if the 12-character ISIN has a valid check digit.
-fn is_valid_isin(isin: &str) -> bool {
-    if isin.len() != 12 || !isin.chars().all(|c| c.is_ascii_alphanumeric()) {
-        return false;
-    }
-    // Convert each character to digits: A=10, B=11, ..., Z=35, 0-9 unchanged
+/// Convert ISIN characters to a digit vector for Luhn computation.
+fn isin_to_digits(s: &str) -> Vec<u8> {
     let mut digits = Vec::with_capacity(16);
-    for c in isin.chars() {
+    for c in s.chars() {
         if c.is_ascii_digit() {
             digits.push(c as u8 - b'0');
         } else {
@@ -212,7 +207,11 @@ fn is_valid_isin(isin: &str) -> bool {
             digits.push(val % 10);
         }
     }
-    // Luhn checksum
+    digits
+}
+
+/// Compute the Luhn checksum of a digit sequence.
+fn luhn_sum(digits: &[u8]) -> u32 {
     let mut sum = 0u32;
     for (i, &d) in digits.iter().rev().enumerate() {
         let mut n = d as u32;
@@ -224,7 +223,29 @@ fn is_valid_isin(isin: &str) -> bool {
         }
         sum += n;
     }
-    sum % 10 == 0
+    sum
+}
+
+/// Validate an ISIN check digit using the Luhn algorithm.
+fn is_valid_isin(isin: &str) -> bool {
+    if isin.len() != 12 || !isin.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return false;
+    }
+    luhn_sum(&isin_to_digits(isin)) % 10 == 0
+}
+
+/// Compute the correct check digit for an 11-character ISIN base and return the full 12-char ISIN.
+fn correct_isin_check_digit(isin: &str) -> Option<String> {
+    if isin.len() != 12 || !isin.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return None;
+    }
+    let base = &isin[..11];
+    // Append '0' as placeholder check digit, compute Luhn, derive correct digit
+    let mut digits = isin_to_digits(base);
+    digits.push(0);
+    let sum = luhn_sum(&digits);
+    let check = ((10 - (sum % 10)) % 10) as u8;
+    Some(format!("{}{}", base, check))
 }
 
 #[async_trait]
@@ -292,27 +313,42 @@ impl MarketDataProvider for OpenFigiProvider {
         let looks_like_isin = query.len() == 12 && query.chars().all(|c| c.is_alphanumeric());
 
         if looks_like_isin {
-            if !is_valid_isin(query) {
+            let (isin, was_corrected) = if is_valid_isin(query) {
+                (query.to_string(), false)
+            } else if let Some(corrected) = correct_isin_check_digit(query) {
+                warn!(
+                    "OpenFIGI: ISIN '{}' has invalid check digit, corrected to '{}'",
+                    query, corrected
+                );
+                (corrected, true)
+            } else {
                 return Err(MarketDataError::SymbolNotFound(format!(
-                    "ISIN '{}' has an invalid check digit (likely OCR error)",
+                    "ISIN '{}' has an invalid format",
                     query
                 )));
-            }
-            let figi = self.map_isin(query).await?;
+            };
+            let figi = self.map_isin(&isin).await?;
             if let Some(ticker) = &figi.ticker {
                 let yahoo_ticker = Self::to_yahoo_ticker(ticker, figi.exch_code.as_deref());
+                let name = figi.name.as_deref().unwrap_or(&yahoo_ticker);
+                let display_name = if was_corrected {
+                    format!("{} (ISIN corrected: {} → {})", name, query, isin)
+                } else {
+                    name.to_string()
+                };
+                let score = if was_corrected { 0.8 } else { 1.0 };
                 return Ok(vec![SearchResult::new(
                     &yahoo_ticker,
-                    figi.name.as_deref().unwrap_or(&yahoo_ticker),
+                    &display_name,
                     figi.exch_code.as_deref().unwrap_or(""),
                     figi.security_type.as_deref().unwrap_or("EQUITY"),
                 )
-                .with_score(1.0)
+                .with_score(score)
                 .with_data_source(PROVIDER_ID)]);
             }
             Err(MarketDataError::SymbolNotFound(format!(
                 "No ticker found for ISIN: {}",
-                query
+                isin
             )))
         } else {
             let results = self.search_securities(query).await?;
@@ -421,5 +457,21 @@ mod tests {
         assert!(!is_valid_isin("SHORT"));
         assert!(!is_valid_isin("TOOLONGSTRING1"));
         assert!(!is_valid_isin("LU02270640!3"));
+    }
+
+    #[test]
+    fn test_correct_check_digit() {
+        // Bad check digit → corrected
+        assert_eq!(
+            correct_isin_check_digit("LU0856906451"),
+            Some("LU0856906457".to_string())
+        );
+        // Already valid → same ISIN back
+        assert_eq!(
+            correct_isin_check_digit("LU0056508442"),
+            Some("LU0056508442".to_string())
+        );
+        // Invalid format → None
+        assert_eq!(correct_isin_check_digit("SHORT"), None);
     }
 }
