@@ -44,28 +44,35 @@ pub struct RawPdfTransaction {
 }
 
 /// Shared instruction text for both text and vision parsing paths.
-const PARSE_INSTRUCTIONS: &str = r#"You are a financial document parser. Extract ALL transactions from this bank/broker statement.
+/// Also used by `apps/server/src/pdf_import.rs` vision message builder.
+pub const PARSE_INSTRUCTIONS: &str = r#"You are a financial document parser. Extract ALL financial line items from this bank or broker document.
 
-Return ONLY a JSON array of transaction objects. No markdown, no explanation, no code blocks.
+The document may be:
+- A transaction history / account statement ("relevé de compte") → extract each transaction
+- A holdings snapshot / statement of assets ("état des biens", "relevé de portefeuille") → extract each position as a BUY with the statement date, the position's quantity, unit price, and total value as amount
 
-Each transaction object must have these fields:
-- "date": ISO date string "YYYY-MM-DD"
-- "symbol": ticker symbol if applicable (e.g., "AAPL", "MSFT"), or null for cash transactions
+Return ONLY a JSON array. No markdown, no explanation, no code blocks, no ```json wrapper.
+
+Each object must have these fields:
+- "date": ISO date "YYYY-MM-DD". Must be a valid calendar date. If unsure of exact day, use the 1st of the month.
+- "symbol": the security identifier exactly as it appears in the document. Use ISIN (e.g. "FR0000120628", "US0378331005") if present, otherwise use the ticker (e.g. "AAPL"). Set to null for pure cash transactions (deposits, withdrawals, fees, interest with no security).
 - "activityType": one of "BUY", "SELL", "DIVIDEND", "INTEREST", "DEPOSIT", "WITHDRAWAL", "TRANSFER_IN", "TRANSFER_OUT", "FEE", "TAX"
-- "quantity": number of shares/units, or null
-- "unitPrice": price per share/unit, or null
-- "currency": 3-letter ISO currency code (e.g., "USD", "EUR", "GBP")
-- "fee": transaction fee/commission, or null
-- "amount": total transaction amount, or null
-- "comment": brief description from the statement, or null
-- "accountName": account name/number if mentioned in the document, or null
+- "quantity": number of shares/units as a number, or null for cash-only transactions
+- "unitPrice": price per share/unit as a number, or null
+- "currency": 3-letter ISO currency code (e.g. "USD", "EUR", "GBP"). This is the transaction currency, NOT a symbol.
+- "fee": transaction fee/commission as a number, or null
+- "amount": total transaction value as a number, or null
+- "comment": brief description from the document (e.g. fund name, transaction label), or null
+- "accountName": account name or number if mentioned, or null
 
-Important:
-- Include ALL transactions, not just trades
-- For deposits/withdrawals, set amount but leave symbol/quantity/unitPrice as null
-- Dates must be valid ISO format
-- Use positive numbers for quantities and prices
-- For sells, quantity should still be positive"#;
+Critical rules:
+- NEVER use a currency code (EUR, USD, GBP, CHF, etc.) as the "symbol" field. Currency codes go in "currency" only.
+- For holdings snapshots: each line item is a BUY with the statement date, the held quantity, unit price, and total market value as amount.
+- For dividends/interest on a specific security, include the security's symbol.
+- Dates must be valid (e.g. month 1-12, day 1-28/29/30/31). Do NOT invent dates.
+- Use positive numbers for quantities, prices, and amounts.
+- European number formats: treat comma as decimal separator (e.g. "1.234,56" = 1234.56, "45,63" = 45.63).
+- Include ALL line items from the document, not just trades."#;
 
 /// Trait for PDF transaction parsing.
 #[async_trait]

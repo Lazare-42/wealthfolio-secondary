@@ -10,7 +10,7 @@ use tracing::{debug, info, warn};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use wealthfolio_ai::{
     DocumentMediaType, ImageMediaType, OneOrMany, PdfTransactionParserTrait, RigDocument,
-    RigDocumentSourceKind, RigMessage, RigUserContent,
+    RigDocumentSourceKind, RigMessage, RigUserContent, PARSE_INSTRUCTIONS,
 };
 use wealthfolio_core::activities::ActivityImport;
 
@@ -272,28 +272,7 @@ fn build_vision_message(
     page_images: Option<Vec<Vec<u8>>>,
     provider_id: &str,
 ) -> anyhow::Result<RigMessage> {
-    let instructions =
-        "Extract ALL transactions from this bank/broker statement PDF.\n\n\
-         Return ONLY a JSON array of transaction objects. No markdown, no explanation, no code blocks.\n\n\
-         Each transaction object must have these fields:\n\
-         - \"date\": ISO date string \"YYYY-MM-DD\"\n\
-         - \"symbol\": ticker symbol if applicable (e.g., \"AAPL\", \"MSFT\"), or null for cash transactions\n\
-         - \"activityType\": one of \"BUY\", \"SELL\", \"DIVIDEND\", \"INTEREST\", \"DEPOSIT\", \"WITHDRAWAL\", \"TRANSFER_IN\", \"TRANSFER_OUT\", \"FEE\", \"TAX\"\n\
-         - \"quantity\": number of shares/units, or null\n\
-         - \"unitPrice\": price per share/unit, or null\n\
-         - \"currency\": 3-letter ISO currency code (e.g., \"USD\", \"EUR\", \"GBP\")\n\
-         - \"fee\": transaction fee/commission, or null\n\
-         - \"amount\": total transaction amount, or null\n\
-         - \"comment\": brief description from the statement, or null\n\
-         - \"accountName\": account name/number if mentioned in the document, or null\n\n\
-         Important:\n\
-         - Include ALL transactions, not just trades\n\
-         - For deposits/withdrawals, set amount but leave symbol/quantity/unitPrice as null\n\
-         - Dates must be valid ISO format\n\
-         - Use positive numbers for quantities and prices\n\
-         - For sells, quantity should still be positive";
-
-    let mut parts = OneOrMany::one(RigUserContent::text(instructions));
+    let mut parts = OneOrMany::one(RigUserContent::text(PARSE_INSTRUCTIONS));
 
     if supports_native_pdf(provider_id) {
         // Anthropic/Gemini: send base64-encoded PDF as document

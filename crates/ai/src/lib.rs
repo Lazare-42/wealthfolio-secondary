@@ -67,7 +67,7 @@ pub use chat::{ChatConfig, ChatService};
 pub use env::AiEnvironment;
 pub use error::AiError;
 pub use providers::ProviderService;
-pub use pdf_parser::{PdfTransactionParser, PdfTransactionParserTrait, RawPdfTransaction};
+pub use pdf_parser::{PdfTransactionParser, PdfTransactionParserTrait, RawPdfTransaction, PARSE_INSTRUCTIONS};
 
 // Re-export rig types needed for constructing multimodal messages
 pub use rig::completion::message::{
