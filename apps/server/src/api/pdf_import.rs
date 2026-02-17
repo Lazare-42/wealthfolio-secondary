@@ -5,6 +5,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use tracing::info;
 use wealthfolio_core::activities::{ActivityImport, ImportActivitiesResult};
 
 use crate::error::{ApiError, ApiResult};
@@ -102,6 +103,12 @@ async fn upload_pdf(
     let content = file_content
         .ok_or_else(|| ApiError::BadRequest("Missing file in multipart request".to_string()))?;
 
+    info!(
+        "PDF upload: {} ({} bytes)",
+        filename,
+        content.len()
+    );
+
     // Get AI provider config
     let (provider_id, model_id) = crate::pdf_import::get_default_ai_config_from_state(&state)
         .ok_or_else(|| {
@@ -110,10 +117,14 @@ async fn upload_pdf(
             )
         })?;
 
+    info!("PDF upload: parsing with provider={} model={}", provider_id, model_id);
+
     // Parse PDF (text extraction with vision fallback)
     let activities = crate::pdf_import::process_pdf_bytes(&content, &provider_id, &model_id, &state)
         .await
         .map_err(|e| ApiError::Internal(format!("PDF parsing failed: {}", e)))?;
+
+    info!("PDF upload: parsed {} activities from {}", activities.len(), filename);
 
     let import = StagedImport {
         id: uuid::Uuid::new_v4().to_string(),
@@ -159,5 +170,11 @@ pub fn router() -> Router<Arc<AppState>> {
         )
         .route("/pdf-imports/staged/{id}/confirm", post(confirm_staged))
         .route("/pdf-imports/staged/{id}/check", post(check_staged))
+}
+
+/// Upload route separated so api.rs can apply a longer timeout (5 min)
+/// without the global 30s timeout killing vision PDF parsing requests.
+pub fn upload_router() -> Router<Arc<AppState>> {
+    Router::new()
         .route("/pdf-imports/upload", post(upload_pdf))
 }

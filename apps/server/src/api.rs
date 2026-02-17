@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::{
     auth,
@@ -127,6 +128,19 @@ pub fn app_router(state: Arc<AppState>, config: &Config) -> Router {
         protected_api
     };
 
+    // Upload route with separate timeout (also protected if auth required)
+    let upload_api = {
+        let r = pdf_import::upload_router();
+        if requires_auth {
+            r.layer(middleware::from_fn_with_state(
+                state.clone(),
+                auth::require_jwt,
+            ))
+        } else {
+            r
+        }
+    };
+
     let api = Router::new()
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))
@@ -135,13 +149,21 @@ pub fn app_router(state: Arc<AppState>, config: &Config) -> Router {
         .merge(protected_api)
         .with_state(state.clone());
 
-    Router::new()
+    // Standard API with default timeout
+    let main = Router::new()
         .nest("/api/v1", api)
         .route("/openapi.json", get(|| async { Json(openapi) }))
-        .with_state(state)
+        .with_state(state.clone())
+        .layer(TimeoutLayer::new(config.request_timeout));
+
+    // Upload route with extended timeout (5 min for vision PDF parsing)
+    let upload = Router::new()
+        .nest("/api/v1", upload_api.with_state(state.clone()))
+        .layer(TimeoutLayer::new(Duration::from_secs(300)));
+
+    main.merge(upload)
         .layer(cors)
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
         .layer(PropagateRequestIdLayer::x_request_id())
-        .layer(TimeoutLayer::new(config.request_timeout))
         .layer(TraceLayer::new_for_http())
 }
