@@ -71,8 +71,8 @@ pub use pdf_parser::{PdfTransactionParser, PdfTransactionParserTrait, RawPdfTran
 
 // Re-export rig types needed for constructing multimodal messages
 pub use rig::completion::message::{
-    DocumentMediaType, ImageDetail, ImageMediaType,
-    Message as RigMessage, UserContent as RigUserContent,
+    Document as RigDocument, DocumentMediaType, DocumentSourceKind as RigDocumentSourceKind,
+    ImageDetail, ImageMediaType, Message as RigMessage, UserContent as RigUserContent,
 };
 pub use rig::OneOrMany;
 pub use title_generator::{

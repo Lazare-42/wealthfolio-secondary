@@ -9,8 +9,8 @@ use tracing::{debug, info, warn};
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use wealthfolio_ai::{
-    DocumentMediaType, ImageMediaType, OneOrMany, PdfTransactionParserTrait, RigMessage,
-    RigUserContent,
+    DocumentMediaType, ImageMediaType, OneOrMany, PdfTransactionParserTrait, RigDocument,
+    RigDocumentSourceKind, RigMessage, RigUserContent,
 };
 use wealthfolio_core::activities::ActivityImport;
 
@@ -296,11 +296,13 @@ fn build_vision_message(
     let mut parts = OneOrMany::one(RigUserContent::text(instructions));
 
     if supports_native_pdf(provider_id) {
-        // Anthropic/Gemini: send raw PDF bytes as document
-        parts.push(RigUserContent::document_raw(
-            pdf_bytes.to_vec(),
-            Some(DocumentMediaType::PDF),
-        ));
+        // Anthropic/Gemini: send base64-encoded PDF as document
+        let b64_pdf = BASE64.encode(pdf_bytes);
+        parts.push(RigUserContent::Document(RigDocument {
+            data: RigDocumentSourceKind::Base64(b64_pdf),
+            media_type: Some(DocumentMediaType::PDF),
+            additional_params: None,
+        }));
     } else {
         // OpenAI/OpenRouter/others: send rendered page images
         let images = page_images
