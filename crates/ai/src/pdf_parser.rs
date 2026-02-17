@@ -55,7 +55,7 @@ Return ONLY a JSON array. No markdown, no explanation, no code blocks, no ```jso
 
 Each object must have these fields:
 - "date": ISO date "YYYY-MM-DD". Must be a valid calendar date (month 1-12, day valid for that month). If unsure of exact day, use the 1st of the month.
-- "symbol": the security identifier. Use ISIN when present (e.g. "FR0000120628", "IE00B4L5Y983", "LU0908500753"). Otherwise use ticker with exchange suffix if known (e.g. "SHOP.TO", "VOD.L", "BAS.DE") or bare ticker (e.g. "AAPL"). For crypto use "BTC-USD" pair format. Set to null ONLY for pure cash activities (DEPOSIT, WITHDRAWAL, FEE, TAX, CREDIT).
+- "symbol": the security identifier. Use ISIN when present (e.g. "FR0000120628", "IE00B4L5Y983", "LU0908500753"). ISINs are exactly 12 characters: 2-letter country code + 9 alphanumeric chars + 1 check digit. Double-check each digit carefully against the source document — OCR errors in a single digit will make the ISIN invalid. Otherwise use ticker with exchange suffix if known (e.g. "SHOP.TO", "VOD.L", "BAS.DE") or bare ticker (e.g. "AAPL"). For crypto use "BTC-USD" pair format. Set to null ONLY for pure cash activities (DEPOSIT, WITHDRAWAL, FEE, TAX, CREDIT).
 - "activityType": one of "BUY", "SELL", "DIVIDEND", "INTEREST", "DEPOSIT", "WITHDRAWAL", "TRANSFER_IN", "TRANSFER_OUT", "FEE", "TAX", "SPLIT", "CREDIT", "ADJUSTMENT"
 - "quantity": number of shares/units. REQUIRED for BUY and SELL. Optional for others. Always a positive number.
 - "unitPrice": price per share/unit. REQUIRED for BUY and SELL (the system computes cost from qty × price, NOT from amount). Optional for others. Always positive.
