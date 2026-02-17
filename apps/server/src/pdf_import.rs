@@ -382,16 +382,21 @@ pub fn get_default_ai_config_from_state(state: &Arc<crate::main_lib::AppState>) 
 }
 
 /// Get the default AI provider ID and model ID from settings.
+/// Falls back to the first enabled provider if no explicit default is set.
 fn get_default_ai_config(state: &Arc<crate::main_lib::AppState>) -> Option<(String, String)> {
     let response = state.ai_provider_service.get_ai_providers().ok()?;
-    let provider_id = response.default_provider?;
-    let provider = response
-        .providers
-        .iter()
-        .find(|p| p.id == provider_id && p.enabled)?;
+
+    // Try explicit default first, then fall back to first enabled provider
+    let provider = if let Some(ref default_id) = response.default_provider {
+        response.providers.iter().find(|p| p.id == *default_id && p.enabled)
+    } else {
+        None
+    }
+    .or_else(|| response.providers.iter().find(|p| p.enabled))?;
+
     let model_id = provider
         .selected_model
         .clone()
         .unwrap_or_else(|| provider.default_model.clone());
-    Some((provider_id, model_id))
+    Some((provider.id.clone(), model_id))
 }
