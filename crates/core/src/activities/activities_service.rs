@@ -295,16 +295,23 @@ impl ActivityService {
             }
         }
 
-        // 3. Resolve missing symbols via quote service using the activity currency
-        for (symbol, currency) in missing {
-            let results = self
-                .quote_service
-                .search_symbol_with_currency(&symbol, Some(&currency))
-                .await
-                .unwrap_or_default();
-
-            let exchange_mic = results.first().and_then(|r| r.exchange_mic.clone());
-            cache.insert((symbol, currency), exchange_mic);
+        // 3. Resolve missing symbols via quote service in parallel
+        let futures: Vec<_> = missing
+            .into_iter()
+            .map(|(symbol, currency)| {
+                let qs = &self.quote_service;
+                async move {
+                    let results = qs
+                        .search_symbol_with_currency(&symbol, Some(&currency))
+                        .await
+                        .unwrap_or_default();
+                    let exchange_mic = results.first().and_then(|r| r.exchange_mic.clone());
+                    ((symbol, currency), exchange_mic)
+                }
+            })
+            .collect();
+        for (key, mic) in futures::future::join_all(futures).await {
+            cache.insert(key, mic);
         }
 
         cache
