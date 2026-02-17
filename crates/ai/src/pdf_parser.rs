@@ -143,7 +143,7 @@ impl<E: AiEnvironment> PdfTransactionParser<E> {
                     .map_err(|e| AiError::Provider(e.to_string()))?;
                 client
                     .agent(model_id)
-                    .max_tokens(16384)
+                    .max_tokens(32768)
                     .build()
                     .prompt(prompt)
                     .await
@@ -266,7 +266,7 @@ impl<E: AiEnvironment> PdfTransactionParser<E> {
                     .map_err(|e| AiError::Provider(e.to_string()))?;
                 client
                     .agent(model_id)
-                    .max_tokens(16384)
+                    .max_tokens(32768)
                     .build()
                     .prompt(message)
                     .await
