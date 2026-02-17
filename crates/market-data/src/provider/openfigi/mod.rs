@@ -195,6 +195,38 @@ impl OpenFigiProvider {
     }
 }
 
+/// Validate an ISIN check digit using the Luhn algorithm.
+/// Returns true if the 12-character ISIN has a valid check digit.
+fn is_valid_isin(isin: &str) -> bool {
+    if isin.len() != 12 || !isin.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return false;
+    }
+    // Convert each character to digits: A=10, B=11, ..., Z=35, 0-9 unchanged
+    let mut digits = Vec::with_capacity(16);
+    for c in isin.chars() {
+        if c.is_ascii_digit() {
+            digits.push(c as u8 - b'0');
+        } else {
+            let val = c.to_ascii_uppercase() as u8 - b'A' + 10;
+            digits.push(val / 10);
+            digits.push(val % 10);
+        }
+    }
+    // Luhn checksum
+    let mut sum = 0u32;
+    for (i, &d) in digits.iter().rev().enumerate() {
+        let mut n = d as u32;
+        if i % 2 == 1 {
+            n *= 2;
+            if n > 9 {
+                n -= 9;
+            }
+        }
+        sum += n;
+    }
+    sum % 10 == 0
+}
+
 #[async_trait]
 impl MarketDataProvider for OpenFigiProvider {
     fn id(&self) -> &'static str {
@@ -257,9 +289,15 @@ impl MarketDataProvider for OpenFigiProvider {
     }
 
     async fn search(&self, query: &str) -> Result<Vec<SearchResult>, MarketDataError> {
-        let is_isin = query.len() == 12 && query.chars().all(|c| c.is_alphanumeric());
+        let looks_like_isin = query.len() == 12 && query.chars().all(|c| c.is_alphanumeric());
 
-        if is_isin {
+        if looks_like_isin {
+            if !is_valid_isin(query) {
+                return Err(MarketDataError::SymbolNotFound(format!(
+                    "ISIN '{}' has an invalid check digit (likely OCR error)",
+                    query
+                )));
+            }
             let figi = self.map_isin(query).await?;
             if let Some(ticker) = &figi.ticker {
                 let yahoo_ticker = Self::to_yahoo_ticker(ticker, figi.exch_code.as_deref());
@@ -352,4 +390,36 @@ struct SearchResponse {
     data: Option<Vec<FigiResult>>,
     #[serde(default)]
     error: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_isins() {
+        assert!(is_valid_isin("LU0056508442"));
+        assert!(is_valid_isin("LU0908500753"));
+        assert!(is_valid_isin("IE00B3RBWM25"));
+        assert!(is_valid_isin("US0378331005")); // AAPL
+        assert!(is_valid_isin("FR0000120628")); // Sanofi
+    }
+
+    #[test]
+    fn test_invalid_isins_bad_check_digit() {
+        assert!(!is_valid_isin("LU0227064083"));
+        assert!(!is_valid_isin("IE00BZV7JH90"));
+        assert!(!is_valid_isin("IE00B3FX4G56"));
+        assert!(!is_valid_isin("LU0856906451"));
+        assert!(!is_valid_isin("LU1078790904"));
+        assert!(!is_valid_isin("LU1002230284"));
+    }
+
+    #[test]
+    fn test_invalid_isin_format() {
+        assert!(!is_valid_isin(""));
+        assert!(!is_valid_isin("SHORT"));
+        assert!(!is_valid_isin("TOOLONGSTRING1"));
+        assert!(!is_valid_isin("LU02270640!3"));
+    }
 }
