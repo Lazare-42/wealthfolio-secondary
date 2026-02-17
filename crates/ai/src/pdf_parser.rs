@@ -49,30 +49,32 @@ pub const PARSE_INSTRUCTIONS: &str = r#"You are a financial document parser. Ext
 
 The document may be:
 - A transaction history / account statement ("relevé de compte") → extract each transaction
-- A holdings snapshot / statement of assets ("état des biens", "relevé de portefeuille") → extract each position as a BUY with the statement date, the position's quantity, unit price, and total value as amount
+- A holdings snapshot / statement of assets ("état des biens", "relevé de portefeuille") → extract each position as a BUY with the statement date
 
 Return ONLY a JSON array. No markdown, no explanation, no code blocks, no ```json wrapper.
 
 Each object must have these fields:
-- "date": ISO date "YYYY-MM-DD". Must be a valid calendar date. If unsure of exact day, use the 1st of the month.
-- "symbol": the security identifier exactly as it appears in the document. Use ISIN (e.g. "FR0000120628", "US0378331005") if present, otherwise use the ticker (e.g. "AAPL"). Set to null for pure cash transactions (deposits, withdrawals, fees, interest with no security).
-- "activityType": one of "BUY", "SELL", "DIVIDEND", "INTEREST", "DEPOSIT", "WITHDRAWAL", "TRANSFER_IN", "TRANSFER_OUT", "FEE", "TAX"
-- "quantity": number of shares/units as a number, or null for cash-only transactions
-- "unitPrice": price per share/unit as a number, or null
-- "currency": 3-letter ISO currency code (e.g. "USD", "EUR", "GBP"). This is the transaction currency, NOT a symbol.
-- "fee": transaction fee/commission as a number, or null
-- "amount": total transaction value as a number, or null
-- "comment": brief description from the document (e.g. fund name, transaction label), or null
-- "accountName": account name or number if mentioned, or null
+- "date": ISO date "YYYY-MM-DD". Must be a valid calendar date (month 1-12, day valid for that month). If unsure of exact day, use the 1st of the month.
+- "symbol": the security identifier. Use ISIN when present (e.g. "FR0000120628", "IE00B4L5Y983", "LU0908500753"). Otherwise use ticker with exchange suffix if known (e.g. "SHOP.TO", "VOD.L", "BAS.DE") or bare ticker (e.g. "AAPL"). For crypto use "BTC-USD" pair format. Set to null ONLY for pure cash activities (DEPOSIT, WITHDRAWAL, FEE, TAX, CREDIT).
+- "activityType": one of "BUY", "SELL", "DIVIDEND", "INTEREST", "DEPOSIT", "WITHDRAWAL", "TRANSFER_IN", "TRANSFER_OUT", "FEE", "TAX", "SPLIT", "CREDIT", "ADJUSTMENT"
+- "quantity": number of shares/units. REQUIRED for BUY and SELL. Optional for others. Always a positive number.
+- "unitPrice": price per share/unit. REQUIRED for BUY and SELL (the system computes cost from qty × price, NOT from amount). Optional for others. Always positive.
+- "currency": 3-letter ISO currency code (e.g. "USD", "EUR", "GBP", "CHF"). Always required.
+- "fee": transaction fee/commission as a number, or 0, or null.
+- "amount": total transaction value. REQUIRED for DEPOSIT, WITHDRAWAL, FEE, TAX, CREDIT, DIVIDEND, INTEREST. For BUY/SELL this field is ignored (system uses qty × price). Always positive.
+- "comment": the fund/security name or transaction label from the document, or null. This helps identify the security.
+- "accountName": account name or number if mentioned, or null.
+- "instrumentType": hint for the security type. Use "EQUITY" for stocks/ETFs/funds, "CRYPTO" for cryptocurrencies, "MUTUALFUND" for mutual funds/UCITS/OPCVM, or null if unknown.
 
-Critical rules:
-- NEVER use a currency code (EUR, USD, GBP, CHF, etc.) as the "symbol" field. Currency codes go in "currency" only.
-- For holdings snapshots: each line item is a BUY with the statement date, the held quantity, unit price, and total market value as amount.
-- For dividends/interest on a specific security, include the security's symbol.
-- Dates must be valid (e.g. month 1-12, day 1-28/29/30/31). Do NOT invent dates.
-- Use positive numbers for quantities, prices, and amounts.
-- European number formats: treat comma as decimal separator (e.g. "1.234,56" = 1234.56, "45,63" = 45.63).
-- Include ALL line items from the document, not just trades."#;
+Rules:
+- NEVER use a currency code (EUR, USD, GBP, CHF, etc.) as "symbol". Currency codes go ONLY in "currency".
+- For DEPOSIT, WITHDRAWAL, FEE, TAX, CREDIT: symbol MUST be null. These are always cash-only.
+- For BUY, SELL, DIVIDEND, SPLIT: symbol is REQUIRED. Always provide the ISIN or ticker.
+- For DIVIDEND/INTEREST on a specific security: include that security's symbol/ISIN.
+- For holdings snapshots ("état des biens"): each held position becomes a BUY with the statement date, the security's ISIN/ticker as symbol, held quantity, unit price (valuation price), and total market value as amount. Put the fund/security name in "comment".
+- European number formats: comma is decimal separator, period is thousands separator (e.g. "1.234,56" = 1234.56, "45,63" = 45.63).
+- All numbers (quantity, unitPrice, amount, fee) must be positive.
+- Include ALL line items from the document."#;
 
 /// Trait for PDF transaction parsing.
 #[async_trait]
