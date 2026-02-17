@@ -5,7 +5,6 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use wealthfolio_ai::PdfTransactionParserTrait;
 use wealthfolio_core::activities::{ActivityImport, ImportActivitiesResult};
 
 use crate::error::{ApiError, ApiResult};
@@ -111,22 +110,10 @@ async fn upload_pdf(
             )
         })?;
 
-    // Extract text from PDF bytes
-    let text = pdf_extract::extract_text_from_mem(&content)
-        .map_err(|e| ApiError::Internal(format!("PDF text extraction failed: {}", e)))?;
-
-    if text.trim().is_empty() {
-        return Err(ApiError::BadRequest(
-            "PDF contains no extractable text".to_string(),
-        ));
-    }
-
-    // Parse via LLM
-    let parser = wealthfolio_ai::PdfTransactionParser::new(state.ai_environment.clone());
-    let activities = parser
-        .parse_transactions(&text, &provider_id, &model_id)
+    // Parse PDF (text extraction with vision fallback)
+    let activities = crate::pdf_import::process_pdf_bytes(&content, &provider_id, &model_id, &state)
         .await
-        .map_err(|e| ApiError::Internal(format!("LLM parsing failed: {}", e)))?;
+        .map_err(|e| ApiError::Internal(format!("PDF parsing failed: {}", e)))?;
 
     let import = StagedImport {
         id: uuid::Uuid::new_v4().to_string(),

@@ -7,7 +7,11 @@ use tokio::sync::RwLock;
 use tokio::time::{interval, Duration};
 use tracing::{debug, info, warn};
 
-use wealthfolio_ai::PdfTransactionParserTrait;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use wealthfolio_ai::{
+    DocumentMediaType, ImageMediaType, OneOrMany, PdfTransactionParserTrait, RigMessage,
+    RigUserContent,
+};
 use wealthfolio_core::activities::ActivityImport;
 
 /// How long staged imports remain before expiry.
@@ -15,6 +19,15 @@ const STAGING_EXPIRY_SECS: u64 = 3600; // 1 hour
 
 /// Watcher poll interval.
 const POLL_INTERVAL_SECS: u64 = 30;
+
+/// Minimum extracted text length to use the text path; below this, use vision.
+const MIN_TEXT_LENGTH: usize = 50;
+
+/// Maximum pages to render for vision fallback.
+const MAX_VISION_PAGES: u32 = 20;
+
+/// DPI for rendering PDF pages to images.
+const VISION_DPI: u32 = 150;
 
 /// A staged PDF import awaiting user review.
 #[derive(Debug, Clone, serde::Serialize)]
@@ -197,7 +210,162 @@ async fn scan_inbox(
     Ok(())
 }
 
-/// Extract text from PDF and parse via LLM.
+/// Whether the provider supports native PDF document input (no rendering needed).
+fn supports_native_pdf(provider_id: &str) -> bool {
+    matches!(provider_id, "anthropic" | "gemini" | "google")
+}
+
+/// Render PDF pages to PNG images via `pdftoppm`.
+/// Returns `None` if `pdftoppm` is not found, `Some(Vec<PNG bytes>)` on success.
+fn render_pdf_to_images(pdf_bytes: &[u8]) -> anyhow::Result<Option<Vec<Vec<u8>>>> {
+    // Check if pdftoppm is available
+    if std::process::Command::new("pdftoppm")
+        .arg("--help")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_err()
+    {
+        return Ok(None);
+    }
+
+    let tmp_dir = tempfile::tempdir()?;
+    let input_path = tmp_dir.path().join("input.pdf");
+    std::fs::write(&input_path, pdf_bytes)?;
+
+    let output_prefix = tmp_dir.path().join("page");
+    let status = std::process::Command::new("pdftoppm")
+        .args([
+            "-png",
+            "-r",
+            &VISION_DPI.to_string(),
+            "-l",
+            &MAX_VISION_PAGES.to_string(),
+        ])
+        .arg(&input_path)
+        .arg(&output_prefix)
+        .status()?;
+
+    if !status.success() {
+        anyhow::bail!("pdftoppm exited with status {}", status);
+    }
+
+    // Read output PNGs (sorted by name for page order)
+    let mut png_paths: Vec<PathBuf> = std::fs::read_dir(tmp_dir.path())?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| p.extension().map(|e| e == "png").unwrap_or(false))
+        .collect();
+    png_paths.sort();
+
+    let images: Vec<Vec<u8>> = png_paths
+        .iter()
+        .map(std::fs::read)
+        .collect::<Result<_, _>>()?;
+
+    Ok(Some(images))
+}
+
+/// Build a multipart rig Message for vision-based PDF parsing.
+fn build_vision_message(
+    pdf_bytes: &[u8],
+    page_images: Option<Vec<Vec<u8>>>,
+    provider_id: &str,
+) -> anyhow::Result<RigMessage> {
+    let instructions =
+        "Extract ALL transactions from this bank/broker statement PDF.\n\n\
+         Return ONLY a JSON array of transaction objects. No markdown, no explanation, no code blocks.\n\n\
+         Each transaction object must have these fields:\n\
+         - \"date\": ISO date string \"YYYY-MM-DD\"\n\
+         - \"symbol\": ticker symbol if applicable (e.g., \"AAPL\", \"MSFT\"), or null for cash transactions\n\
+         - \"activityType\": one of \"BUY\", \"SELL\", \"DIVIDEND\", \"INTEREST\", \"DEPOSIT\", \"WITHDRAWAL\", \"TRANSFER_IN\", \"TRANSFER_OUT\", \"FEE\", \"TAX\"\n\
+         - \"quantity\": number of shares/units, or null\n\
+         - \"unitPrice\": price per share/unit, or null\n\
+         - \"currency\": 3-letter ISO currency code (e.g., \"USD\", \"EUR\", \"GBP\")\n\
+         - \"fee\": transaction fee/commission, or null\n\
+         - \"amount\": total transaction amount, or null\n\
+         - \"comment\": brief description from the statement, or null\n\
+         - \"accountName\": account name/number if mentioned in the document, or null\n\n\
+         Important:\n\
+         - Include ALL transactions, not just trades\n\
+         - For deposits/withdrawals, set amount but leave symbol/quantity/unitPrice as null\n\
+         - Dates must be valid ISO format\n\
+         - Use positive numbers for quantities and prices\n\
+         - For sells, quantity should still be positive";
+
+    let mut parts = OneOrMany::one(RigUserContent::text(instructions));
+
+    if supports_native_pdf(provider_id) {
+        // Anthropic/Gemini: send raw PDF bytes as document
+        parts.push(RigUserContent::document_raw(
+            pdf_bytes.to_vec(),
+            Some(DocumentMediaType::PDF),
+        ));
+    } else {
+        // OpenAI/OpenRouter/others: send rendered page images
+        let images = page_images
+            .ok_or_else(|| anyhow::anyhow!(
+                "pdftoppm is required for vision-based PDF parsing with this provider. \
+                 Install poppler-utils (e.g., `apt install poppler-utils` or `brew install poppler`)."
+            ))?;
+
+        for img_bytes in &images {
+            let b64 = BASE64.encode(img_bytes);
+            parts.push(RigUserContent::image_base64(
+                b64,
+                Some(ImageMediaType::PNG),
+                None,
+            ));
+        }
+    }
+
+    Ok(RigMessage::User { content: parts })
+}
+
+/// Process PDF bytes: try text extraction, fall back to vision if text is too short.
+pub async fn process_pdf_bytes(
+    bytes: &[u8],
+    provider_id: &str,
+    model_id: &str,
+    state: &Arc<crate::main_lib::AppState>,
+) -> anyhow::Result<Vec<ActivityImport>> {
+    let text = pdf_extract::extract_text_from_mem(bytes).unwrap_or_default();
+
+    if text.trim().len() >= MIN_TEXT_LENGTH {
+        // Text path
+        debug!("PDF has sufficient text ({} chars), using text path", text.trim().len());
+        let parser = wealthfolio_ai::PdfTransactionParser::new(state.ai_environment.clone());
+        let activities = parser
+            .parse_transactions(&text, provider_id, model_id)
+            .await
+            .map_err(|e| anyhow::anyhow!("LLM parsing failed: {}", e))?;
+        return Ok(activities);
+    }
+
+    // Vision fallback
+    info!(
+        "PDF text too short ({} chars), using vision fallback",
+        text.trim().len()
+    );
+
+    let page_images = if !supports_native_pdf(provider_id) {
+        render_pdf_to_images(bytes)?
+    } else {
+        None
+    };
+
+    let message = build_vision_message(bytes, page_images, provider_id)?;
+
+    let parser = wealthfolio_ai::PdfTransactionParser::new(state.ai_environment.clone());
+    let activities = parser
+        .parse_transactions_vision(message, provider_id, model_id)
+        .await
+        .map_err(|e| anyhow::anyhow!("LLM vision parsing failed: {}", e))?;
+
+    Ok(activities)
+}
+
+/// Extract text from PDF file and parse via LLM, with vision fallback for scanned PDFs.
 pub async fn process_pdf(
     path: &Path,
     provider_id: &str,
@@ -205,20 +373,7 @@ pub async fn process_pdf(
     state: &Arc<crate::main_lib::AppState>,
 ) -> anyhow::Result<Vec<ActivityImport>> {
     let bytes = std::fs::read(path)?;
-    let text = pdf_extract::extract_text_from_mem(&bytes)
-        .map_err(|e| anyhow::anyhow!("PDF text extraction failed: {}", e))?;
-
-    if text.trim().is_empty() {
-        anyhow::bail!("PDF contains no extractable text");
-    }
-
-    let parser = wealthfolio_ai::PdfTransactionParser::new(state.ai_environment.clone());
-    let activities = parser
-        .parse_transactions(&text, provider_id, model_id)
-        .await
-        .map_err(|e| anyhow::anyhow!("LLM parsing failed: {}", e))?;
-
-    Ok(activities)
+    process_pdf_bytes(&bytes, provider_id, model_id, state).await
 }
 
 /// Get the default AI provider ID and model ID from settings (public for API use).

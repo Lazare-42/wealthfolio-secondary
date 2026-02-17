@@ -68,6 +68,13 @@ pub use env::AiEnvironment;
 pub use error::AiError;
 pub use providers::ProviderService;
 pub use pdf_parser::{PdfTransactionParser, PdfTransactionParserTrait, RawPdfTransaction};
+
+// Re-export rig types needed for constructing multimodal messages
+pub use rig::completion::message::{
+    DocumentMediaType, ImageDetail, ImageMediaType,
+    Message as RigMessage, UserContent as RigUserContent,
+};
+pub use rig::OneOrMany;
 pub use title_generator::{
     truncate_to_title, FakeTitleGenerator, TitleGenerator, TitleGeneratorConfig,
     TitleGeneratorTrait,

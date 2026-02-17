@@ -8,7 +8,7 @@ use log::{debug, warn};
 use reqwest::Client as HttpClient;
 use rig::{
     client::{CompletionClient, Nothing},
-    completion::Prompt,
+    completion::{message::Message, Prompt},
     providers::{anthropic, gemini, groq, ollama, openai, openrouter},
 };
 use rust_decimal::Decimal;
@@ -43,12 +43,43 @@ pub struct RawPdfTransaction {
     pub account_name: Option<String>,
 }
 
+/// Shared instruction text for both text and vision parsing paths.
+const PARSE_INSTRUCTIONS: &str = r#"You are a financial document parser. Extract ALL transactions from this bank/broker statement.
+
+Return ONLY a JSON array of transaction objects. No markdown, no explanation, no code blocks.
+
+Each transaction object must have these fields:
+- "date": ISO date string "YYYY-MM-DD"
+- "symbol": ticker symbol if applicable (e.g., "AAPL", "MSFT"), or null for cash transactions
+- "activityType": one of "BUY", "SELL", "DIVIDEND", "INTEREST", "DEPOSIT", "WITHDRAWAL", "TRANSFER_IN", "TRANSFER_OUT", "FEE", "TAX"
+- "quantity": number of shares/units, or null
+- "unitPrice": price per share/unit, or null
+- "currency": 3-letter ISO currency code (e.g., "USD", "EUR", "GBP")
+- "fee": transaction fee/commission, or null
+- "amount": total transaction amount, or null
+- "comment": brief description from the statement, or null
+- "accountName": account name/number if mentioned in the document, or null
+
+Important:
+- Include ALL transactions, not just trades
+- For deposits/withdrawals, set amount but leave symbol/quantity/unitPrice as null
+- Dates must be valid ISO format
+- Use positive numbers for quantities and prices
+- For sells, quantity should still be positive"#;
+
 /// Trait for PDF transaction parsing.
 #[async_trait]
 pub trait PdfTransactionParserTrait: Send + Sync {
     async fn parse_transactions(
         &self,
         pdf_text: &str,
+        provider_id: &str,
+        model_id: &str,
+    ) -> Result<Vec<ActivityImport>, AiError>;
+
+    async fn parse_transactions_vision(
+        &self,
+        message: Message,
         provider_id: &str,
         model_id: &str,
     ) -> Result<Vec<ActivityImport>, AiError>;
@@ -73,34 +104,7 @@ impl<E: AiEnvironment> PdfTransactionParser<E> {
             pdf_text
         };
 
-        format!(
-            r#"You are a financial document parser. Extract ALL transactions from this bank/broker statement.
-
-Return ONLY a JSON array of transaction objects. No markdown, no explanation, no code blocks.
-
-Each transaction object must have these fields:
-- "date": ISO date string "YYYY-MM-DD"
-- "symbol": ticker symbol if applicable (e.g., "AAPL", "MSFT"), or null for cash transactions
-- "activityType": one of "BUY", "SELL", "DIVIDEND", "INTEREST", "DEPOSIT", "WITHDRAWAL", "TRANSFER_IN", "TRANSFER_OUT", "FEE", "TAX"
-- "quantity": number of shares/units, or null
-- "unitPrice": price per share/unit, or null
-- "currency": 3-letter ISO currency code (e.g., "USD", "EUR", "GBP")
-- "fee": transaction fee/commission, or null
-- "amount": total transaction amount, or null
-- "comment": brief description from the statement, or null
-- "accountName": account name/number if mentioned in the document, or null
-
-Important:
-- Include ALL transactions, not just trades
-- For deposits/withdrawals, set amount but leave symbol/quantity/unitPrice as null
-- Dates must be valid ISO format
-- Use positive numbers for quantities and prices
-- For sells, quantity should still be positive
-
-Statement text:
-{}"#,
-            text
-        )
+        format!("{}\n\nStatement text:\n{}", PARSE_INSTRUCTIONS, text)
     }
 
     async fn call_llm(
@@ -220,6 +224,124 @@ Statement text:
 
         Ok(response)
     }
+
+    async fn call_llm_message(
+        &self,
+        message: Message,
+        provider_id: &str,
+        model_id: &str,
+    ) -> Result<String, AiError> {
+        let provider_service = ProviderService::new(self.env.clone());
+        let api_key = provider_service.get_api_key(provider_id)?;
+        let provider_url = provider_service.get_provider_url(provider_id);
+
+        debug!(
+            "Parsing PDF (vision) with provider {} model {}",
+            provider_id, model_id
+        );
+
+        let response = match provider_id {
+            "anthropic" => {
+                let key = api_key.ok_or_else(|| AiError::MissingApiKey(provider_id.to_string()))?;
+                let mut builder = anthropic::Client::<HttpClient>::builder().api_key(&key);
+                if let Some(url) = provider_url {
+                    builder = builder.base_url(&url);
+                }
+                let client = builder
+                    .build()
+                    .map_err(|e| AiError::Provider(e.to_string()))?;
+                client
+                    .agent(model_id)
+                    .max_tokens(4096)
+                    .build()
+                    .prompt(message)
+                    .await
+                    .map_err(|e| AiError::Provider(e.to_string()))?
+            }
+            "gemini" | "google" => {
+                let key = api_key.ok_or_else(|| AiError::MissingApiKey(provider_id.to_string()))?;
+                let mut builder = gemini::Client::<HttpClient>::builder().api_key(&key);
+                if let Some(url) = provider_url {
+                    builder = builder.base_url(&url);
+                }
+                let client = builder
+                    .build()
+                    .map_err(|e| AiError::Provider(e.to_string()))?;
+                client
+                    .agent(model_id)
+                    .build()
+                    .prompt(message)
+                    .await
+                    .map_err(|e| AiError::Provider(e.to_string()))?
+            }
+            "groq" => {
+                let key = api_key.ok_or_else(|| AiError::MissingApiKey(provider_id.to_string()))?;
+                let mut builder = groq::Client::<HttpClient>::builder().api_key(&key);
+                if let Some(url) = provider_url {
+                    builder = builder.base_url(&url);
+                }
+                let client = builder
+                    .build()
+                    .map_err(|e| AiError::Provider(e.to_string()))?;
+                client
+                    .agent(model_id)
+                    .build()
+                    .prompt(message)
+                    .await
+                    .map_err(|e| AiError::Provider(e.to_string()))?
+            }
+            "ollama" => {
+                let mut builder = ollama::Client::<HttpClient>::builder().api_key(Nothing);
+                if let Some(url) = provider_url {
+                    builder = builder.base_url(&url);
+                }
+                let client = builder
+                    .build()
+                    .map_err(|e| AiError::Provider(e.to_string()))?;
+                client
+                    .agent(model_id)
+                    .build()
+                    .prompt(message)
+                    .await
+                    .map_err(|e| AiError::Provider(e.to_string()))?
+            }
+            "openrouter" => {
+                let key = api_key.ok_or_else(|| AiError::MissingApiKey(provider_id.to_string()))?;
+                let mut builder = openrouter::Client::<HttpClient>::builder().api_key(&key);
+                if let Some(url) = provider_url {
+                    builder = builder.base_url(&url);
+                }
+                let client = builder
+                    .build()
+                    .map_err(|e| AiError::Provider(e.to_string()))?;
+                client
+                    .agent(model_id)
+                    .build()
+                    .prompt(message)
+                    .await
+                    .map_err(|e| AiError::Provider(e.to_string()))?
+            }
+            _ => {
+                // Default to OpenAI-compatible
+                let key = api_key.ok_or_else(|| AiError::MissingApiKey(provider_id.to_string()))?;
+                let mut builder = openai::Client::<HttpClient>::builder().api_key(&key);
+                if let Some(url) = provider_url {
+                    builder = builder.base_url(&url);
+                }
+                let client = builder
+                    .build()
+                    .map_err(|e| AiError::Provider(e.to_string()))?;
+                client
+                    .agent(model_id)
+                    .build()
+                    .prompt(message)
+                    .await
+                    .map_err(|e| AiError::Provider(e.to_string()))?
+            }
+        };
+
+        Ok(response)
+    }
 }
 
 /// Extract JSON array from LLM response, handling markdown code blocks.
@@ -302,6 +424,24 @@ impl<E: AiEnvironment + 'static> PdfTransactionParserTrait for PdfTransactionPar
         })?;
 
         debug!("Parsed {} transactions from PDF", raw.len());
+
+        Ok(to_activity_imports(raw, 1))
+    }
+
+    async fn parse_transactions_vision(
+        &self,
+        message: Message,
+        provider_id: &str,
+        model_id: &str,
+    ) -> Result<Vec<ActivityImport>, AiError> {
+        let response = self.call_llm_message(message, provider_id, model_id).await?;
+
+        let raw = extract_json(&response).map_err(|e| {
+            warn!("PDF vision parse failed: {}", e);
+            e
+        })?;
+
+        debug!("Parsed {} transactions from PDF (vision)", raw.len());
 
         Ok(to_activity_imports(raw, 1))
     }
