@@ -15,6 +15,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@wealthfolio/ui";
+import { useToast } from "@wealthfolio/ui/components/ui/use-toast";
 
 interface PdfImportReviewSheetProps {
   importId: string;
@@ -29,15 +30,39 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: PdfImport
   const checkMutation = useCheckPdfImport();
   const [accountId, setAccountId] = useState<string>("");
   const [checkedActivities, setCheckedActivities] = useState<ActivityImport[] | null>(null);
+  const { toast } = useToast();
 
   const activities = checkedActivities ?? importData?.activities ?? [];
   const hasErrors = activities.some((a) => a.errors && Object.keys(a.errors).length > 0);
+  const isValidated = checkedActivities !== null;
 
   const handleCheck = () => {
     if (!accountId || !importData) return;
     checkMutation.mutate(
       { id: importId, request: { accountId, activities: importData.activities } },
-      { onSuccess: (data) => setCheckedActivities(data) },
+      {
+        onSuccess: (data) => {
+          setCheckedActivities(data);
+          const errorCount = data.filter(
+            (a) => a.errors && Object.keys(a.errors).length > 0,
+          ).length;
+          if (errorCount > 0) {
+            toast({
+              title: "Validation complete",
+              description: `${errorCount} activity(s) have errors. Fix or remove them before importing.`,
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Validation passed",
+              description: `All ${data.length} activities are valid.`,
+            });
+          }
+        },
+        onError: (err) => {
+          toast({ title: "Validation failed", description: String(err), variant: "destructive" });
+        },
+      },
     );
   };
 
@@ -45,7 +70,18 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: PdfImport
     if (!accountId) return;
     confirmMutation.mutate(
       { id: importId, request: { accountId, activities } },
-      { onSuccess: () => onOpenChange(false) },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Import complete",
+            description: `${activities.length} activities imported.`,
+          });
+          onOpenChange(false);
+        },
+        onError: (err) => {
+          toast({ title: "Import failed", description: String(err), variant: "destructive" });
+        },
+      },
     );
   };
 
@@ -76,15 +112,20 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: PdfImport
 
           {/* Validate button */}
           {accountId && !checkedActivities && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleCheck}
-              disabled={checkMutation.isPending}
-            >
-              {checkMutation.isPending && <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />}
-              Validate Activities
-            </Button>
+            <div className="space-y-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCheck}
+                disabled={checkMutation.isPending}
+              >
+                {checkMutation.isPending && <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />}
+                Validate Activities
+              </Button>
+              <p className="text-muted-foreground text-xs">
+                Validate before importing to check for duplicates and resolve symbols.
+              </p>
+            </div>
           )}
 
           {/* Activity table */}
@@ -144,6 +185,13 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: PdfImport
             </div>
           )}
 
+          {/* Validation status message */}
+          {hasErrors && isValidated && (
+            <p className="text-destructive text-sm">
+              Some activities have errors. Fix or remove them before importing.
+            </p>
+          )}
+
           {/* Actions */}
           <div className="flex items-center justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -151,7 +199,7 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: PdfImport
             </Button>
             <Button
               onClick={handleConfirm}
-              disabled={!accountId || confirmMutation.isPending || hasErrors}
+              disabled={!accountId || !isValidated || confirmMutation.isPending || hasErrors}
             >
               {confirmMutation.isPending && <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />}
               Confirm Import ({activities.length})
