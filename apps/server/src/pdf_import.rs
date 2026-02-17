@@ -345,12 +345,15 @@ pub async fn process_pdf_bytes(
     }
 
     // Vision fallback
+    let native_pdf = supports_native_pdf(provider_id);
     info!(
-        "PDF text too short ({} chars), using vision fallback",
-        text.trim().len()
+        "PDF text too short ({} chars), using vision fallback (native_pdf={}, pdf_size={} bytes)",
+        text.trim().len(),
+        native_pdf,
+        bytes.len()
     );
 
-    let page_images = if !supports_native_pdf(provider_id) {
+    let page_images = if !native_pdf {
         render_pdf_to_images(bytes)?
     } else {
         None
@@ -358,6 +361,7 @@ pub async fn process_pdf_bytes(
 
     let message = build_vision_message(bytes, page_images, provider_id)?;
 
+    info!("Sending vision request to {} model {}", provider_id, model_id);
     let parser = wealthfolio_ai::PdfTransactionParser::new(state.ai_environment.clone());
     let activities = parser
         .parse_transactions_vision(message, provider_id, model_id)

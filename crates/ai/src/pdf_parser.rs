@@ -4,7 +4,7 @@
 //! Follows the same provider dispatch pattern as `title_generator.rs`.
 
 use async_trait::async_trait;
-use log::{debug, warn};
+use log::{debug, error, warn};
 use reqwest::Client as HttpClient;
 use rig::{
     client::{CompletionClient, Nothing},
@@ -240,6 +240,11 @@ impl<E: AiEnvironment> PdfTransactionParser<E> {
             provider_id, model_id
         );
 
+        let map_llm_err = |e: rig::completion::PromptError| -> AiError {
+            error!("LLM vision call failed: {:?}", e);
+            AiError::Provider(e.to_string())
+        };
+
         let response = match provider_id {
             "anthropic" => {
                 let key = api_key.ok_or_else(|| AiError::MissingApiKey(provider_id.to_string()))?;
@@ -256,7 +261,7 @@ impl<E: AiEnvironment> PdfTransactionParser<E> {
                     .build()
                     .prompt(message)
                     .await
-                    .map_err(|e| AiError::Provider(e.to_string()))?
+                    .map_err(map_llm_err)?
             }
             "gemini" | "google" => {
                 let key = api_key.ok_or_else(|| AiError::MissingApiKey(provider_id.to_string()))?;
@@ -272,7 +277,7 @@ impl<E: AiEnvironment> PdfTransactionParser<E> {
                     .build()
                     .prompt(message)
                     .await
-                    .map_err(|e| AiError::Provider(e.to_string()))?
+                    .map_err(map_llm_err)?
             }
             "groq" => {
                 let key = api_key.ok_or_else(|| AiError::MissingApiKey(provider_id.to_string()))?;
@@ -288,7 +293,7 @@ impl<E: AiEnvironment> PdfTransactionParser<E> {
                     .build()
                     .prompt(message)
                     .await
-                    .map_err(|e| AiError::Provider(e.to_string()))?
+                    .map_err(map_llm_err)?
             }
             "ollama" => {
                 let mut builder = ollama::Client::<HttpClient>::builder().api_key(Nothing);
@@ -303,7 +308,7 @@ impl<E: AiEnvironment> PdfTransactionParser<E> {
                     .build()
                     .prompt(message)
                     .await
-                    .map_err(|e| AiError::Provider(e.to_string()))?
+                    .map_err(map_llm_err)?
             }
             "openrouter" => {
                 let key = api_key.ok_or_else(|| AiError::MissingApiKey(provider_id.to_string()))?;
@@ -319,7 +324,7 @@ impl<E: AiEnvironment> PdfTransactionParser<E> {
                     .build()
                     .prompt(message)
                     .await
-                    .map_err(|e| AiError::Provider(e.to_string()))?
+                    .map_err(map_llm_err)?
             }
             _ => {
                 // Default to OpenAI-compatible
@@ -336,7 +341,7 @@ impl<E: AiEnvironment> PdfTransactionParser<E> {
                     .build()
                     .prompt(message)
                     .await
-                    .map_err(|e| AiError::Provider(e.to_string()))?
+                    .map_err(map_llm_err)?
             }
         };
 
