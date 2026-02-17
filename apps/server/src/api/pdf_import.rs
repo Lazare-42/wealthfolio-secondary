@@ -169,12 +169,13 @@ pub fn router() -> Router<Arc<AppState>> {
             get(get_staged).delete(discard_staged),
         )
         .route("/pdf-imports/staged/{id}/confirm", post(confirm_staged))
-        .route("/pdf-imports/staged/{id}/check", post(check_staged))
 }
 
-/// Upload route separated so api.rs can apply a longer timeout (5 min)
-/// without the global 30s timeout killing vision PDF parsing requests.
-pub fn upload_router() -> Router<Arc<AppState>> {
+/// Routes that need extended timeout (5 min) because they call external APIs:
+/// - upload: vision PDF parsing via LLM
+/// - check: symbol resolution via market data providers
+pub fn extended_timeout_router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/pdf-imports/upload", post(upload_pdf))
+        .route("/pdf-imports/staged/{id}/check", post(check_staged))
 }

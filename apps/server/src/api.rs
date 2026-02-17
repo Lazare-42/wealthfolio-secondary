@@ -128,9 +128,9 @@ pub fn app_router(state: Arc<AppState>, config: &Config) -> Router {
         protected_api
     };
 
-    // Upload route with separate timeout (also protected if auth required)
-    let upload_api = {
-        let r = pdf_import::upload_router();
+    // Routes needing extended timeout (upload + check call external APIs)
+    let extended_api = {
+        let r = pdf_import::extended_timeout_router();
         if requires_auth {
             r.layer(middleware::from_fn_with_state(
                 state.clone(),
@@ -156,12 +156,12 @@ pub fn app_router(state: Arc<AppState>, config: &Config) -> Router {
         .with_state(state.clone())
         .layer(TimeoutLayer::new(config.request_timeout));
 
-    // Upload route with extended timeout (5 min for vision PDF parsing)
-    let upload = Router::new()
-        .nest("/api/v1", upload_api.with_state(state.clone()))
+    // Extended timeout (5 min) for routes calling external APIs
+    let extended = Router::new()
+        .nest("/api/v1", extended_api.with_state(state.clone()))
         .layer(TimeoutLayer::new(Duration::from_secs(300)));
 
-    main.merge(upload)
+    main.merge(extended)
         .layer(cors)
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
         .layer(PropagateRequestIdLayer::x_request_id())
