@@ -75,6 +75,7 @@ impl ProviderId {
     pub const MARKETDATA_APP: &'static str = "MARKETDATA_APP";
     pub const METAL_PRICE_API: &'static str = "METAL_PRICE_API";
     pub const FINNHUB: &'static str = "FINNHUB";
+    pub const OPENFIGI: &'static str = "OPENFIGI";
 
     pub fn new(id: impl Into<String>) -> Self {
         Self(id.into())
@@ -98,6 +99,10 @@ impl ProviderId {
 
     pub fn finnhub() -> Self {
         Self(Self::FINNHUB.to_string())
+    }
+
+    pub fn openfigi() -> Self {
+        Self(Self::OPENFIGI.to_string())
     }
 
     pub fn as_str(&self) -> &str {
@@ -338,6 +343,7 @@ impl From<DataSource> for QuoteSource {
             DataSource::MarketDataApp => QuoteSource::Provider(ProviderId::marketdata_app()),
             DataSource::MetalPriceApi => QuoteSource::Provider(ProviderId::metal_price_api()),
             DataSource::Finnhub => QuoteSource::Provider(ProviderId::finnhub()),
+            DataSource::OpenFigi => QuoteSource::Provider(ProviderId::openfigi()),
         }
     }
 }
@@ -351,6 +357,8 @@ impl From<QuoteSource> for DataSource {
                 ProviderId::ALPHA_VANTAGE => DataSource::AlphaVantage,
                 ProviderId::MARKETDATA_APP => DataSource::MarketDataApp,
                 ProviderId::METAL_PRICE_API => DataSource::MetalPriceApi,
+                ProviderId::FINNHUB => DataSource::Finnhub,
+                ProviderId::OPENFIGI => DataSource::OpenFigi,
                 _ => DataSource::Manual, // Unknown providers default to Manual for compatibility
             },
         }
