@@ -1,5 +1,5 @@
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
-use log::debug;
+use log::{debug, info, warn};
 use rust_decimal::Decimal;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -27,7 +27,6 @@ use crate::fx::currency::{get_normalization_rule, normalize_amount, resolve_curr
 use crate::fx::FxServiceTrait;
 use crate::quotes::{DataSource, Quote, QuoteServiceTrait};
 use crate::Result;
-use log::warn;
 use uuid::Uuid;
 use wealthfolio_market_data::mic_to_currency;
 
@@ -257,14 +256,17 @@ impl ActivityService {
         }
     }
 
-    /// Resolves (symbol, currency) pairs to exchange MICs in batch.
+    /// Resolves (symbol, currency) pairs to exchange MICs and resolved tickers in batch.
     /// Uses the activity-level currency to rank exchange results correctly.
     /// First checks existing assets in the database, then falls back to quote service.
+    ///
+    /// Returns (exchange_mic, resolved_ticker) — resolved_ticker is the Yahoo-compatible
+    /// symbol returned by the provider (e.g. OpenFIGI resolves ISIN → "EUNL.DE").
     async fn resolve_symbols_batch(
         &self,
         symbol_currency_pairs: HashSet<(String, String)>,
-    ) -> HashMap<(String, String), Option<String>> {
-        let mut cache: HashMap<(String, String), Option<String>> = HashMap::new();
+    ) -> HashMap<(String, String), (Option<String>, Option<String>)> {
+        let mut cache: HashMap<(String, String), (Option<String>, Option<String>)> = HashMap::new();
 
         if symbol_currency_pairs.is_empty() {
             return cache;
@@ -285,11 +287,12 @@ impl ActivityService {
 
         for (symbol, currency) in &symbol_currency_pairs {
             if symbol.trim().is_empty() {
-                cache.insert((symbol.clone(), currency.clone()), None);
+                cache.insert((symbol.clone(), currency.clone()), (None, None));
                 continue;
             }
             if let Some(exchange_mic) = existing_map.get(&symbol.to_lowercase()) {
-                cache.insert((symbol.clone(), currency.clone()), exchange_mic.clone());
+                // Already known asset — no ticker rewrite needed
+                cache.insert((symbol.clone(), currency.clone()), (exchange_mic.clone(), None));
             } else {
                 missing.push((symbol.clone(), currency.clone()));
             }
@@ -305,13 +308,15 @@ impl ActivityService {
                         .search_symbol_with_currency(&symbol, Some(&currency))
                         .await
                         .unwrap_or_default();
-                    let exchange_mic = results.first().and_then(|r| r.exchange_mic.clone());
-                    ((symbol, currency), exchange_mic)
+                    let first = results.first();
+                    let exchange_mic = first.and_then(|r| r.exchange_mic.clone());
+                    let resolved_ticker = first.map(|r| r.symbol.clone());
+                    ((symbol, currency), (exchange_mic, resolved_ticker))
                 }
             })
             .collect();
-        for (key, mic) in futures::future::join_all(futures).await {
-            cache.insert(key, mic);
+        for (key, resolved) in futures::future::join_all(futures).await {
+            cache.insert(key, resolved);
         }
 
         cache
@@ -319,6 +324,7 @@ impl ActivityService {
 
     /// Convenience wrapper: resolves symbols using a single currency for all.
     /// Used by callers where per-activity currency isn't available (broker sync, prepare).
+    /// Returns only exchange_mic (discards resolved ticker).
     async fn resolve_symbols_batch_single_currency(
         &self,
         symbols: HashSet<String>,
@@ -331,7 +337,7 @@ impl ActivityService {
         self.resolve_symbols_batch(pairs)
             .await
             .into_iter()
-            .map(|((sym, _), mic)| (sym, mic))
+            .map(|((sym, _), (mic, _))| (sym, mic))
             .collect()
     }
 
@@ -1807,18 +1813,34 @@ impl ActivityServiceTrait for ActivityService {
                 }
             }
 
-            // Get exchange_mic: prefer already-set value (from prior check), then cache
+            // Get exchange_mic and resolved ticker from cache
             let resolve_ccy = if activity.currency.is_empty() {
                 account_currency.clone()
             } else {
                 activity.currency.clone()
             };
-            let exchange_mic = activity.exchange_mic.clone().or_else(|| {
-                symbol_mic_cache
-                    .get(&(activity.symbol.clone(), resolve_ccy))
-                    .cloned()
-                    .flatten()
-            });
+            let (cached_mic, resolved_ticker) = symbol_mic_cache
+                .get(&(activity.symbol.clone(), resolve_ccy))
+                .cloned()
+                .unwrap_or((None, None));
+            let exchange_mic = activity.exchange_mic.clone().or(cached_mic);
+
+            // If the provider resolved the symbol to a different ticker (e.g. ISIN → Yahoo ticker),
+            // rewrite the activity symbol so Yahoo can fetch quotes later.
+            let symbol = if let Some(ref ticker) = resolved_ticker {
+                if ticker != &symbol {
+                    info!(
+                        "Rewriting symbol '{}' → '{}' (resolved by market data provider)",
+                        symbol, ticker
+                    );
+                    activity.symbol = ticker.clone();
+                    ticker.clone()
+                } else {
+                    symbol
+                }
+            } else {
+                symbol
+            };
 
             // Strip Yahoo suffix to get base symbol (e.g. GOOG.TO → GOOG)
             let (base_symbol, suffix_mic) = parse_symbol_with_exchange_suffix(&symbol);
