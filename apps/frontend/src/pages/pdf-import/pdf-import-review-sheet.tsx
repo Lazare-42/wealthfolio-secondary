@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePdfImportDetail, useConfirmPdfImport, useCheckPdfImport } from "@/hooks/use-pdf-import";
 import { useAccounts } from "@/hooks/use-accounts";
 import type { ActivityImport } from "@/lib/types";
+import { ACTIVITY_TYPES } from "@/lib/constants";
 import {
   Button,
   Icons,
+  Input,
   Select,
   SelectContent,
   SelectItem,
@@ -29,27 +31,48 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: PdfImport
   const confirmMutation = useConfirmPdfImport();
   const checkMutation = useCheckPdfImport();
   const [accountId, setAccountId] = useState<string>("");
+  const [editedActivities, setEditedActivities] = useState<ActivityImport[] | null>(null);
   const [checkedActivities, setCheckedActivities] = useState<ActivityImport[] | null>(null);
   const { toast } = useToast();
 
-  const activities = checkedActivities ?? importData?.activities ?? [];
-  const hasErrors = activities.some((a) => a.errors && Object.keys(a.errors).length > 0);
+  // Initialize editable copy when import data loads
+  useEffect(() => {
+    if (importData?.activities && !editedActivities) {
+      setEditedActivities([...importData.activities]);
+    }
+  }, [importData, editedActivities]);
+
+  const activities = checkedActivities ?? editedActivities ?? importData?.activities ?? [];
+  const validActivities = activities.filter((a) => !a.errors || Object.keys(a.errors).length === 0);
+  const errorCount = activities.length - validActivities.length;
   const isValidated = checkedActivities !== null;
 
+  const updateActivity = (index: number, field: keyof ActivityImport, value: string | null) => {
+    const updated = [...activities];
+    updated[index] = { ...updated[index], [field]: value };
+    setEditedActivities(updated);
+    // Clear validation since data changed
+    setCheckedActivities(null);
+  };
+
+  const removeActivity = (index: number) => {
+    const updated = activities.filter((_, i) => i !== index);
+    setEditedActivities(updated);
+    setCheckedActivities(null);
+  };
+
   const handleCheck = () => {
-    if (!accountId || !importData) return;
+    if (!accountId || activities.length === 0) return;
     checkMutation.mutate(
-      { id: importId, request: { accountId, activities: importData.activities } },
+      { id: importId, request: { accountId, activities } },
       {
         onSuccess: (data) => {
           setCheckedActivities(data);
-          const errorCount = data.filter(
-            (a) => a.errors && Object.keys(a.errors).length > 0,
-          ).length;
-          if (errorCount > 0) {
+          const errCount = data.filter((a) => a.errors && Object.keys(a.errors).length > 0).length;
+          if (errCount > 0) {
             toast({
               title: "Validation complete",
-              description: `${errorCount} activity(s) have errors. Fix or remove them before importing.`,
+              description: `${errCount} activity(s) have errors. Fix or remove them, or import only valid ones.`,
               variant: "destructive",
             });
           } else {
@@ -67,14 +90,14 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: PdfImport
   };
 
   const handleConfirm = () => {
-    if (!accountId) return;
+    if (!accountId || validActivities.length === 0) return;
     confirmMutation.mutate(
-      { id: importId, request: { accountId, activities } },
+      { id: importId, request: { accountId, activities: validActivities } },
       {
         onSuccess: () => {
           toast({
             title: "Import complete",
-            description: `${activities.length} activities imported.`,
+            description: `${validActivities.length} activities imported.${errorCount > 0 ? ` ${errorCount} skipped.` : ""}`,
           });
           onOpenChange(false);
         },
@@ -87,7 +110,7 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: PdfImport
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-3xl">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-4xl">
         <SheetHeader className="px-6">
           <SheetTitle>Review PDF Import: {importData?.filename}</SheetTitle>
         </SheetHeader>
@@ -111,19 +134,21 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: PdfImport
           </div>
 
           {/* Validate button */}
-          {accountId && !checkedActivities && (
+          {accountId && (
             <div className="space-y-1">
               <Button
                 size="sm"
                 variant="outline"
                 onClick={handleCheck}
-                disabled={checkMutation.isPending}
+                disabled={checkMutation.isPending || activities.length === 0}
               >
                 {checkMutation.isPending && <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />}
-                Validate Activities
+                {isValidated ? "Re-validate" : "Validate Activities"}
               </Button>
               <p className="text-muted-foreground text-xs">
-                Validate before importing to check for duplicates and resolve symbols.
+                {isValidated
+                  ? "Re-validate after editing to update status."
+                  : "Validate before importing to check for duplicates and resolve symbols."}
               </p>
             </div>
           )}
@@ -136,14 +161,15 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: PdfImport
               <table className="w-full text-left text-sm">
                 <thead className="bg-muted/50 sticky top-0">
                   <tr>
-                    <th className="px-3 py-2">Date</th>
-                    <th className="px-3 py-2">Type</th>
-                    <th className="px-3 py-2">Symbol</th>
-                    <th className="px-3 py-2">Qty</th>
-                    <th className="px-3 py-2">Price</th>
-                    <th className="px-3 py-2">Amount</th>
-                    <th className="px-3 py-2">Currency</th>
-                    <th className="px-3 py-2">Status</th>
+                    <th className="px-2 py-2">Date</th>
+                    <th className="px-2 py-2">Type</th>
+                    <th className="px-2 py-2">Symbol</th>
+                    <th className="px-2 py-2">Qty</th>
+                    <th className="px-2 py-2">Price</th>
+                    <th className="px-2 py-2">Amount</th>
+                    <th className="px-2 py-2">Ccy</th>
+                    <th className="px-2 py-2">Status</th>
+                    <th className="w-8 px-1 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -155,27 +181,90 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: PdfImport
                         key={i}
                         className={`border-t ${rowErrors.length > 0 ? "bg-destructive/5" : ""}`}
                       >
-                        <td className="px-3 py-1.5">{String(a.date ?? "")}</td>
-                        <td className="px-3 py-1.5">{a.activityType}</td>
-                        <td className="px-3 py-1.5">{a.symbol || "-"}</td>
-                        <td className="px-3 py-1.5">{a.quantity ?? "-"}</td>
-                        <td className="px-3 py-1.5">{a.unitPrice ?? "-"}</td>
-                        <td className="px-3 py-1.5">{a.amount ?? "-"}</td>
-                        <td className="px-3 py-1.5">{a.currency}</td>
-                        <td className="px-3 py-1.5">
+                        <td className="px-1 py-1">
+                          <Input
+                            className="h-7 w-[100px] text-xs"
+                            value={String(a.date ?? "")}
+                            onChange={(e) => updateActivity(i, "date", e.target.value)}
+                          />
+                        </td>
+                        <td className="px-1 py-1">
+                          <Select
+                            value={a.activityType}
+                            onValueChange={(v) => updateActivity(i, "activityType", v)}
+                          >
+                            <SelectTrigger className="h-7 w-[100px] text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ACTIVITY_TYPES.map((t) => (
+                                <SelectItem key={t} value={t}>
+                                  {t}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="px-1 py-1">
+                          <Input
+                            className="h-7 w-[90px] text-xs"
+                            value={a.symbol ?? ""}
+                            onChange={(e) => updateActivity(i, "symbol", e.target.value || null)}
+                          />
+                        </td>
+                        <td className="px-1 py-1">
+                          <Input
+                            className="h-7 w-[70px] text-xs"
+                            value={a.quantity ?? ""}
+                            onChange={(e) => updateActivity(i, "quantity", e.target.value || null)}
+                          />
+                        </td>
+                        <td className="px-1 py-1">
+                          <Input
+                            className="h-7 w-[70px] text-xs"
+                            value={a.unitPrice ?? ""}
+                            onChange={(e) => updateActivity(i, "unitPrice", e.target.value || null)}
+                          />
+                        </td>
+                        <td className="px-1 py-1">
+                          <Input
+                            className="h-7 w-[80px] text-xs"
+                            value={a.amount ?? ""}
+                            onChange={(e) => updateActivity(i, "amount", e.target.value || null)}
+                          />
+                        </td>
+                        <td className="px-1 py-1">
+                          <Input
+                            className="h-7 w-[50px] text-xs"
+                            value={a.currency ?? ""}
+                            onChange={(e) => updateActivity(i, "currency", e.target.value)}
+                          />
+                        </td>
+                        <td className="px-1 py-1">
                           {rowErrors.length > 0 ? (
                             <span className="text-destructive text-xs" title={rowErrors.join(", ")}>
-                              {rowErrors.length} error(s)
+                              {rowErrors.join(", ")}
                             </span>
                           ) : rowWarnings.length > 0 ? (
                             <span className="text-warning text-xs" title={rowWarnings.join(", ")}>
-                              {rowWarnings.length} warning(s)
+                              {rowWarnings.join(", ")}
                             </span>
                           ) : checkedActivities ? (
                             <span className="text-success text-xs">OK</span>
                           ) : (
-                            <span className="text-muted-foreground text-xs">Unchecked</span>
+                            <span className="text-muted-foreground text-xs">-</span>
                           )}
+                        </td>
+                        <td className="px-1 py-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => removeActivity(i)}
+                            title="Remove activity"
+                          >
+                            <Icons.Close className="h-3 w-3" />
+                          </Button>
                         </td>
                       </tr>
                     );
@@ -185,10 +274,11 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: PdfImport
             </div>
           )}
 
-          {/* Validation status message */}
-          {hasErrors && isValidated && (
-            <p className="text-destructive text-sm">
-              Some activities have errors. Fix or remove them before importing.
+          {/* Validation status */}
+          {isValidated && errorCount > 0 && (
+            <p className="text-muted-foreground text-sm">
+              {errorCount} activity(s) with errors will be skipped. {validActivities.length} valid
+              activity(s) will be imported.
             </p>
           )}
 
@@ -199,10 +289,15 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: PdfImport
             </Button>
             <Button
               onClick={handleConfirm}
-              disabled={!accountId || !isValidated || confirmMutation.isPending || hasErrors}
+              disabled={
+                !accountId ||
+                !isValidated ||
+                confirmMutation.isPending ||
+                validActivities.length === 0
+              }
             >
               {confirmMutation.isPending && <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />}
-              Confirm Import ({activities.length})
+              Import {validActivities.length} of {activities.length} Activities
             </Button>
           </div>
         </div>
