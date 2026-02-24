@@ -407,6 +407,7 @@ fn to_activity_imports(raw: Vec<RawPdfTransaction>, line_start: i32) -> Vec<Acti
             exchange_mic: None,
             quote_ccy: None,
             instrument_type: None,
+            quote_mode: None,
             errors: None,
             warnings: None,
             duplicate_of_id: None,
@@ -448,7 +449,9 @@ impl<E: AiEnvironment + 'static> PdfTransactionParserTrait for PdfTransactionPar
         provider_id: &str,
         model_id: &str,
     ) -> Result<Vec<ActivityImport>, AiError> {
-        let response = self.call_llm_message(message, provider_id, model_id).await?;
+        let response = self
+            .call_llm_message(message, provider_id, model_id)
+            .await?;
 
         let raw = extract_json(&response).map_err(|e| {
             warn!("PDF vision parse failed: {}", e);

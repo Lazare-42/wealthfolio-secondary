@@ -1881,19 +1881,14 @@ impl ActivityServiceTrait for ActivityService {
             let is_manual_quote = activity
                 .quote_mode
                 .as_deref()
-                .map(|m| m.to_uppercase() == "MANUAL")
+                .map(|m| m.eq_ignore_ascii_case("MANUAL"))
                 .unwrap_or(false);
 
             // Equities (Investment + Equity instrument) must have a resolved exchange MIC
             // unless the user explicitly set manual quote mode
-            let is_manual = activity
-                .quote_mode
-                .as_deref()
-                .map(|m| m.eq_ignore_ascii_case("MANUAL"))
-                .unwrap_or(false);
             let is_equity = effective_kind == AssetKind::Investment
                 && effective_instrument_type.as_ref() == Some(&InstrumentType::Equity);
-            if is_equity && resolved_mic.is_none() && !is_manual {
+            if is_equity && resolved_mic.is_none() && !is_manual_quote {
                 activity.is_valid = false;
                 let mut errors = std::collections::HashMap::new();
                 errors.insert(

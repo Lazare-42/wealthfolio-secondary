@@ -4,7 +4,7 @@ use crate::Result;
 use async_trait::async_trait;
 
 use super::{ReconciliationConfig, ReconciliationResult, ResolveRequest, ScanResult};
-use crate::sync::ImportRun;
+use crate::activities::ImportRun;
 
 #[async_trait]
 pub trait ReconciliationServiceTrait: Send + Sync {

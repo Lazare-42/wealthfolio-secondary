@@ -5,10 +5,10 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use wealthfolio_core::activities::ImportRun;
 use wealthfolio_core::reconciliation::{
     ReconciliationConfig, ReconciliationResult, ResolveRequest, ScanResult,
 };
-use wealthfolio_core::sync::ImportRun;
 
 use crate::error::ApiResult;
 use crate::main_lib::AppState;

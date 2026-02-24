@@ -311,7 +311,7 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
             asset_service.clone(),
             fx_service.clone(),
             quote_service.clone(),
-            core_import_run_repository,
+            core_import_run_repository.clone(),
         )
         .with_event_sink(domain_event_sink.clone()),
     );
@@ -412,7 +412,7 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
     let reconciliation_service: Arc<dyn ReconciliationServiceTrait + Send + Sync> =
         Arc::new(ReconciliationService::new(
             activity_service.clone(),
-            import_run_repository.clone(),
+            core_import_run_repository,
             settings_service.clone(),
             domain_event_sink.clone(),
             config.statements_dir.clone(),

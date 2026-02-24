@@ -4,7 +4,7 @@
 //! Reconciliation reuses existing `ImportRun` and `Activity` tables.
 
 use crate::activities::{Activity, ParseConfig};
-use crate::sync::{ImportRun, ImportRunSummary};
+use crate::activities::{ImportRun, ImportRunSummary};
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};

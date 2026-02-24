@@ -11,14 +11,12 @@ use rust_decimal_macros::dec;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 
+use crate::activities::{parse_csv, Activity, ActivityServiceTrait, ActivityStatus, NewActivity};
 use crate::activities::{
-    parse_csv, Activity, ActivityServiceTrait, ActivityStatus, NewActivity,
+    ImportRun, ImportRunMode, ImportRunRepositoryTrait, ImportRunSummary, ImportRunType, ReviewMode,
 };
 use crate::events::DomainEventSink;
 use crate::settings::SettingsServiceTrait;
-use crate::sync::{
-    ImportRun, ImportRunMode, ImportRunRepositoryTrait, ImportRunSummary, ImportRunType, ReviewMode,
-};
 use crate::Result;
 
 use super::{
@@ -90,15 +88,13 @@ impl ReconciliationService {
     }
 
     fn get_processed_hashes(&self) -> Result<Vec<String>> {
-        match self.settings_service.get_setting_value("reconciliation_processed_hashes")? {
-            Some(val) => {
-                serde_json::from_str(&val).map_err(|e| {
-                    crate::errors::Error::Unexpected(format!(
-                        "Failed to parse processed hashes: {}",
-                        e
-                    ))
-                })
-            }
+        match self
+            .settings_service
+            .get_setting_value("reconciliation_processed_hashes")?
+        {
+            Some(val) => serde_json::from_str(&val).map_err(|e| {
+                crate::errors::Error::Unexpected(format!("Failed to parse processed hashes: {}", e))
+            }),
             None => Ok(Vec::new()),
         }
     }
@@ -152,20 +148,16 @@ impl ReconciliationService {
             .and_then(|col| find_column_index(headers, col));
 
         let date_idx = date_idx.ok_or_else(|| {
-            crate::errors::Error::Validation(crate::errors::ValidationError::InvalidInput(
-                format!(
-                    "Date column '{}' not found in CSV headers: {:?}",
-                    mapping.field_mappings.date_column, headers
-                ),
-            ))
+            crate::errors::Error::Validation(crate::errors::ValidationError::InvalidInput(format!(
+                "Date column '{}' not found in CSV headers: {:?}",
+                mapping.field_mappings.date_column, headers
+            )))
         })?;
         let amount_idx = amount_idx.ok_or_else(|| {
-            crate::errors::Error::Validation(crate::errors::ValidationError::InvalidInput(
-                format!(
-                    "Amount column '{}' not found in CSV headers: {:?}",
-                    mapping.field_mappings.amount_column, headers
-                ),
-            ))
+            crate::errors::Error::Validation(crate::errors::ValidationError::InvalidInput(format!(
+                "Amount column '{}' not found in CSV headers: {:?}",
+                mapping.field_mappings.amount_column, headers
+            )))
         })?;
 
         let default_currency = mapping
@@ -265,7 +257,10 @@ impl ReconciliationService {
                 matched_activity: matched,
                 draft_activity_id: None,
                 confidence,
-                mapped_activity_type: Some(infer_activity_type(row.amount, row.raw_type.as_deref())),
+                mapped_activity_type: Some(infer_activity_type(
+                    row.amount,
+                    row.raw_type.as_deref(),
+                )),
             });
         }
 
@@ -430,7 +425,11 @@ impl ReconciliationServiceTrait for ReconciliationService {
             // Check if already processed
             let hash = Self::file_hash(&content);
             if self.is_file_already_processed(&hash)? {
-                log::debug!("File already processed (hash: {}): {}", &hash[..8], filename);
+                log::debug!(
+                    "File already processed (hash: {}): {}",
+                    &hash[..8],
+                    filename
+                );
                 result.files_skipped += 1;
                 continue;
             }
@@ -532,7 +531,11 @@ impl ReconciliationServiceTrait for ReconciliationService {
                                 inserted += 1;
                             }
                             Err(e) => {
-                                log::warn!("Failed to create draft activity for row {}: {}", item.row_index, e);
+                                log::warn!(
+                                    "Failed to create draft activity for row {}: {}",
+                                    item.row_index,
+                                    e
+                                );
                             }
                         }
                     }
@@ -614,11 +617,13 @@ impl ReconciliationServiceTrait for ReconciliationService {
 
             for run in runs {
                 if run.source_system == SOURCE_SYSTEM
-                    && run.status == crate::sync::ImportRunStatus::NeedsReview
+                    && run.status == crate::activities::ImportRunStatus::NeedsReview
                 {
                     match self.reconstruct_reconciliation(&run) {
                         Ok(recon) => results.push(recon),
-                        Err(e) => log::warn!("Failed to reconstruct reconciliation {}: {}", run.id, e),
+                        Err(e) => {
+                            log::warn!("Failed to reconstruct reconciliation {}: {}", run.id, e)
+                        }
                     }
                 }
             }
@@ -632,10 +637,7 @@ impl ReconciliationServiceTrait for ReconciliationService {
             .import_run_repo
             .get_by_id(import_run_id)?
             .ok_or_else(|| {
-                crate::errors::Error::Unexpected(format!(
-                    "Import run not found: {}",
-                    import_run_id
-                ))
+                crate::errors::Error::Unexpected(format!("Import run not found: {}", import_run_id))
             })?;
 
         if run.source_system != SOURCE_SYSTEM {
@@ -715,11 +717,12 @@ impl ReconciliationServiceTrait for ReconciliationService {
 
         // Emit domain event if activities were changed
         if !account_ids.is_empty() {
-            self.event_sink.emit(crate::events::DomainEvent::ActivitiesChanged {
-                account_ids,
-                asset_ids: Vec::new(),
-                currencies: Vec::new(),
-            });
+            self.event_sink
+                .emit(crate::events::DomainEvent::ActivitiesChanged {
+                    account_ids,
+                    asset_ids: Vec::new(),
+                    currencies: Vec::new(),
+                });
         }
 
         Ok(run)
@@ -771,12 +774,7 @@ fn find_column_index(headers: &[String], column_name: &str) -> Option<usize> {
 fn parse_date(s: &str) -> Option<NaiveDate> {
     // Try common date formats
     let formats = [
-        "%Y-%m-%d",
-        "%d/%m/%Y",
-        "%m/%d/%Y",
-        "%d-%m-%Y",
-        "%Y/%m/%d",
-        "%d.%m.%Y",
+        "%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y", "%Y/%m/%d", "%d.%m.%Y",
     ];
     for fmt in &formats {
         if let Ok(d) = NaiveDate::parse_from_str(s, fmt) {
