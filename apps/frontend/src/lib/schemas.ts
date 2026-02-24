@@ -157,7 +157,7 @@ export const importActivitySchema = z
     quoteCcy: z.string().optional(),
     /** Optional resolved instrument type hint (e.g., EQUITY, CRYPTO). */
     instrumentType: z.string().optional(),
-    /** Optional quote mode hint (e.g., MANUAL, MARKET). */
+    /** Optional quote mode override (e.g., MANUAL for unresolvable symbols). */
     quoteMode: z.string().optional(),
     errors: z.record(z.string(), z.array(z.string())).optional(),
     warnings: z.record(z.string(), z.array(z.string())).optional(),

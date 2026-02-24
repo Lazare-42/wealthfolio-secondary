@@ -55,6 +55,13 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: PdfImport
     setCheckedActivities(null);
   };
 
+  const switchToManual = (index: number) => {
+    const updated = [...activities];
+    updated[index] = { ...updated[index], quoteMode: "MANUAL", errors: undefined };
+    setEditedActivities(updated);
+    setCheckedActivities(null);
+  };
+
   const removeActivity = (index: number) => {
     const updated = activities.filter((_, i) => i !== index);
     setEditedActivities(updated);
@@ -242,9 +249,26 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: PdfImport
                         </td>
                         <td className="px-1 py-1">
                           {rowErrors.length > 0 ? (
-                            <span className="text-destructive text-xs" title={rowErrors.join(", ")}>
-                              {rowErrors.join(", ")}
-                            </span>
+                            <div className="flex flex-col gap-1">
+                              <span
+                                className="text-destructive text-xs"
+                                title={rowErrors.join(", ")}
+                              >
+                                {rowErrors.join(", ")}
+                              </span>
+                              {rowErrors.some((e) => e.includes("Could not find")) && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 text-xs"
+                                  onClick={() => switchToManual(i)}
+                                >
+                                  Use Manual Quotes
+                                </Button>
+                              )}
+                            </div>
+                          ) : a.quoteMode === "MANUAL" ? (
+                            <span className="text-success text-xs">Manual</span>
                           ) : rowWarnings.length > 0 ? (
                             <span className="text-warning text-xs" title={rowWarnings.join(", ")}>
                               {rowWarnings.join(", ")}

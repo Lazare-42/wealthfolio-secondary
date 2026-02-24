@@ -292,7 +292,10 @@ impl ActivityService {
             }
             if let Some(exchange_mic) = existing_map.get(&symbol.to_lowercase()) {
                 // Already known asset — no ticker rewrite needed
-                cache.insert((symbol.clone(), currency.clone()), (exchange_mic.clone(), None));
+                cache.insert(
+                    (symbol.clone(), currency.clone()),
+                    (exchange_mic.clone(), None),
+                );
             } else {
                 missing.push((symbol.clone(), currency.clone()));
             }
@@ -1882,9 +1885,15 @@ impl ActivityServiceTrait for ActivityService {
                 .unwrap_or(false);
 
             // Equities (Investment + Equity instrument) must have a resolved exchange MIC
+            // unless the user explicitly set manual quote mode
+            let is_manual = activity
+                .quote_mode
+                .as_deref()
+                .map(|m| m.eq_ignore_ascii_case("MANUAL"))
+                .unwrap_or(false);
             let is_equity = effective_kind == AssetKind::Investment
                 && effective_instrument_type.as_ref() == Some(&InstrumentType::Equity);
-            if is_equity && resolved_mic.is_none() && !is_manual_quote {
+            if is_equity && resolved_mic.is_none() && !is_manual {
                 activity.is_valid = false;
                 let mut errors = std::collections::HashMap::new();
                 errors.insert(
