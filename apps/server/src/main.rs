@@ -3,6 +3,7 @@ mod api;
 mod auth;
 mod config;
 mod domain_events;
+mod email_order_import;
 mod error;
 mod events;
 mod features;
@@ -126,6 +127,12 @@ async fn main() -> anyhow::Result<()> {
         state.pdf_staging.clone(),
         state.pdf_parser.clone(),
         state.ai_provider_service.clone(),
+    );
+
+    // Start email order watcher (polls email-orders-inbox/ every 30s)
+    email_order_import::start_email_order_watcher(
+        state.data_root.clone(),
+        state.activity_service.clone(),
     );
 
     let static_dir = std::path::PathBuf::from(&config.static_dir);
