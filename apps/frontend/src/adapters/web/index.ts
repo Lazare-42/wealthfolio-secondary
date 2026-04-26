@@ -326,6 +326,26 @@ export {
   updateToolResult,
 } from "../shared/ai-threads";
 
+// PDF Import Commands
+export {
+  checkPdfImport,
+  confirmPdfImport,
+  deletePdfImportStaged,
+  getPdfImportDetail,
+  getPdfImportsStaged,
+  uploadPdfImport,
+} from "../shared/pdf-import";
+
+// Reconciliation Commands
+export {
+  getReconciliationConfig,
+  getReconciliationDetail,
+  getReconciliationPending,
+  reconciliationResolve,
+  reconciliationScan,
+  updateReconciliationConfig,
+} from "../shared/reconciliation";
+
 // Health Center Commands
 export {
   dismissHealthIssue,

@@ -54,6 +54,20 @@ const staticNavigation: NavigationProps = {
       label: "Goals",
     },
     {
+      icon: <Icons.FileText className="size-6" />,
+      title: "PDF Import",
+      href: "/pdf-import",
+      keywords: ["pdf", "import", "bank", "statement", "extract"],
+      label: "PDF Import",
+    },
+    {
+      icon: <Icons.ListChecks className="size-6" />,
+      title: "Reconciliation",
+      href: "/reconciliation",
+      keywords: ["reconciliation", "bank", "statements", "matching"],
+      label: "Reconciliation",
+    },
+    {
       icon: <Icons.Sparkles className="size-6" />,
       title: "Assistant",
       href: "/assistant",

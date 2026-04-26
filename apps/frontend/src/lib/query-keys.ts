@@ -184,4 +184,12 @@ export const QueryKeys = {
     accountId,
     date,
   ],
+  // PDF Import
+  PDF_IMPORTS_STAGED: "pdfImportsStaged",
+
+  // Reconciliation
+  RECONCILIATION_PENDING: "reconciliationPending",
+  RECONCILIATION_CONFIG: "reconciliationConfig",
+  RECONCILIATION_DETAIL: "reconciliationDetail",
+  reconciliationDetail: (runId: string) => [QueryKeys.RECONCILIATION_DETAIL, runId],
 } as const;

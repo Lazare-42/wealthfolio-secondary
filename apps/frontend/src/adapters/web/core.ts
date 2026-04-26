@@ -406,6 +406,20 @@ export const COMMANDS: CommandMap = {
   delete_agent_access_token: { method: "DELETE", path: "/agent-access/tokens" },
   list_agent_audit_log: { method: "GET", path: "/agent-access/audit" },
   purge_agent_audit_log: { method: "POST", path: "/agent-access/audit/purge" },
+  // PDF Import
+  get_pdf_imports_staged: { method: "GET", path: "/pdf-imports/staged" },
+  get_pdf_import_detail: { method: "GET", path: "/pdf-imports/staged" },
+  delete_pdf_import_staged: { method: "DELETE", path: "/pdf-imports/staged" },
+  confirm_pdf_import: { method: "POST", path: "/pdf-imports/staged" },
+  check_pdf_import: { method: "POST", path: "/pdf-imports/staged" },
+  upload_pdf_import: { method: "POST", path: "/pdf-imports/upload" },
+  // Reconciliation
+  reconciliation_scan: { method: "POST", path: "/reconciliation/scan" },
+  reconciliation_pending: { method: "GET", path: "/reconciliation/pending" },
+  reconciliation_detail: { method: "GET", path: "/reconciliation" },
+  reconciliation_resolve: { method: "POST", path: "/reconciliation/resolve" },
+  get_reconciliation_config: { method: "GET", path: "/reconciliation/config" },
+  update_reconciliation_config: { method: "PUT", path: "/reconciliation/config" },
 };
 
 /**
@@ -2035,6 +2049,10 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
       break;
     }
     case "delete_agent_access_token": {
+    // PDF Import
+    case "get_pdf_imports_staged":
+      break;
+    case "get_pdf_import_detail": {
       const { id } = payload as { id: string };
       url += `/${encodeURIComponent(id)}`;
       break;
@@ -2056,6 +2074,37 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
       if (outcomes?.length) params.set("outcomes", outcomes.join(","));
       if (actorKinds?.length) params.set("actorKinds", actorKinds.join(","));
       url += `?${params.toString()}`;
+    case "delete_pdf_import_staged": {
+      const { id } = payload as { id: string };
+      url += `/${encodeURIComponent(id)}`;
+      break;
+    }
+    case "confirm_pdf_import": {
+      const { id, request } = payload as { id: string; request: Record<string, unknown> };
+      url += `/${encodeURIComponent(id)}/confirm`;
+      body = JSON.stringify(request);
+      break;
+    }
+    case "check_pdf_import": {
+      const { id, request } = payload as { id: string; request: Record<string, unknown> };
+      url += `/${encodeURIComponent(id)}/check`;
+      body = JSON.stringify(request);
+      break;
+    }
+    // Reconciliation
+    case "reconciliation_detail": {
+      const { runId } = payload as { runId: string };
+      url += `/${encodeURIComponent(runId)}`;
+      break;
+    }
+    case "reconciliation_resolve": {
+      const data = payload as { request: Record<string, unknown> };
+      body = JSON.stringify(data.request);
+      break;
+    }
+    case "update_reconciliation_config": {
+      const data = payload as { config: Record<string, unknown> };
+      body = JSON.stringify(data.config);
       break;
     }
   }

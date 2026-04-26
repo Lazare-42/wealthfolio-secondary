@@ -9,7 +9,10 @@ use crate::{
 use tracing::{error, warn};
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::{fmt, EnvFilter};
-use wealthfolio_ai::{AiProviderService, AiProviderServiceTrait, ChatConfig, ChatService};
+use wealthfolio_ai::{
+    pdf_parser::{PdfTransactionParser, PdfTransactionParserTrait},
+    AiProviderService, AiProviderServiceTrait, ChatConfig, ChatService,
+};
 use wealthfolio_connect::{
     BrokerSyncService, BrokerSyncServiceTrait, CoreImportRunRepositoryAdapter,
     ImportRunRepositoryTrait, TokenLifecycleState,
@@ -140,6 +143,10 @@ pub struct AppState {
     pub mcp_enabled: bool,
     /// Whether agent tool calls are audited (from `Config::mcp_audit_enabled`).
     pub mcp_audit_enabled: bool,
+    pub reconciliation_service:
+        Arc<dyn wealthfolio_core::reconciliation::ReconciliationServiceTrait + Send + Sync>,
+    pub pdf_staging: Arc<crate::pdf_import::StagingStore>,
+    pub pdf_parser: Arc<dyn PdfTransactionParserTrait>,
 }
 
 pub fn init_tracing() {
@@ -682,6 +689,23 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         .with_event_sink(domain_event_sink.clone()),
     );
 
+    // Reconciliation service for bank statement matching
+    let recon_import_run_repo = Arc::new(CoreImportRunRepositoryAdapter::new(
+        import_run_repository.clone(),
+    ));
+    let statements_dir_override = std::env::var("WF_STATEMENTS_DIR").ok();
+    let reconciliation_service: Arc<
+        dyn wealthfolio_core::reconciliation::ReconciliationServiceTrait + Send + Sync,
+    > = Arc::new(
+        wealthfolio_core::reconciliation::ReconciliationService::new(
+            activity_service.clone(),
+            recon_import_run_repo,
+            settings_service.clone(),
+            domain_event_sink.clone(),
+            statements_dir_override,
+        ),
+    );
+
     // Connect sync service for broker data synchronization
     let platform_repository = Arc::new(PlatformRepository::new(pool.clone(), writer.clone()));
     let connect_sync_service: Arc<dyn BrokerSyncServiceTrait + Send + Sync> = Arc::new(
@@ -748,6 +772,8 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
     ));
     let agent_environment: Arc<dyn wealthfolio_agent_tools::AgentEnvironment> =
         ai_environment.clone();
+    let pdf_parser: Arc<dyn PdfTransactionParserTrait> =
+        Arc::new(PdfTransactionParser::new(ai_environment.clone()));
     let ai_chat_service = Arc::new(ChatService::new(ai_environment, ChatConfig::default()));
 
     // Agent access: PAT auth + MCP audit trail (server-mode MCP)
@@ -820,6 +846,7 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         )),
         None => None,
     };
+    let pdf_staging = Arc::new(crate::pdf_import::StagingStore::new());
 
     let state = Arc::new(AppState {
         domain_event_sink,
@@ -878,6 +905,9 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         agent_environment,
         mcp_enabled: config.mcp_enabled,
         mcp_audit_enabled: config.mcp_audit_enabled,
+        reconciliation_service,
+        pdf_staging,
+        pdf_parser,
     });
 
     #[cfg(feature = "device-sync")]

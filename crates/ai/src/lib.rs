@@ -67,6 +67,7 @@ pub mod error;
 pub mod eval;
 #[cfg(feature = "test-utils")]
 pub mod live_evals;
+pub mod pdf_parser;
 pub mod prompt_template;
 pub mod prompt_template_service;
 pub mod provider_model;

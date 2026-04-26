@@ -126,6 +126,12 @@ export * from "../shared/ai-providers";
 // AI Thread Commands
 export * from "../shared/ai-threads";
 
+// PDF Import Commands
+export * from "../shared/pdf-import";
+
+// Reconciliation Commands
+export * from "../shared/reconciliation";
+
 // Health Center Commands
 export * from "../shared/health";
 
