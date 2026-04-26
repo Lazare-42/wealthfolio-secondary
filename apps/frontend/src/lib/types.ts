@@ -2702,3 +2702,117 @@ export interface RebalancePlan {
   warnings: RebalanceWarning[];
   afterBpsByCategory: Record<string, number>;
 }
+
+// ============================================================================
+// Reconciliation Types
+// ============================================================================
+
+export type MatchStatus = "MATCHED" | "UNMATCHED" | "CONFLICT" | "MISSING";
+
+export interface ReconciliationItem {
+  rowIndex: number;
+  activityDate: string;
+  description?: string;
+  amount: number;
+  currency: string;
+  rawType?: string;
+  matchStatus: MatchStatus;
+  matchedActivity?: Activity;
+  draftActivityId?: string;
+  confidence: number;
+  mappedActivityType?: string;
+}
+
+export interface ReconciliationResult {
+  importRun: ImportRun;
+  filePath: string;
+  fileName: string;
+  accountId: string;
+  items: ReconciliationItem[];
+  summary: ImportRunSummary;
+}
+
+export interface ScanResult {
+  filesFound: number;
+  filesNew: number;
+  filesSkipped: number;
+  reconciliations: ReconciliationResult[];
+}
+
+export interface StatementFieldMappings {
+  dateColumn: string;
+  amountColumn: string;
+  descriptionColumn?: string;
+  typeColumn?: string;
+  defaultCurrency?: string;
+}
+
+export interface StatementAccountMapping {
+  filePattern: string;
+  accountId: string;
+  fieldMappings: StatementFieldMappings;
+  parseConfig?: Record<string, unknown>;
+}
+
+export interface ReconciliationConfig {
+  statementsDir: string;
+  mappings: StatementAccountMapping[];
+  amountTolerance?: number;
+}
+
+export interface ResolveRequest {
+  importRunId: string;
+  acceptIds: string[];
+  rejectIds: string[];
+}
+
+// ============================================================================
+// PDF Import Types
+// ============================================================================
+
+export type StagedImportSource = "Upload" | "FolderWatcher";
+
+export interface PdfTransaction {
+  date: string;
+  type: string;
+  description: string;
+  amount: number;
+  currency: string;
+  fee?: number;
+}
+
+export interface StagedImportSummary {
+  id: string;
+  fileName: string;
+  transactionCount: number;
+  stagedAt: string;
+  source: StagedImportSource;
+  suggestedAccountId?: string;
+}
+
+export interface StagedImport {
+  id: string;
+  fileName: string;
+  transactions: PdfTransaction[];
+  stagedAt: string;
+  source: StagedImportSource;
+  suggestedAccountId?: string;
+}
+
+export interface PdfImportConfirmRequest {
+  accountId: string;
+  activities: Record<string, unknown>[];
+}
+
+export interface PdfImportConfirmResponse {
+  importedCount: number;
+}
+
+export interface PdfImportCheckRequest {
+  accountId: string;
+}
+
+export interface PdfImportCheckResponse {
+  duplicateCount: number;
+  totalCount: number;
+}
