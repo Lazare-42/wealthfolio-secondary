@@ -8,6 +8,7 @@ mod events;
 mod features;
 mod main_lib;
 mod models;
+mod pdf_import;
 mod scheduler;
 mod secrets;
 
@@ -118,6 +119,14 @@ async fn main() -> anyhow::Result<()> {
         )
         .await;
     });
+
+    // Start PDF folder watcher (polls pdf-inbox/ every 30s)
+    pdf_import::start_pdf_watcher(
+        state.data_root.clone(),
+        state.pdf_staging.clone(),
+        state.pdf_parser.clone(),
+        state.ai_provider_service.clone(),
+    );
 
     let static_dir = std::path::PathBuf::from(&config.static_dir);
     let index_file = static_dir.join("index.html");

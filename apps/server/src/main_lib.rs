@@ -8,7 +8,10 @@ use crate::{
 use tracing::error;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::{fmt, EnvFilter};
-use wealthfolio_ai::{AiProviderService, AiProviderServiceTrait, ChatConfig, ChatService};
+use wealthfolio_ai::{
+    pdf_parser::{PdfTransactionParser, PdfTransactionParserTrait},
+    AiProviderService, AiProviderServiceTrait, ChatConfig, ChatService,
+};
 use wealthfolio_connect::{
     BrokerSyncService, BrokerSyncServiceTrait, CoreImportRunRepositoryAdapter,
     ImportRunRepositoryTrait, TokenLifecycleState,
@@ -103,6 +106,10 @@ pub struct AppState {
     pub health_service: Arc<dyn HealthServiceTrait + Send + Sync>,
     pub token_lifecycle: Arc<TokenLifecycleState>,
     pub custom_provider_service: Arc<wealthfolio_core::custom_provider::CustomProviderService>,
+    pub reconciliation_service:
+        Arc<dyn wealthfolio_core::reconciliation::ReconciliationServiceTrait + Send + Sync>,
+    pub pdf_staging: Arc<crate::pdf_import::StagingStore>,
+    pub pdf_parser: Arc<dyn PdfTransactionParserTrait>,
 }
 
 pub fn init_tracing() {
@@ -348,6 +355,23 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         .with_event_sink(domain_event_sink.clone()),
     );
 
+    // Reconciliation service for bank statement matching
+    let recon_import_run_repo = Arc::new(CoreImportRunRepositoryAdapter::new(
+        import_run_repository.clone(),
+    ));
+    let statements_dir_override = std::env::var("WF_STATEMENTS_DIR").ok();
+    let reconciliation_service: Arc<
+        dyn wealthfolio_core::reconciliation::ReconciliationServiceTrait + Send + Sync,
+    > = Arc::new(
+        wealthfolio_core::reconciliation::ReconciliationService::new(
+            activity_service.clone(),
+            recon_import_run_repo,
+            settings_service.clone(),
+            domain_event_sink.clone(),
+            statements_dir_override,
+        ),
+    );
+
     // Connect sync service for broker data synchronization
     let platform_repository = Arc::new(PlatformRepository::new(pool.clone(), writer.clone()));
     let connect_sync_service: Arc<dyn BrokerSyncServiceTrait + Send + Sync> = Arc::new(
@@ -404,6 +428,8 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         income_service.clone(),
         health_service.clone(),
     ));
+    let pdf_parser: Arc<dyn PdfTransactionParserTrait> =
+        Arc::new(PdfTransactionParser::new(ai_environment.clone()));
     let ai_chat_service = Arc::new(ChatService::new(ai_environment, ChatConfig::default()));
 
     // Device enroll service for E2EE sync
@@ -449,6 +475,8 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         .transpose()?
         .map(Arc::new);
 
+    let pdf_staging = Arc::new(crate::pdf_import::StagingStore::new());
+
     Ok(Arc::new(AppState {
         domain_event_sink,
         account_service,
@@ -487,5 +515,8 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         health_service,
         token_lifecycle,
         custom_provider_service,
+        reconciliation_service,
+        pdf_staging,
+        pdf_parser,
     }))
 }

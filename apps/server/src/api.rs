@@ -39,8 +39,10 @@ mod holdings;
 mod limits;
 mod market_data;
 mod net_worth;
+mod pdf_import;
 mod performance;
 mod portfolio;
+mod reconciliation;
 mod secrets;
 mod settings;
 pub mod shared;
@@ -106,7 +108,9 @@ pub fn app_router(state: Arc<AppState>, config: &Config) -> Router {
         .merge(ai_providers::router())
         .merge(ai_chat::router())
         .merge(health::router())
-        .merge(custom_providers::router());
+        .merge(custom_providers::router())
+        .merge(reconciliation::router())
+        .merge(pdf_import::router());
 
     #[cfg(feature = "device-sync")]
     {

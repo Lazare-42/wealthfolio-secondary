@@ -24,6 +24,9 @@ import AccountPage from "./pages/account/account-page";
 import AiAssistantPage from "./pages/ai-assistant/ai-assistant-page";
 import AssetProfilePage from "./pages/asset/asset-profile-page";
 import HealthPage from "./pages/health/health-page";
+import PdfImportPage from "./pages/pdf-import/pdf-import-page";
+import ReconciliationPage from "./pages/reconciliation/reconciliation-page";
+import ReconciliationDetailPage from "./pages/reconciliation/reconciliation-detail-page";
 import HoldingsInsightsPage from "./pages/holdings/holdings-insights-page";
 import OnboardingPage from "./pages/onboarding/onboarding-page";
 import AboutSettingsPage from "./pages/settings/about/about-page";
@@ -91,6 +94,9 @@ export function AppRoutes() {
           <Route path="performance" element={<PerformancePage />} />
           <Route path="insights" element={<PortfolioInsightsPage />} />
           <Route path="health" element={<HealthPage />} />
+          <Route path="pdf-import" element={<PdfImportPage />} />
+          <Route path="reconciliation" element={<ReconciliationPage />} />
+          <Route path="reconciliation/:runId" element={<ReconciliationDetailPage />} />
           <Route path="assistant" element={<AiAssistantPage />} />
           <Route path="connect" element={<ConnectPage />} />
           <Route path="fire-planner" element={<FirePlannerPage />} />

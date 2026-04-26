@@ -46,6 +46,20 @@ const staticNavigation: NavigationProps = {
       keywords: ["transactions", "trades", "history"],
       label: "View Activities",
     },
+    {
+      icon: <Icons.FileText className="size-6" />,
+      title: "PDF Import",
+      href: "/pdf-import",
+      keywords: ["pdf", "import", "bank", "statement", "extract"],
+      label: "PDF Import",
+    },
+    {
+      icon: <Icons.ListChecks className="size-6" />,
+      title: "Reconciliation",
+      href: "/reconciliation",
+      keywords: ["reconciliation", "bank", "statements", "matching"],
+      label: "Reconciliation",
+    },
     // {
     //   icon: <Icons.Target className="size-6" />,
     //   title: "FIRE Planner",

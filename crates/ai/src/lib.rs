@@ -52,6 +52,7 @@ pub mod env;
 pub mod error;
 #[cfg(test)]
 pub mod eval;
+pub mod pdf_parser;
 pub mod prompt_template;
 pub mod prompt_template_service;
 pub mod provider_model;
