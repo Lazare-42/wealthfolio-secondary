@@ -75,6 +75,7 @@
 
           pnpmDeps = pkgs.pnpm_9.fetchDeps {
             inherit (finalAttrs) pname version src;
+            fetcherVersion = 2;
             # Resolve in the nixos-config context:
             #   nix build '.#nixosConfigurations.nixos.pkgs.wealthfolio-frontend.pnpmDeps'
             hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
@@ -116,7 +117,7 @@
               # tauri plugin git dep — only used by apps/tauri (not built here),
               # but cargoLock vendors the whole lockfile so it needs a hash.
               "tauri-plugin-barcode-scanner-2.4.5" =
-                "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+                "sha256-xuyC/um19uifPNCLUymVTnaPQ8flaSRmK2j3OyFhTbs=";
             };
           };
 
