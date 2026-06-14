@@ -18,6 +18,14 @@
           inherit system overlays;
         };
 
+        rustToolchain = pkgs.rust-bin.stable.latest.default;
+        rustPlatform = pkgs.makeRustPlatform {
+          cargo = rustToolchain;
+          rustc = rustToolchain;
+        };
+
+        version = "3.5.2";
+
         libraries = with pkgs; [
           webkitgtk_4_1
           gtk3
@@ -54,8 +62,84 @@
           # Additional utilities
           git
         ];
+
+        # ─── Web mode: static frontend bundle (`dist`) ───────────────────────
+        # Mirrors the Dockerfile's frontend stage: `BUILD_TARGET=web` +
+        # `pnpm --filter frontend... build`, whose vite outDir is the repo-root
+        # `dist/`. Built without Wealthfolio Connect (the Connect keys are
+        # optional `option_env!`/runtime envs, omitted for self-host).
+        wealthfolio-frontend = pkgs.stdenv.mkDerivation (finalAttrs: {
+          pname = "wealthfolio-frontend";
+          inherit version;
+          src = ./.;
+
+          pnpmDeps = pkgs.pnpm_9.fetchDeps {
+            inherit (finalAttrs) pname version src;
+            # Resolve in the nixos-config context:
+            #   nix build '.#nixosConfigurations.nixos.pkgs.wealthfolio-frontend.pnpmDeps'
+            hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+          };
+
+          nativeBuildInputs = [ pkgs.nodejs_22 pkgs.pnpm_9 pkgs.pnpm_9.configHook ];
+
+          env = {
+            CI = "1";
+            BUILD_TARGET = "web";
+          };
+
+          buildPhase = ''
+            runHook preBuild
+            pnpm --filter frontend... build
+            runHook postBuild
+          '';
+
+          installPhase = ''
+            runHook preInstall
+            cp -r dist $out
+            runHook postInstall
+          '';
+        });
+
+        # ─── Web mode: Axum backend binary (apps/server) ─────────────────────
+        # Mirrors the Dockerfile's backend stage: builds only the
+        # `wealthfolio-server` workspace member. Native crypto deps need cmake +
+        # perl + nasm (aws-lc-rs via jsonwebtoken, ring via reqwest/rustls);
+        # openssl + sqlite are system-linked (OPENSSL_NO_VENDOR).
+        wealthfolio-server = rustPlatform.buildRustPackage {
+          pname = "wealthfolio-server";
+          inherit version;
+          src = ./.;
+
+          cargoLock = {
+            lockFile = ./Cargo.lock;
+            outputHashes = {
+              # tauri plugin git dep — only used by apps/tauri (not built here),
+              # but cargoLock vendors the whole lockfile so it needs a hash.
+              "tauri-plugin-barcode-scanner-2.4.5" =
+                "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+            };
+          };
+
+          buildAndTestSubdir = "apps/server";
+
+          nativeBuildInputs = [ pkgs.pkg-config pkgs.cmake pkgs.perl pkgs.nasm ];
+          buildInputs = [ pkgs.openssl pkgs.sqlite ];
+
+          dontUseCmakeConfigure = true;
+          env.OPENSSL_NO_VENDOR = "1";
+
+          doCheck = false;
+
+          meta.mainProgram = "wealthfolio-server";
+        };
       in
       {
+        packages = {
+          default = wealthfolio-server;
+          server = wealthfolio-server;
+          frontend = wealthfolio-frontend;
+        };
+
         devShells.default = pkgs.mkShell {
           buildInputs = packages;
 
@@ -79,5 +163,10 @@
           '';
         };
       }
-    );
+    ) // {
+      overlays.default = final: prev: {
+        wealthfolio = self.packages.${final.system}.server;
+        wealthfolio-frontend = self.packages.${final.system}.frontend;
+      };
+    };
 }
