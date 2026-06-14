@@ -78,7 +78,7 @@
             fetcherVersion = 2;
             # Resolve in the nixos-config context:
             #   nix build '.#nixosConfigurations.nixos.pkgs.wealthfolio-frontend.pnpmDeps'
-            hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+            hash = "sha256-HF+MRit7F4MHNLUZB4XcZQTugkwww1pqyWp4aNMy12Y=";
           };
 
           nativeBuildInputs = [ pkgs.nodejs_22 pkgs.pnpm_9 pkgs.pnpm_9.configHook ];
