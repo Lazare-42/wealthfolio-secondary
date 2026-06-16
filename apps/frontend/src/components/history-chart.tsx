@@ -24,9 +24,25 @@ export interface HistoryChartData {
   currency: string;
 }
 
+/**
+ * Runtime key for a per-account overlay value on a data point (base currency).
+ * Kept off HistoryChartData so the base type stays compatible with all callers;
+ * recharts reads these via the string dataKey, and the tooltip via a cast.
+ */
+const accountSeriesKey = (accountId: string): `account_${string}` => `account_${accountId}`;
+
+/** One overlaid per-account series on the history chart. */
+export interface HistoryChartAccountSeries {
+  accountId: string;
+  accountName: string;
+  color: string;
+}
+
 interface HistoryChartProps {
   data: HistoryChartData[];
   isLoading?: boolean;
+  /** When provided, overlays one colored line per account (opt-in; off by default). */
+  accounts?: HistoryChartAccountSeries[];
   /** Dates with manual snapshots (YYYY-MM-DD format) */
   snapshotDates?: string[];
   /** Toggle visibility of snapshot markers */
@@ -54,6 +70,7 @@ interface TooltipBaseProps {
 interface CustomTooltipProps extends TooltipBaseProps {
   isBalanceHidden: boolean;
   isChartHovered: boolean;
+  accounts?: HistoryChartAccountSeries[];
 }
 
 const CustomTooltip = ({
@@ -61,6 +78,7 @@ const CustomTooltip = ({
   payload,
   isBalanceHidden,
   isChartHovered,
+  accounts,
 }: CustomTooltipProps) => {
   if (!active || !payload?.length) {
     return null;
@@ -118,6 +136,37 @@ const CustomTooltip = ({
           />
         </div>
       )}
+      {isChartHovered &&
+        accounts?.map((account) => {
+          const value = (tvPayload as unknown as Record<string, unknown>)[
+            accountSeriesKey(account.accountId)
+          ];
+          if (typeof value !== "number") {
+            return null;
+          }
+          return (
+            <div
+              key={account.accountId}
+              className="flex items-center justify-between space-x-2"
+            >
+              <div className="flex items-center space-x-1.5">
+                <span
+                  className="block h-0.5 w-3"
+                  style={{ backgroundColor: account.color }}
+                />
+                <span className="text-muted-foreground max-w-[10rem] truncate text-xs">
+                  {account.accountName}:
+                </span>
+              </div>
+              <AmountDisplay
+                value={value}
+                currency={tvPayload.currency}
+                isHidden={isBalanceHidden}
+                className="text-xs font-semibold"
+              />
+            </div>
+          );
+        })}
     </div>
   );
 };
@@ -125,6 +174,7 @@ const CustomTooltip = ({
 export function HistoryChart({
   data,
   isLoading,
+  accounts,
   snapshotDates,
   showMarkers,
   onMarkerClick,
@@ -345,6 +395,7 @@ export function HistoryChart({
               {...(props as unknown as TooltipBaseProps)}
               isBalanceHidden={isBalanceHidden}
               isChartHovered={isChartHovered}
+              accounts={accounts}
             />
           )}
         />
@@ -388,6 +439,24 @@ export function HistoryChart({
             style={{ pointerEvents: "none" }}
           />
         )}
+        {accounts?.map((account) => (
+          <Area
+            key={account.accountId}
+            isAnimationActive={true}
+            animationDuration={300}
+            animationEasing="ease-out"
+            connectNulls={true}
+            type="monotone"
+            dataKey={accountSeriesKey(account.accountId)}
+            stroke={account.color}
+            strokeWidth={1.5}
+            strokeOpacity={isChartHovered ? 0.9 : 0.45}
+            fill="transparent"
+            dot={false}
+            activeDot={false}
+            style={{ pointerEvents: "none" }}
+          />
+        ))}
         {showMarkers &&
           markerDataPoints.map((point) => (
             <ReferenceDot

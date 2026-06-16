@@ -1,6 +1,9 @@
 import { calculatePerformanceSummary } from "@/adapters";
-import { HistoryChart } from "@/components/history-chart";
+import { HistoryChart, type HistoryChartAccountSeries } from "@/components/history-chart";
 import { useHapticFeedback } from "@/hooks";
+import { useAccounts } from "@/hooks/use-accounts";
+import { useAllAccountsValuationHistory } from "@/hooks/use-all-accounts-valuation-history";
+import { generateDistinctColors } from "@/lib/chart-colors";
 import { useCurrentValuation } from "@/hooks/use-current-account-valuations";
 import { useHoldings } from "@/hooks/use-holdings";
 import { useValuationHistory } from "@/hooks/use-valuation-history";
@@ -113,6 +116,23 @@ export function DashboardContent() {
   const { settings } = useSettingsContext();
   const baseCurrency = settings?.baseCurrency ?? "USD";
 
+  // Per-account overlay on the history chart — opt-in, only meaningful with >1 account.
+  const { accounts } = useAccounts();
+  const overlayAccounts = useMemo(
+    () => (accounts.length > 1 ? accounts.map((a) => ({ id: a.id, name: a.name })) : []),
+    [accounts],
+  );
+  const accountColors = useMemo<HistoryChartAccountSeries[]>(() => {
+    const colors = generateDistinctColors(overlayAccounts.length);
+    return overlayAccounts.map((account, i) => ({
+      accountId: account.id,
+      accountName: account.name,
+      color: colors[i] ?? "#888888",
+    }));
+  }, [overlayAccounts]);
+  const { allAccountsHistory, isLoading: isAllAccountsHistoryLoading } =
+    useAllAccountsValuationHistory(dateRange, overlayAccounts);
+
   const startDate =
     !isAllTime && dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
   const endDate = !isAllTime && dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
@@ -146,15 +166,34 @@ export function DashboardContent() {
       : undefined);
 
   const chartData = useMemo(() => {
-    return (
+    const base =
       valuationHistory?.map((item) => ({
         date: item.valuationDate,
         totalValue: item.totalValueBase,
         netContribution: item.netContributionBase,
         currency: item.baseCurrency ?? baseCurrency,
-      })) ?? []
-    );
-  }, [valuationHistory, baseCurrency]);
+      })) ?? [];
+
+    if (!allAccountsHistory || allAccountsHistory.length === 0) {
+      return base;
+    }
+
+    // Index each account's base value by date, then attach as account_<id> keys
+    // so HistoryChart can overlay one line per account.
+    const valuesByDate = new Map<string, { [key: `account_${string}`]: number }>();
+    for (const account of allAccountsHistory) {
+      for (const valuation of account.valuations) {
+        let row = valuesByDate.get(valuation.valuationDate);
+        if (!row) {
+          row = {};
+          valuesByDate.set(valuation.valuationDate, row);
+        }
+        row[`account_${account.accountId}`] = valuation.totalValueBase;
+      }
+    }
+
+    return base.map((point) => ({ ...point, ...(valuesByDate.get(point.date) ?? {}) }));
+  }, [valuationHistory, allAccountsHistory, baseCurrency]);
 
   const chartMinDomainSpanRatio = useMemo(
     () => getDashboardChartMinDomainSpanRatio(selectedInterval),
@@ -251,7 +290,8 @@ export function DashboardContent() {
         <div className="h-[280px]">
           <HistoryChart
             data={chartData}
-            isLoading={isValuationHistoryLoading}
+            isLoading={isValuationHistoryLoading || isAllAccountsHistoryLoading}
+            accounts={accountColors}
             scaleMode="fit-visible"
             minDomainSpanRatio={chartMinDomainSpanRatio}
             netContributionMaxDomainSpanRatio={chartNetContributionMaxDomainSpanRatio}
