@@ -496,7 +496,7 @@ impl ReconciliationServiceTrait for ReconciliationService {
                         let new_activity = NewActivity {
                             id: None,
                             account_id: mapping.account_id.clone(),
-                            symbol: None,
+                            asset: None,
                             activity_type,
                             subtype: None,
                             activity_date: item.activity_date.to_string(),
@@ -669,7 +669,7 @@ impl ReconciliationServiceTrait for ReconciliationService {
             let update = crate::activities::ActivityUpdate {
                 id: activity.id.clone(),
                 account_id: activity.account_id.clone(),
-                symbol: None,
+                asset: None,
                 activity_type: activity.activity_type.clone(),
                 subtype: activity.subtype.clone(),
                 activity_date: activity.activity_date.format("%Y-%m-%d").to_string(),
