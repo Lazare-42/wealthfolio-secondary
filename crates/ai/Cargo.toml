@@ -14,6 +14,9 @@ default = []
 test-utils = []
 # Build the eval binary. Wraps test-utils plus deps the runner needs.
 eval = ["test-utils", "dep:toml", "dep:regex", "dep:env_logger"]
+# Connect external MCP servers (Streamable HTTP) to the Assistant.
+# Off by default; the nix build must pass --features mcp to enable it.
+mcp = ["rig/rmcp", "dep:rmcp"]
 
 [dependencies]
 # Workspace dependencies
@@ -32,6 +35,9 @@ sha2 = { workspace = true }
 
 # LLM orchestration (rig-core crate exports as "rig")
 rig = { package = "rig-core", version = "0.30", default-features = false, features = ["reqwest-rustls"] }
+
+# MCP client (only with the `mcp` feature). rig 0.30 pins rmcp 0.13.
+rmcp = { version = "0.13", default-features = false, features = ["client", "transport-streamable-http-client"], optional = true }
 
 # Lazy static initialization
 once_cell = "1"

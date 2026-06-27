@@ -319,17 +319,18 @@ pub(super) async fn spawn_chat_stream<E: AiEnvironment + 'static>(
                 allowed_tools.push(Box::new(tool_set.import_csv));
             }
 
-            // === MCP integration point (feature/mcp-assistant) ===
-            // External MCP-server tools merge here, alongside the built-ins, so the
-            // existing multi-turn loop dispatches them identically. Uncomment once
-            // `crate::mcp::connect_and_list` is wired to rig-0.30's `mcp` feature
-            // (see crates/ai/src/mcp/mod.rs and crates/ai/MCP.md). Needs the db dir
-            // in scope to load config:
-            //
-            //   let mcp_cfg = crate::mcp::config::McpConfig::load(env.db_dir());
-            //   allowed_tools.extend(
-            //       crate::mcp::load_mcp_tools(&mcp_cfg, &tools_allowlist).await,
-            //   );
+            // MCP-server tools (crate feature `mcp`) merge here, alongside the
+            // built-ins, so the existing multi-turn loop dispatches them the same.
+            // Config dir derived from WF_DB_PATH (no AiEnvironment change needed).
+            #[cfg(feature = "mcp")]
+            {
+                let mcp_dir = std::env::var("WF_DB_PATH")
+                    .ok()
+                    .and_then(|p| std::path::Path::new(&p).parent().map(|d| d.to_path_buf()))
+                    .unwrap_or_else(|| std::path::PathBuf::from("."));
+                let mcp_cfg = crate::mcp::config::McpConfig::load(&mcp_dir);
+                allowed_tools.extend(crate::mcp::load_mcp_tools(&mcp_cfg, &tools_allowlist).await);
+            }
 
             let mut builder = $client
                 .agent(&model_id)
