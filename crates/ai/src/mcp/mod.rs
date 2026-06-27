@@ -46,11 +46,18 @@ pub async fn load_mcp_tools(
                     if !(allowed && server_scoped) {
                         continue;
                     }
-                    // TODO(rig-0.30 mcp): wrap the MCP tool def + client as a rig
-                    // tool and push it:
-                    //   out.push(Box::new(rig::tool::McpTool::from_mcp_server(_tool, client.clone())));
-                    // The exact constructor/feature-gate must be confirmed against
-                    // rig-core 0.30's `mcp` feature (or the `rmcp` adapter).
+                    // CONFIRMED (rig-core 0.30, feature "rmcp"): wrap each MCP tool
+                    // as a ToolDyn and push it. `McpTool` impls `ToolDyn`, so this
+                    // keeps the existing `.tools(allowed_tools)` path (no need for
+                    // the builder's `.rmcp_tools()` which changes the builder type):
+                    //
+                    //   #[cfg(feature = "rmcp")]
+                    //   out.push(Box::new(
+                    //       rig::tool::rmcp::McpTool::from_mcp_server(_tool, server_sink.clone()),
+                    //   ));
+                    //
+                    // _tool: rmcp::model::Tool ; server_sink: rmcp::service::ServerSink
+                    // (obtained from the connected rmcp client — see connect_and_list).
                     let _ = qualified; // silence unused until wired
                 }
             }

@@ -35,25 +35,40 @@ chat request ─► streaming.rs (build allowed_tools)
 - `src/chat/streaming.rs` — commented integration point right before
   `.tools(allowed_tools)`.
 
-## To make it live (the 4 remaining steps)
-1. **Cargo** (`crates/ai/Cargo.toml:34`): enable rig's MCP feature + a transport
-   client. Confirm the exact names against rig-core 0.30:
+## To make it live (the 4 remaining steps) — rig-0.30 API CONFIRMED
+
+Verified against the cached `rig-core-0.30.0` source: feature is **`rmcp`** (not
+`mcp`); wrapper is **`rig::tool::rmcp::McpTool`** which **impls `ToolDyn`**.
+
+1. **Cargo** (`crates/ai/Cargo.toml:34`): enable rig's `rmcp` feature + the `rmcp`
+   client crate (rig depends on `rmcp = "0.13"`):
    ```toml
-   rig = { package = "rig-core", version = "0.30",
-           features = ["reqwest-rustls", "mcp"] }
-   rmcp = { version = "*", features = ["client", "transport-sse-client"] }
+   rig  = { package = "rig-core", version = "0.30",
+            features = ["reqwest-rustls", "rmcp"] }
+   rmcp = { version = "0.13", features = ["client",
+            "transport-sse-client", "transport-streamable-http-client",
+            "transport-child-process"] }   # pick transports you use
    ```
-   (rig may already re-export an MCP client; if so, drop the separate `rmcp` dep.)
-2. **`connect_and_list`** (`src/mcp/mod.rs`): implement per `McpTransport`
-   (sse/http/stdio) — connect, `initialize`, `tools/list`; return `(name, def, client)`.
-3. **`load_mcp_tools`**: wrap each MCP tool as a rig tool and push it:
+2. **`connect_and_list`** (`src/mcp/mod.rs`): per `McpTransport`, build an `rmcp`
+   client → `serve_client(transport)` → `RunningService`. From it: `.list_tools()`
+   → `Vec<rmcp::model::Tool>`, and the **`ServerSink`** via `running.peer().clone()`.
+   Return `(Vec<rmcp::model::Tool>, ServerSink)`. Keep each `RunningService` alive
+   for the chat duration (hold in a struct dropped at stream end).
+3. **`load_mcp_tools`**: wrap + push directly (no builder change needed):
    ```rust
-   out.push(Box::new(rig::tool::McpTool::from_mcp_server(def, client.clone())));
+   out.push(Box::new(
+       rig::tool::rmcp::McpTool::from_mcp_server(tool, server_sink.clone()),
+   ));
    ```
-   (verify the constructor/path in rig 0.30 — could be `rig_core::tool::mcp`).
+   (Alternative: `builder.rmcp_tools(tools, client)` exists but returns a different
+   builder type — `AgentBuilderSimple` — which would break the existing
+   `.tools().tool_choice().temperature()...` chain. Prefer the `ToolDyn` push.)
 4. **streaming.rs**: uncomment the hook; ensure `env.db_dir()` (or equivalent)
    exposes the DB dir for `McpConfig::load`. Add it to the `AiEnvironment` trait
    if missing.
+
+`from_mcp_server(tool: rmcp::model::Tool, client: rmcp::service::ServerSink)` —
+signature confirmed in `rig-core-0.30.0/src/agent/builder.rs`.
 
 Then regen the nix cargo hash and rebuild (same as the `chore(port)` commits).
 
