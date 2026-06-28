@@ -2049,10 +2049,6 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
       break;
     }
     case "delete_agent_access_token": {
-    // PDF Import
-    case "get_pdf_imports_staged":
-      break;
-    case "get_pdf_import_detail": {
       const { id } = payload as { id: string };
       url += `/${encodeURIComponent(id)}`;
       break;
@@ -2074,6 +2070,16 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
       if (outcomes?.length) params.set("outcomes", outcomes.join(","));
       if (actorKinds?.length) params.set("actorKinds", actorKinds.join(","));
       url += `?${params.toString()}`;
+      break;
+    }
+    // PDF Import
+    case "get_pdf_imports_staged":
+      break;
+    case "get_pdf_import_detail": {
+      const { id } = payload as { id: string };
+      url += `/${encodeURIComponent(id)}`;
+      break;
+    }
     case "delete_pdf_import_staged": {
       const { id } = payload as { id: string };
       url += `/${encodeURIComponent(id)}`;
