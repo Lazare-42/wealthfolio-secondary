@@ -17,7 +17,7 @@ use config::McpConfig;
 use rig::tool::ToolDyn;
 
 // ───────────────────────── default build: no-op stub ─────────────────────────
-#[cfg(not(feature = "mcp"))]
+#[cfg(not(feature = "assistant-mcp"))]
 pub async fn load_mcp_tools(
     _cfg: &McpConfig,
     _tools_allowlist: &Option<Vec<String>>,
@@ -26,7 +26,7 @@ pub async fn load_mcp_tools(
 }
 
 // ─────────────────────── `mcp` feature: live (rmcp 0.13) ──────────────────────
-#[cfg(feature = "mcp")]
+#[cfg(feature = "assistant-mcp")]
 mod live {
     use super::*;
     use config::McpTransport;
@@ -120,5 +120,5 @@ mod live {
     }
 }
 
-#[cfg(feature = "mcp")]
+#[cfg(feature = "assistant-mcp")]
 pub use live::load_mcp_tools;

@@ -125,7 +125,7 @@
 
           # Enable MCP-server tools in the Assistant (apps/server `mcp` ->
           # wealthfolio-ai `mcp` -> rig `rmcp`). Drop this line to disable.
-          buildFeatures = [ "mcp" ];
+          buildFeatures = [ "assistant-mcp" ];
 
           nativeBuildInputs = [ pkgs.pkg-config pkgs.cmake pkgs.perl pkgs.nasm ];
           buildInputs = [ pkgs.openssl pkgs.sqlite ];

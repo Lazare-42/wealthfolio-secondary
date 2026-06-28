@@ -65,7 +65,7 @@ default = ["connect-sync", "device-sync"]
 connect-sync = []
 device-sync = []
 # Connect external MCP servers to the Assistant (passthrough to wealthfolio-ai).
-mcp = ["wealthfolio-ai/mcp"]
+assistant-mcp = ["wealthfolio-ai/assistant-mcp"]
 
 [dev-dependencies]
 reqwest = { workspace = true }

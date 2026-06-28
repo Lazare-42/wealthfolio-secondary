@@ -322,7 +322,7 @@ pub(super) async fn spawn_chat_stream<E: AiEnvironment + 'static>(
             // MCP-server tools (crate feature `mcp`) merge here, alongside the
             // built-ins, so the existing multi-turn loop dispatches them the same.
             // Config dir derived from WF_DB_PATH (no AiEnvironment change needed).
-            #[cfg(feature = "mcp")]
+            #[cfg(feature = "assistant-mcp")]
             {
                 let mcp_dir = std::env::var("WF_DB_PATH")
                     .ok()

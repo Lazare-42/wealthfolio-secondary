@@ -16,7 +16,7 @@ test-utils = []
 eval = ["test-utils", "dep:toml", "dep:regex", "dep:env_logger"]
 # Connect external MCP servers (Streamable HTTP) to the Assistant.
 # Off by default; the nix build must pass --features mcp to enable it.
-mcp = ["rig/rmcp", "dep:rmcp"]
+assistant-mcp = ["rig/rmcp", "dep:rmcp"]
 
 [dependencies]
 # Workspace dependencies

@@ -1,8 +1,8 @@
 //! Configuration for external MCP (Model Context Protocol) servers whose tools
 //! are exposed to the Assistant alongside the built-in portfolio tools.
 //!
-//! Loaded from `WF_MCP_CONFIG` (path to a JSON file) or, if unset, from
-//! `<db_dir>/mcp_servers.json`. Absent file => no MCP servers (feature off).
+//! Loaded from `WF_ASSISTANT_MCP_CONFIG` (path to a JSON file) or, if unset, from
+//! `<db_dir>/assistant_mcp_servers.json`. Absent file => no MCP servers (feature off).
 
 use serde::{Deserialize, Serialize};
 
@@ -62,12 +62,12 @@ fn default_true() -> bool {
 }
 
 impl McpConfig {
-    /// Load from `WF_MCP_CONFIG` or `<db_dir>/mcp_servers.json`. Returns an empty
+    /// Load from `WF_ASSISTANT_MCP_CONFIG` or `<db_dir>/assistant_mcp_servers.json`. Returns an empty
     /// config (no error) when no file is present, so MCP is strictly opt-in.
     pub fn load(db_dir: &std::path::Path) -> Self {
-        let path = std::env::var_os("WF_MCP_CONFIG")
+        let path = std::env::var_os("WF_ASSISTANT_MCP_CONFIG")
             .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| db_dir.join("mcp_servers.json"));
+            .unwrap_or_else(|| db_dir.join("assistant_mcp_servers.json"));
         match std::fs::read_to_string(&path) {
             Ok(s) => serde_json::from_str(&s).unwrap_or_else(|e| {
                 tracing::warn!("Invalid MCP config at {}: {e}. Ignoring.", path.display());

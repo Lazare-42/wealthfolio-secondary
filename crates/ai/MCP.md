@@ -28,7 +28,7 @@ chat request ─► streaming.rs (build allowed_tools)
 
 ## Files in this branch (scaffold — compiles, no-op)
 - `src/mcp/config.rs` — config schema + loader. `McpConfig::load(db_dir)` reads
-  `WF_MCP_CONFIG` or `<db_dir>/mcp_servers.json`; absent file ⇒ MCP off.
+  `WF_ASSISTANT_MCP_CONFIG` or `<db_dir>/assistant_mcp_servers.json`; absent file ⇒ MCP off.
 - `src/mcp/mod.rs` — `load_mcp_tools()` + `connect_and_list()` stub. Returns an
   empty `Vec<Box<dyn ToolDyn>>` until the rig adapter is wired (marked `TODO`).
 - `src/lib.rs` — `pub mod mcp;`.
@@ -72,7 +72,7 @@ signature confirmed in `rig-core-0.30.0/src/agent/builder.rs`.
 
 Then regen the nix cargo hash and rebuild (same as the `chore(port)` commits).
 
-## Config example (`mcp_servers.json`)
+## Config example (`assistant_mcp_servers.json`)
 Prefer **sse/http against the existing mcpproxy** (one endpoint, many servers) over
 spawning stdio children inside the server:
 ```json
