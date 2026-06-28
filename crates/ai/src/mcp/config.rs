@@ -70,7 +70,7 @@ impl McpConfig {
             .unwrap_or_else(|| db_dir.join("assistant_mcp_servers.json"));
         match std::fs::read_to_string(&path) {
             Ok(s) => serde_json::from_str(&s).unwrap_or_else(|e| {
-                tracing::warn!("Invalid MCP config at {}: {e}. Ignoring.", path.display());
+                log::warn!("Invalid MCP config at {}: {e}. Ignoring.", path.display());
                 McpConfig::default()
             }),
             Err(_) => McpConfig::default(),

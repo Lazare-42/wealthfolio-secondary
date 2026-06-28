@@ -62,7 +62,7 @@ mod live {
                         conns.insert(server.id.clone(), conn);
                     }
                     Err(e) => {
-                        tracing::warn!("MCP server '{}' unavailable: {e}. Skipping.", server.id);
+                        log::warn!("MCP server '{}' unavailable: {e}. Skipping.", server.id);
                         continue;
                     }
                 }
@@ -102,7 +102,7 @@ mod live {
                     .await
                     .map_err(|e| format!("list_tools {url}: {e}"))?;
                 let sink = running.peer().clone();
-                tracing::info!("MCP '{}' connected: {} tools", server.id, tools.len());
+                log::info!("MCP '{}' connected: {} tools", server.id, tools.len());
                 Ok(Conn {
                     sink,
                     tools,

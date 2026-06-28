@@ -522,6 +522,7 @@ impl ReconciliationServiceTrait for ReconciliationService {
                             source_record_id: None,
                             source_group_id: None,
                             idempotency_key: None,
+                            import_run_id: None,
                         };
 
                         match self.activity_service.create_activity(new_activity).await {

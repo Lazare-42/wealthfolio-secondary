@@ -37,7 +37,7 @@ sha2 = { workspace = true }
 rig = { package = "rig-core", version = "0.30", default-features = false, features = ["reqwest-rustls"] }
 
 # MCP client (only with the `mcp` feature). rig 0.30 pins rmcp 0.13.
-rmcp = { version = "0.13", default-features = false, features = ["client", "transport-streamable-http-client"], optional = true }
+rmcp = { version = "0.13", default-features = false, features = ["client", "transport-streamable-http-client-reqwest"], optional = true }
 
 # Lazy static initialization
 once_cell = "1"
