@@ -49,6 +49,7 @@ mod performance;
 mod portfolio;
 mod portfolios;
 mod reconciliation;
+mod scenarios;
 mod secrets;
 mod settings;
 pub mod shared;
@@ -98,6 +99,7 @@ pub fn app_router(state: Arc<AppState>, config: &Config) -> Router {
     let mut protected_api = Router::new()
         .merge(accounts::router())
         .merge(portfolios::router())
+        .merge(scenarios::router())
         .merge(settings::router())
         .merge(data_exports::router())
         .merge(database_backups::router())

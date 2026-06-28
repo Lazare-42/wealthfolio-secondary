@@ -17,8 +17,10 @@ pub enum AgentScope {
     PerformanceRead,
     ActivitiesRead,
     FinancialPlanningRead,
+    ScenariosRead,
     HealthRead,
     ClassificationRead,
+    ScenariosWrite,
     ActivitiesDraft,
     ActivitiesWrite,
     ClassificationSuggest,
@@ -33,8 +35,10 @@ impl AgentScope {
         AgentScope::PerformanceRead,
         AgentScope::ActivitiesRead,
         AgentScope::FinancialPlanningRead,
+        AgentScope::ScenariosRead,
         AgentScope::HealthRead,
         AgentScope::ClassificationRead,
+        AgentScope::ScenariosWrite,
         AgentScope::ActivitiesDraft,
         AgentScope::ActivitiesWrite,
         AgentScope::ClassificationSuggest,
@@ -49,6 +53,7 @@ impl AgentScope {
         AgentScope::PerformanceRead,
         AgentScope::ActivitiesRead,
         AgentScope::FinancialPlanningRead,
+        AgentScope::ScenariosRead,
         AgentScope::HealthRead,
         AgentScope::ClassificationRead,
     ];
@@ -61,8 +66,10 @@ impl AgentScope {
             AgentScope::PerformanceRead => "performance:read",
             AgentScope::ActivitiesRead => "activities:read",
             AgentScope::FinancialPlanningRead => "financial-planning:read",
+            AgentScope::ScenariosRead => "scenarios:read",
             AgentScope::HealthRead => "health:read",
             AgentScope::ClassificationRead => "classification:read",
+            AgentScope::ScenariosWrite => "scenarios:write",
             AgentScope::ActivitiesDraft => "activities:draft",
             AgentScope::ActivitiesWrite => "activities:write",
             AgentScope::ClassificationSuggest => "classification:suggest",
@@ -172,6 +179,9 @@ impl AgentScopeSet {
                 "activities:write requires activities:draft (commit needs a draft)".to_string(),
             );
         }
+        if self.contains(AgentScope::ScenariosWrite) && !self.contains(AgentScope::ScenariosRead) {
+            return Some("scenarios:write requires scenarios:read".to_string());
+        }
         None
     }
 }
@@ -213,6 +223,7 @@ mod tests {
         assert!(set.contains(AgentScope::HoldingsRead));
         assert!(!set.contains(AgentScope::ActivitiesDraft));
         assert!(!set.contains(AgentScope::ActivitiesWrite));
+        assert!(!set.contains(AgentScope::ScenariosWrite));
         assert!(!set.contains(AgentScope::ClassificationSuggest));
     }
 
@@ -245,6 +256,16 @@ mod tests {
         assert!(set.dependency_error().is_some());
 
         set.insert(AgentScope::ActivitiesDraft);
+        assert!(set.dependency_error().is_none());
+    }
+
+    #[test]
+    fn dependency_error_flags_scenario_write_without_read() {
+        let mut set = AgentScopeSet::new();
+        set.insert(AgentScope::ScenariosWrite);
+        assert!(set.dependency_error().is_some());
+
+        set.insert(AgentScope::ScenariosRead);
         assert!(set.dependency_error().is_none());
     }
 }

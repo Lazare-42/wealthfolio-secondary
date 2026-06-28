@@ -30,6 +30,15 @@ pub const DEFAULT_TOOLS_ALLOWLIST: &[&str] = &[
     "get_accounts",
     "get_cash_balances",
     "get_performance",
+    "search_market_symbols",
+    "get_symbol_performance",
+    "get_quote",
+    "compare_portfolio_to_symbols",
+    "list_portfolio_scenarios",
+    "get_portfolio_scenario",
+    "compare_saved_scenario",
+    "create_portfolio_scenario",
+    "delete_portfolio_scenario",
     "search_activities",
     "get_valuation_history",
     "get_income",
@@ -82,6 +91,17 @@ pub fn normalize_tools_allowlist(tools_allowlist: Option<Vec<String>>) -> Option
 
     if has(&tools, "get_holdings") {
         push_tool_once(&mut tools, "get_net_worth");
+    }
+
+    if has(&tools, "get_performance") {
+        push_tool_once(&mut tools, "search_market_symbols");
+        push_tool_once(&mut tools, "get_symbol_performance");
+        push_tool_once(&mut tools, "compare_portfolio_to_symbols");
+        push_tool_once(&mut tools, "list_portfolio_scenarios");
+        push_tool_once(&mut tools, "get_portfolio_scenario");
+        push_tool_once(&mut tools, "compare_saved_scenario");
+        push_tool_once(&mut tools, "create_portfolio_scenario");
+        push_tool_once(&mut tools, "delete_portfolio_scenario");
     }
 
     if has(&tools, "get_goals") {

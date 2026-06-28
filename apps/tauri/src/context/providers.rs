@@ -31,6 +31,7 @@ use wealthfolio_core::{
     },
     portfolios::PortfolioService,
     quotes::{QuoteService, QuoteServiceTrait},
+    scenarios::PortfolioScenarioService,
     settings::{SettingsRepositoryTrait, SettingsService, SettingsServiceTrait},
     taxonomies::TaxonomyService,
 };
@@ -52,6 +53,7 @@ use wealthfolio_storage_sqlite::{
         valuation::ValuationRepository,
     },
     portfolios::PortfolioRepository,
+    scenarios::PortfolioScenarioRepository,
     settings::SettingsRepository,
     sync::{AppSyncRepository, BrokerSyncStateRepository, ImportRunRepository, PlatformRepository},
     taxonomies::TaxonomyRepository,
@@ -207,6 +209,15 @@ pub async fn initialize_context(
     let portfolio_service = Arc::new(PortfolioService::new(
         portfolio_repository,
         account_repository.clone(),
+    ));
+    let scenario_repository = Arc::new(PortfolioScenarioRepository::new(
+        pool.clone(),
+        writer.clone(),
+    ));
+    let scenario_service = Arc::new(PortfolioScenarioService::new(
+        scenario_repository,
+        portfolio_service.clone(),
+        base_currency.read().unwrap().clone(),
     ));
 
     // Custom provider service
@@ -546,6 +557,7 @@ pub async fn initialize_context(
         health_service.clone(),
         taxonomy_service.clone(),
         portfolio_service.clone(),
+        scenario_service.clone(),
         net_worth_service.clone(),
         limits_service.clone(),
         cash_activity_service.clone(),
@@ -627,6 +639,7 @@ pub async fn initialize_context(
             health_service,
             custom_provider_service,
             portfolio_service,
+            scenario_service,
             spending_settings_service,
             cash_activity_service,
             categorization_rules_service,

@@ -1,6 +1,7 @@
 export const QueryKeys = {
   // Portfolios (saved reporting scopes)
   PORTFOLIOS: "portfolios",
+  SCENARIOS: "scenarios",
 
   // Account related keys
   ACCOUNTS: "accounts",

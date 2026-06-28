@@ -1,0 +1,33 @@
+---
+source: crates/ai/tests/tool_schemas.rs
+expression: snapshot
+---
+{
+  "name": "compare_saved_scenario",
+  "parameters": {
+    "properties": {
+      "basis": {
+        "enum": [
+          "adjclose",
+          "close"
+        ],
+        "type": "string"
+      },
+      "endDate": {
+        "type": "string"
+      },
+      "id": {
+        "type": "string"
+      },
+      "samplePoints": {
+        "maximum": 120,
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "id"
+    ],
+    "type": "object"
+  }
+}

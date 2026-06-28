@@ -185,6 +185,13 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
     riskLevel: 'high',
   },
   {
+    id: 'scenarios',
+    name: 'Saved Scenarios',
+    description: 'Access to saved portfolio scenarios and benchmark definitions',
+    functions: ['getAll', 'getById', 'create', 'update', 'delete'],
+    riskLevel: 'medium',
+  },
+  {
     id: 'events',
     name: 'Event Listeners',
     description: 'Access to application events and notifications',

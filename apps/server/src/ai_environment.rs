@@ -12,8 +12,9 @@ use wealthfolio_core::{
     health::HealthServiceTrait, holdings::HoldingsServiceTrait, income::IncomeServiceTrait,
     limits::ContributionLimitServiceTrait, performance::PerformanceServiceTrait,
     portfolio::net_worth::NetWorthServiceTrait, portfolios::PortfolioServiceTrait,
-    quotes::QuoteServiceTrait, secrets::SecretStore, settings::SettingsServiceTrait,
-    taxonomies::TaxonomyServiceTrait, valuation::ValuationServiceTrait,
+    quotes::QuoteServiceTrait, scenarios::PortfolioScenarioServiceTrait, secrets::SecretStore,
+    settings::SettingsServiceTrait, taxonomies::TaxonomyServiceTrait,
+    valuation::ValuationServiceTrait,
 };
 use wealthfolio_spending::activity_assignments::ActivityTaxonomyAssignmentService;
 use wealthfolio_spending::cash_activities::{CashActivityService, CashActivityServiceTrait};
@@ -43,6 +44,7 @@ pub struct ServerAiEnvironment {
     health_service: Arc<dyn HealthServiceTrait + Send + Sync>,
     taxonomy_service: Arc<dyn TaxonomyServiceTrait + Send + Sync>,
     portfolio_service: Arc<dyn PortfolioServiceTrait + Send + Sync>,
+    scenario_service: Arc<dyn PortfolioScenarioServiceTrait + Send + Sync>,
     net_worth_service: Arc<dyn NetWorthServiceTrait + Send + Sync>,
     contribution_limit_service: Arc<dyn ContributionLimitServiceTrait + Send + Sync>,
     cash_activity_service: Arc<CashActivityService>,
@@ -71,6 +73,7 @@ impl ServerAiEnvironment {
         health_service: Arc<dyn HealthServiceTrait + Send + Sync>,
         taxonomy_service: Arc<dyn TaxonomyServiceTrait + Send + Sync>,
         portfolio_service: Arc<dyn PortfolioServiceTrait + Send + Sync>,
+        scenario_service: Arc<dyn PortfolioScenarioServiceTrait + Send + Sync>,
         net_worth_service: Arc<dyn NetWorthServiceTrait + Send + Sync>,
         contribution_limit_service: Arc<dyn ContributionLimitServiceTrait + Send + Sync>,
         cash_activity_service: Arc<CashActivityService>,
@@ -95,6 +98,7 @@ impl ServerAiEnvironment {
             health_service,
             taxonomy_service,
             portfolio_service,
+            scenario_service,
             net_worth_service,
             contribution_limit_service,
             cash_activity_service,
@@ -163,6 +167,10 @@ impl AgentEnvironment for ServerAiEnvironment {
 
     fn portfolio_service(&self) -> Arc<dyn PortfolioServiceTrait> {
         self.portfolio_service.clone()
+    }
+
+    fn scenario_service(&self) -> Arc<dyn PortfolioScenarioServiceTrait> {
+        self.scenario_service.clone()
     }
 
     fn net_worth_service(&self) -> Arc<dyn NetWorthServiceTrait> {

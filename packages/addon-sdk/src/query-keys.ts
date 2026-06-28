@@ -70,6 +70,8 @@ export const QueryKeys = {
   SNAPSHOTS: 'snapshots',
   snapshots: (accountId: string) => [QueryKeys.SNAPSHOTS, accountId],
 
+  SCENARIOS: 'scenarios',
+
   secrets: {
     apiKey: (providerId: string) => ['secrets', 'apiKey', providerId],
   },

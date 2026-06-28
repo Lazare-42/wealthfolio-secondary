@@ -20,11 +20,13 @@ use std::sync::Arc;
 use wealthfolio_agent_tools::AgentTool;
 use wealthfolio_ai::env::test_env::MockEnvironment;
 use wealthfolio_ai::tools::{
-    CreateCategorizationRule, GetAccounts, GetAssetAllocation, GetAssetTaxonomyAssignments,
-    GetCashBalances, GetGoals, GetHealthStatus, GetHoldings, GetIncome, GetPerformance,
+    ComparePortfolioToSymbols, CompareSavedScenario, CreateCategorizationRule,
+    CreatePortfolioScenario, DeletePortfolioScenario, GetAccounts, GetAssetAllocation,
+    GetAssetTaxonomyAssignments, GetCashBalances, GetGoals, GetHealthStatus, GetHoldings,
+    GetIncome, GetPerformance, GetPortfolioScenario, GetQuote, GetSymbolPerformance,
     GetValuationHistory, ImportCsvTool, ListAssetTaxonomies, ListCategorizationContext,
-    PrepareAssetClassification, ProposeCategories, RecordActivities, RecordActivity, RigAgentTool,
-    SearchActivities,
+    ListPortfolioScenarios, PrepareAssetClassification, ProposeCategories, RecordActivities,
+    RecordActivity, RigAgentTool, SearchActivities, SearchMarketSymbols,
 };
 
 fn env() -> Arc<MockEnvironment> {
@@ -178,6 +180,61 @@ async fn snapshot_get_performance() {
     let snapshot = schema_snapshot_dyn(&adapted(GetPerformance)).await;
     insta::assert_json_snapshot!(snapshot);
 }
+
+#[tokio::test]
+async fn snapshot_search_market_symbols() {
+    let snapshot = schema_snapshot_dyn(&adapted(SearchMarketSymbols)).await;
+    insta::assert_json_snapshot!(snapshot);
+}
+
+#[tokio::test]
+async fn snapshot_get_symbol_performance() {
+    let snapshot = schema_snapshot_dyn(&adapted(GetSymbolPerformance)).await;
+    insta::assert_json_snapshot!(snapshot);
+}
+
+#[tokio::test]
+async fn snapshot_get_quote() {
+    let snapshot = schema_snapshot_dyn(&adapted(GetQuote)).await;
+    insta::assert_json_snapshot!(snapshot);
+}
+
+#[tokio::test]
+async fn snapshot_compare_portfolio_to_symbols() {
+    let snapshot = schema_snapshot_dyn(&adapted(ComparePortfolioToSymbols)).await;
+    insta::assert_json_snapshot!(snapshot);
+}
+
+#[tokio::test]
+async fn snapshot_list_portfolio_scenarios() {
+    let snapshot = schema_snapshot_dyn(&adapted(ListPortfolioScenarios)).await;
+    insta::assert_json_snapshot!(snapshot);
+}
+
+#[tokio::test]
+async fn snapshot_get_portfolio_scenario() {
+    let snapshot = schema_snapshot_dyn(&adapted(GetPortfolioScenario)).await;
+    insta::assert_json_snapshot!(snapshot);
+}
+
+#[tokio::test]
+async fn snapshot_compare_saved_scenario() {
+    let snapshot = schema_snapshot_dyn(&adapted(CompareSavedScenario)).await;
+    insta::assert_json_snapshot!(snapshot);
+}
+
+#[tokio::test]
+async fn snapshot_create_portfolio_scenario() {
+    let snapshot = schema_snapshot_dyn(&adapted(CreatePortfolioScenario)).await;
+    insta::assert_json_snapshot!(snapshot);
+}
+
+#[tokio::test]
+async fn snapshot_delete_portfolio_scenario() {
+    let snapshot = schema_snapshot_dyn(&adapted(DeletePortfolioScenario)).await;
+    insta::assert_json_snapshot!(snapshot);
+}
+
 #[tokio::test]
 async fn snapshot_record_activity() {
     let snapshot = schema_snapshot_dyn(&adapted(RecordActivity)).await;

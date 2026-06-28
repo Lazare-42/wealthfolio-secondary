@@ -46,6 +46,13 @@ fn default_allowlist_includes_core_data_tools() {
         "get_accounts",
         "get_holdings",
         "get_performance",
+        "search_market_symbols",
+        "get_symbol_performance",
+        "get_quote",
+        "compare_portfolio_to_symbols",
+        "list_portfolio_scenarios",
+        "get_portfolio_scenario",
+        "compare_saved_scenario",
         "search_activities",
         "get_valuation_history",
         "get_income",
@@ -62,7 +69,13 @@ fn default_allowlist_includes_core_data_tools() {
 
 #[test]
 fn default_allowlist_includes_action_tools() {
-    for tool in ["record_activity", "record_activities", "import_csv"] {
+    for tool in [
+        "record_activity",
+        "record_activities",
+        "import_csv",
+        "create_portfolio_scenario",
+        "delete_portfolio_scenario",
+    ] {
         assert!(
             DEFAULT_TOOLS_ALLOWLIST.contains(&tool),
             "DEFAULT_TOOLS_ALLOWLIST missing action tool {tool}",
@@ -88,6 +101,28 @@ fn normalize_expands_transactions_group_to_full_set() {
             tools.contains(&tool.to_string()),
             "normalize_tools_allowlist did not expand search_activities → {tool}; \
              group expansion is broken",
+        );
+    }
+}
+
+#[test]
+fn normalize_expands_performance_group_to_scenario_tools() {
+    let tools = normalize_tools_allowlist(Some(vec!["get_performance".to_string()])).unwrap();
+
+    for tool in [
+        "search_market_symbols",
+        "get_symbol_performance",
+        "compare_portfolio_to_symbols",
+        "list_portfolio_scenarios",
+        "get_portfolio_scenario",
+        "compare_saved_scenario",
+        "create_portfolio_scenario",
+        "delete_portfolio_scenario",
+    ] {
+        assert!(
+            tools.contains(&tool.to_string()),
+            "normalize_tools_allowlist did not expand get_performance -> {tool}; \
+             scenario benchmark access is broken",
         );
     }
 }

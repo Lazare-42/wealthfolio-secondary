@@ -88,9 +88,19 @@ const DATA_ACCESS_OPTIONS = [
     description: "View, draft, import, and categorize activities",
   },
   {
-    toolIds: ["get_performance"],
+    toolIds: [
+      "get_performance",
+      "search_market_symbols",
+      "get_symbol_performance",
+      "compare_portfolio_to_symbols",
+      "list_portfolio_scenarios",
+      "get_portfolio_scenario",
+      "compare_saved_scenario",
+      "create_portfolio_scenario",
+      "delete_portfolio_scenario",
+    ],
     label: "Performance",
-    description: "Returns and performance metrics",
+    description: "Returns, benchmarks, scenarios, and performance metrics",
   },
   { toolIds: ["get_income"], label: "Income", description: "Income summary and breakdown" },
   {

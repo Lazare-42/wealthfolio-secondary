@@ -69,5 +69,61 @@ describe("Addon Type Bridge", () => {
       // Should fallback to default addon ID for empty string
       expect(mockLogInfo).toHaveBeenCalledWith("[unknown-addon] test message");
     });
+
+    it("should expose saved scenario host APIs", async () => {
+      const mockGetScenarios = vi.fn().mockResolvedValue([]);
+      const mockGetScenario = vi.fn().mockResolvedValue({ id: "scenario-1" });
+      const mockCreateScenario = vi.fn().mockResolvedValue({ id: "scenario-2" });
+      const mockUpdateScenarioEntry = vi.fn().mockResolvedValue({ id: "scenario-3" });
+      const mockDeleteScenario = vi.fn().mockResolvedValue(undefined);
+
+      const mockInternalAPI: Partial<InternalHostAPI> = {
+        getScenarios: mockGetScenarios,
+        getScenario: mockGetScenario,
+        createScenario: mockCreateScenario,
+        updateScenarioEntry: mockUpdateScenarioEntry,
+        deleteScenario: mockDeleteScenario,
+      };
+
+      const sdkAPI = createSDKHostAPIBridge(mockInternalAPI as InternalHostAPI, "scenario-addon");
+
+      await expect(sdkAPI.scenarios.getAll()).resolves.toEqual([]);
+      await expect(sdkAPI.scenarios.getById("scenario-1")).resolves.toEqual({
+        id: "scenario-1",
+      });
+      await sdkAPI.scenarios.create({
+        name: "Scenario",
+        accountScope: { type: "all" },
+      });
+      await sdkAPI.scenarios.update({
+        id: "scenario-1",
+        name: "Scenario",
+        accountScope: { type: "all" },
+        resolvedAccountIds: [],
+        benchmarkSymbols: [],
+        assumptions: {},
+        createdAt: "2026-06-28T00:00:00Z",
+        updatedAt: "2026-06-28T00:00:00Z",
+      });
+      await sdkAPI.scenarios.delete("scenario-1");
+
+      expect(mockGetScenarios).toHaveBeenCalledOnce();
+      expect(mockGetScenario).toHaveBeenCalledWith("scenario-1");
+      expect(mockCreateScenario).toHaveBeenCalledWith({
+        name: "Scenario",
+        accountScope: { type: "all" },
+      });
+      expect(mockUpdateScenarioEntry).toHaveBeenCalledWith({
+        id: "scenario-1",
+        name: "Scenario",
+        accountScope: { type: "all" },
+        resolvedAccountIds: [],
+        benchmarkSymbols: [],
+        assumptions: {},
+        createdAt: "2026-06-28T00:00:00Z",
+        updatedAt: "2026-06-28T00:00:00Z",
+      });
+      expect(mockDeleteScenario).toHaveBeenCalledWith("scenario-1");
+    });
   });
 });

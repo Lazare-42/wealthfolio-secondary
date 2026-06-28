@@ -9,8 +9,10 @@ export type ScopeKey =
   | "performance:read"
   | "activities:read"
   | "financial-planning:read"
+  | "scenarios:read"
   | "health:read"
   | "classification:read"
+  | "scenarios:write"
   | "activities:draft"
   | "activities:write"
   | "classification:suggest";
@@ -24,7 +26,7 @@ export interface ScopeMeta {
   group: ScopeGroup;
 }
 
-/** Ordered list of all 10 scopes, grouped reads first then write/suggest. */
+/** Ordered list of all scopes, grouped reads first then write/suggest. */
 export const SCOPES: ScopeMeta[] = [
   {
     key: "accounts:read",
@@ -57,6 +59,12 @@ export const SCOPES: ScopeMeta[] = [
     group: "read",
   },
   {
+    key: "scenarios:read",
+    label: "Scenarios (read)",
+    description: "Read saved scenarios and benchmark definitions.",
+    group: "read",
+  },
+  {
     key: "health:read",
     label: "Health (read)",
     description: "Read portfolio health and diagnostic checks.",
@@ -81,6 +89,12 @@ export const SCOPES: ScopeMeta[] = [
     group: "write",
   },
   {
+    key: "scenarios:write",
+    label: "Scenarios — write",
+    description: "Create and delete saved scenarios. Requires the scenario read scope.",
+    group: "write",
+  },
+  {
     key: "classification:suggest",
     label: "Classification — suggest",
     description: "Suggest instrument classifications for review.",
@@ -88,7 +102,7 @@ export const SCOPES: ScopeMeta[] = [
   },
 ];
 
-/** The 7 read scopes, in canonical order. */
+/** The read scopes, in canonical order. */
 export const READ_SCOPES: ScopeKey[] = SCOPES.filter((scope) => scope.group === "read").map(
   (scope) => scope.key,
 );
@@ -114,12 +128,18 @@ export const SCOPE_PRESETS: ScopePreset[] = [
   {
     key: "read-activity-write",
     label: "Read + write",
-    scopes: [...READ_SCOPES, "activities:draft", "activities:write"],
+    scopes: [...READ_SCOPES, "activities:draft", "activities:write", "scenarios:write"],
   },
   {
     key: "read-activity-write-classification-suggest",
     label: "Read + write + suggest",
-    scopes: [...READ_SCOPES, "activities:draft", "activities:write", "classification:suggest"],
+    scopes: [
+      ...READ_SCOPES,
+      "activities:draft",
+      "activities:write",
+      "scenarios:write",
+      "classification:suggest",
+    ],
   },
 ];
 
@@ -138,6 +158,9 @@ export function applyScopeDependencies(scopes: Iterable<string>): ScopeKey[] {
   const set = new Set<string>(scopes);
   if (set.has("activities:write")) {
     set.add("activities:draft");
+  }
+  if (set.has("scenarios:write")) {
+    set.add("scenarios:read");
   }
   return SCOPES.filter((scope) => set.has(scope.key)).map((scope) => scope.key);
 }

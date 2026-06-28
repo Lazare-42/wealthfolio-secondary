@@ -19,12 +19,14 @@ pub mod goals;
 pub mod health;
 pub mod holdings;
 pub mod income;
+pub mod market_data;
 pub mod net_worth;
 pub mod performance;
 pub mod portfolios;
 pub mod propose_categories;
 pub mod record_activities;
 pub mod record_activity;
+pub mod scenarios;
 pub mod valuation;
 
 pub use accounts::{AccountDto, GetAccounts, GetAccountsArgs, GetAccountsOutput};
@@ -57,6 +59,13 @@ pub use goals::{GetGoals, GetGoalsArgs, GetGoalsOutput, GoalDto};
 pub use health::{GetHealthStatus, GetHealthStatusArgs, GetHealthStatusOutput, HealthIssueDto};
 pub use holdings::{GetHoldings, GetHoldingsArgs, GetHoldingsOutput, HoldingDto};
 pub use income::{GetIncome, GetIncomeArgs, GetIncomeOutput, TopAssetDto};
+pub use market_data::{
+    ComparePortfolioToSymbols, ComparePortfolioToSymbolsArgs, ComparePortfolioToSymbolsOutput,
+    GetQuote, GetQuoteArgs, GetQuoteOutput, GetSymbolPerformance, GetSymbolPerformanceArgs,
+    MarketSymbolDto, PortfolioComparisonOutput, SearchMarketSymbols, SearchMarketSymbolsArgs,
+    SearchMarketSymbolsOutput, SymbolPerformanceDataQualityOutput, SymbolPerformanceMetricsOutput,
+    SymbolPerformanceOutput, SymbolPerformancePointOutput,
+};
 pub use net_worth::{
     GetNetWorth, GetNetWorthArgs, GetNetWorthOutput, NetWorthHistoryPointDto, NetWorthLineDto,
 };
@@ -88,6 +97,12 @@ pub use record_activities::{
 pub use record_activity::{
     AccountOption, ActivityDraft, RecordActivity, RecordActivityArgs, RecordActivityOutput,
     ResolvedAsset, SubtypeOption, ValidationError, ValidationResult,
+};
+pub use scenarios::{
+    CompareSavedScenario, CompareSavedScenarioArgs, CompareSavedScenarioOutput,
+    CreatePortfolioScenario, CreatePortfolioScenarioArgs, DeletePortfolioScenario,
+    DeletePortfolioScenarioArgs, GetPortfolioScenario, GetPortfolioScenarioArgs,
+    ListPortfolioScenarios, ListPortfolioScenariosOutput,
 };
 
 // MCP-only commit tools.
@@ -129,6 +144,13 @@ pub fn v1_read_tools() -> Vec<Arc<dyn AgentTool>> {
         Arc::new(GetPortfolios),
         Arc::new(GetNetWorth),
         Arc::new(GetContributionLimits),
+        Arc::new(SearchMarketSymbols),
+        Arc::new(GetSymbolPerformance),
+        Arc::new(GetQuote),
+        Arc::new(ComparePortfolioToSymbols),
+        Arc::new(ListPortfolioScenarios),
+        Arc::new(GetPortfolioScenario),
+        Arc::new(CompareSavedScenario),
     ]
 }
 
@@ -141,6 +163,8 @@ pub fn draft_suggest_tools() -> Vec<Arc<dyn AgentTool>> {
         Arc::new(ProposeCategories),
         Arc::new(CreateCategorizationRule),
         Arc::new(PrepareAssetClassification),
+        Arc::new(CreatePortfolioScenario),
+        Arc::new(DeletePortfolioScenario),
     ]
 }
 
@@ -192,6 +216,13 @@ mod tests {
                 "get_portfolios",
                 "get_net_worth",
                 "get_contribution_limits",
+                "search_market_symbols",
+                "get_symbol_performance",
+                "get_quote",
+                "compare_portfolio_to_symbols",
+                "list_portfolio_scenarios",
+                "get_portfolio_scenario",
+                "compare_saved_scenario",
             ]
         );
     }

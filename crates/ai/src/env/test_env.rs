@@ -1679,6 +1679,12 @@ impl AgentEnvironment for MockEnvironment {
         unimplemented!("portfolio_service not used in AI mock environment")
     }
 
+    fn scenario_service(
+        &self,
+    ) -> Arc<dyn wealthfolio_core::scenarios::PortfolioScenarioServiceTrait> {
+        unimplemented!("scenario_service not used in AI mock environment")
+    }
+
     fn net_worth_service(
         &self,
     ) -> Arc<dyn wealthfolio_core::portfolio::net_worth::NetWorthServiceTrait> {

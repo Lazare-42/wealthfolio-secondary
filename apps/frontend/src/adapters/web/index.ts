@@ -86,6 +86,15 @@ export {
   updatePortfolioEntry,
 } from "../shared/portfolios";
 
+// Scenario Commands
+export {
+  createScenario,
+  deleteScenario,
+  getScenario,
+  getScenarios,
+  updateScenarioEntry,
+} from "../shared/scenarios";
+
 // Account Commands
 export { createAccount, deleteAccount, getAccounts, updateAccount } from "../shared/accounts";
 

@@ -96,6 +96,11 @@ impl AgentEnvironment for StubEnv {
     fn portfolio_service(&self) -> Arc<dyn wealthfolio_core::portfolios::PortfolioServiceTrait> {
         unimplemented!("StubEnv")
     }
+    fn scenario_service(
+        &self,
+    ) -> Arc<dyn wealthfolio_core::scenarios::PortfolioScenarioServiceTrait> {
+        unimplemented!("StubEnv")
+    }
     fn net_worth_service(
         &self,
     ) -> Arc<dyn wealthfolio_core::portfolio::net_worth::NetWorthServiceTrait> {

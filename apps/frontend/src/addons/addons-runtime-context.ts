@@ -8,8 +8,13 @@ import {
   logger,
   checkActivitiesImport,
   getAccountImportMapping,
+  createScenario,
+  deleteScenario,
+  getScenario,
+  getScenarios,
   importActivities,
   saveAccountImportMapping,
+  updateScenarioEntry,
   createActivity,
   getActivities,
   saveActivities,
@@ -312,6 +317,13 @@ export function createAddonContext(addonId: string): AddonContext {
           checkHoldingsImport,
           importHoldingsCsv,
           deleteSnapshot,
+
+          // Scenarios
+          getScenarios,
+          getScenario,
+          createScenario,
+          updateScenarioEntry,
+          deleteScenario,
 
           // Logger functions
           logError: logger.error,

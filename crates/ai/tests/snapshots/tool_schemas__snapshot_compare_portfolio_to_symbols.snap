@@ -1,0 +1,55 @@
+---
+source: crates/ai/tests/tool_schemas.rs
+expression: snapshot
+---
+{
+  "name": "compare_portfolio_to_symbols",
+  "parameters": {
+    "properties": {
+      "accountId": {
+        "type": "string"
+      },
+      "basis": {
+        "enum": [
+          "adjclose",
+          "close"
+        ],
+        "type": "string"
+      },
+      "endDate": {
+        "type": "string"
+      },
+      "period": {
+        "enum": [
+          "1M",
+          "3M",
+          "6M",
+          "YTD",
+          "1Y",
+          "ALL"
+        ],
+        "type": "string"
+      },
+      "samplePoints": {
+        "maximum": 120,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "startDate": {
+        "type": "string"
+      },
+      "symbols": {
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 5,
+        "minItems": 1,
+        "type": "array"
+      }
+    },
+    "required": [
+      "symbols"
+    ],
+    "type": "object"
+  }
+}

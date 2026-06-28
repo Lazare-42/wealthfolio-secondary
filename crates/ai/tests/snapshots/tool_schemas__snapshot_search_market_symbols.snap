@@ -1,0 +1,26 @@
+---
+source: crates/ai/tests/tool_schemas.rs
+expression: snapshot
+---
+{
+  "name": "search_market_symbols",
+  "parameters": {
+    "properties": {
+      "accountCurrency": {
+        "type": "string"
+      },
+      "limit": {
+        "maximum": 25,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "query": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "query"
+    ],
+    "type": "object"
+  }
+}

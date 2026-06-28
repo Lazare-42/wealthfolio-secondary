@@ -1,0 +1,12 @@
+---
+source: crates/ai/tests/tool_schemas.rs
+expression: snapshot
+---
+{
+  "name": "list_portfolio_scenarios",
+  "parameters": {
+    "properties": {},
+    "required": [],
+    "type": "object"
+  }
+}

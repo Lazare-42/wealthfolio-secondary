@@ -1,0 +1,29 @@
+---
+source: crates/ai/tests/tool_schemas.rs
+expression: snapshot
+---
+{
+  "name": "get_quote",
+  "parameters": {
+    "properties": {
+      "assetId": {
+        "type": "string"
+      },
+      "basis": {
+        "enum": [
+          "adjclose",
+          "close"
+        ],
+        "type": "string"
+      },
+      "date": {
+        "type": "string"
+      },
+      "symbol": {
+        "type": "string"
+      }
+    },
+    "required": [],
+    "type": "object"
+  }
+}

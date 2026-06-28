@@ -28,7 +28,9 @@ import type {
   IncomeSummary,
   MarketDataProviderInfo,
   NewContributionLimit,
+  NewPortfolioScenario,
   PerformanceResult,
+  PortfolioScenario,
   Quote,
   Settings,
   SimplePerformanceResult,
@@ -747,6 +749,44 @@ export interface SnapshotsAPI {
 }
 
 /**
+ * Saved portfolio scenario APIs
+ */
+export interface ScenariosAPI {
+  /**
+   * Get all saved scenarios.
+   * @returns Promise resolving to saved portfolio scenarios
+   */
+  getAll(): Promise<PortfolioScenario[]>;
+
+  /**
+   * Get one saved scenario.
+   * @param scenarioId Scenario identifier
+   * @returns Promise resolving to the saved scenario
+   */
+  getById(scenarioId: string): Promise<PortfolioScenario>;
+
+  /**
+   * Create a saved scenario.
+   * @param scenario Scenario input
+   * @returns Promise resolving to the created scenario
+   */
+  create(scenario: NewPortfolioScenario): Promise<PortfolioScenario>;
+
+  /**
+   * Update an existing saved scenario.
+   * @param scenario Scenario with updated fields
+   * @returns Promise resolving to the updated scenario
+   */
+  update(scenario: PortfolioScenario): Promise<PortfolioScenario>;
+
+  /**
+   * Delete a saved scenario.
+   * @param scenarioId Scenario identifier
+   */
+  delete(scenarioId: string): Promise<void>;
+}
+
+/**
  * Comprehensive Host API interface providing access to all Wealthfolio functionality
  * Organized by functional domains for better discoverability and maintainability
  */
@@ -789,6 +829,9 @@ export interface HostAPI {
 
   /** Snapshot management for HOLDINGS mode accounts */
   snapshots: SnapshotsAPI;
+
+  /** Saved scenario operations */
+  scenarios: ScenariosAPI;
 
   /** Secrets management */
   secrets: SecretsAPI;

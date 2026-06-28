@@ -27,6 +27,7 @@ export type {
   ActivitySearchFilters,
   ActivitySort,
   HostAPI,
+  ScenariosAPI,
   SnapshotsAPI,
   ToastAPI,
   DividendEvent,

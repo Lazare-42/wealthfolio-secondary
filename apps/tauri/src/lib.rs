@@ -517,6 +517,12 @@ pub fn run() {
             commands::portfolios::create_portfolio,
             commands::portfolios::update_portfolio_entry,
             commands::portfolios::delete_portfolio_entry,
+            // Scenarios (saved comparison definitions)
+            commands::scenarios::get_scenarios,
+            commands::scenarios::get_scenario,
+            commands::scenarios::create_scenario,
+            commands::scenarios::update_scenario_entry,
+            commands::scenarios::delete_scenario_entry,
             // Portfolio commands
             commands::portfolio::get_holdings,
             commands::portfolio::get_holdings_list,

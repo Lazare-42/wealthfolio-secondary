@@ -1,0 +1,37 @@
+---
+source: crates/ai/tests/tool_schemas.rs
+expression: snapshot
+---
+{
+  "name": "get_symbol_performance",
+  "parameters": {
+    "properties": {
+      "assetId": {
+        "type": "string"
+      },
+      "basis": {
+        "enum": [
+          "adjclose",
+          "close"
+        ],
+        "type": "string"
+      },
+      "endDate": {
+        "type": "string"
+      },
+      "samplePoints": {
+        "maximum": 120,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "startDate": {
+        "type": "string"
+      },
+      "symbol": {
+        "type": "string"
+      }
+    },
+    "required": [],
+    "type": "object"
+  }
+}

@@ -1,0 +1,43 @@
+---
+source: crates/ai/tests/tool_schemas.rs
+expression: snapshot
+---
+{
+  "name": "create_portfolio_scenario",
+  "parameters": {
+    "properties": {
+      "accountId": {
+        "type": "string"
+      },
+      "accountIds": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "asOfDate": {
+        "type": "string"
+      },
+      "assumptions": {
+        "type": "object"
+      },
+      "benchmarkSymbols": {
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 5,
+        "type": "array"
+      },
+      "name": {
+        "type": "string"
+      },
+      "portfolioId": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "type": "object"
+  }
+}

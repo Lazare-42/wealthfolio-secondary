@@ -35,6 +35,11 @@ export const COMMANDS: CommandMap = {
   create_portfolio: { method: "POST", path: "/portfolios" },
   update_portfolio_entry: { method: "PUT", path: "/portfolios" },
   delete_portfolio_entry: { method: "DELETE", path: "/portfolios" },
+  get_scenarios: { method: "GET", path: "/scenarios" },
+  get_scenario: { method: "GET", path: "/scenarios" },
+  create_scenario: { method: "POST", path: "/scenarios" },
+  update_scenario_entry: { method: "PUT", path: "/scenarios" },
+  delete_scenario_entry: { method: "DELETE", path: "/scenarios" },
   get_settings: { method: "GET", path: "/settings" },
   update_settings: { method: "PUT", path: "/settings" },
   is_auto_update_check_enabled: { method: "GET", path: "/settings/auto-update-enabled" },
@@ -496,6 +501,30 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
     case "delete_portfolio_entry": {
       const { portfolioId } = payload as { portfolioId: string };
       url += `/${encodeURIComponent(portfolioId)}`;
+      break;
+    }
+    case "get_scenario": {
+      const { scenarioId } = payload as { scenarioId: string };
+      url += `/${encodeURIComponent(scenarioId)}`;
+      break;
+    }
+    case "create_scenario": {
+      const { scenario } = payload as { scenario: Record<string, unknown> };
+      body = JSON.stringify(scenario);
+      break;
+    }
+    case "update_scenario_entry": {
+      const { scenarioId, scenario } = payload as {
+        scenarioId: string;
+        scenario: Record<string, unknown>;
+      };
+      url += `/${encodeURIComponent(scenarioId)}`;
+      body = JSON.stringify(scenario);
+      break;
+    }
+    case "delete_scenario_entry": {
+      const { scenarioId } = payload as { scenarioId: string };
+      url += `/${encodeURIComponent(scenarioId)}`;
       break;
     }
     case "delete_database_backup": {

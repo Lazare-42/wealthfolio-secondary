@@ -38,6 +38,12 @@ const settingsSections = [
         icon: <Icons.Folder className="size-5" />,
       },
       {
+        title: "Scenarios",
+        href: "scenarios",
+        subtitle: "Saved benchmark comparisons",
+        icon: <Icons.Presentation className="size-5" />,
+      },
+      {
         title: "Contribution Limits",
         href: "contribution-limits",
         subtitle: "Limits by year and account",

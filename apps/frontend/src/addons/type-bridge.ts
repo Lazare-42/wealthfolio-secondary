@@ -32,6 +32,8 @@ import type {
   MarketDataProviderInfo,
   NewContributionLimit,
   PerformanceResult,
+  NewPortfolioScenario,
+  PortfolioScenario,
   Quote,
   SnapshotInfo,
   SymbolSearchResult,
@@ -189,6 +191,13 @@ export interface InternalHostAPI {
     snapshots: HoldingsSnapshotInput[],
   ): Promise<ImportHoldingsCsvResult>;
   deleteSnapshot(accountId: string, date: string): Promise<void>;
+
+  // Scenarios
+  getScenarios(): Promise<PortfolioScenario[]>;
+  getScenario(scenarioId: string): Promise<PortfolioScenario>;
+  createScenario(scenario: NewPortfolioScenario): Promise<PortfolioScenario>;
+  updateScenarioEntry(scenario: PortfolioScenario): Promise<PortfolioScenario>;
+  deleteScenario(scenarioId: string): Promise<void>;
 
   // Logger functions (internal - these are the raw logger functions)
   logError(message: string): void;
@@ -395,6 +404,13 @@ export function createSDKHostAPIBridge(
       checkImport: internalAPI.checkHoldingsImport,
       importSnapshots: internalAPI.importHoldingsCsv,
       delete: internalAPI.deleteSnapshot,
+    },
+    scenarios: {
+      getAll: internalAPI.getScenarios,
+      getById: internalAPI.getScenario,
+      create: internalAPI.createScenario,
+      update: internalAPI.updateScenarioEntry,
+      delete: internalAPI.deleteScenario,
     },
 
     logger: createAddonLogger(addonId || "unknown-addon"),

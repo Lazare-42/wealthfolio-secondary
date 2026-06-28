@@ -732,6 +732,21 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    portfolio_scenarios (id) {
+        id -> Text,
+        name -> Text,
+        description -> Nullable<Text>,
+        account_scope_json -> Text,
+        resolved_account_ids_json -> Text,
+        as_of_date -> Nullable<Text>,
+        benchmark_symbols_json -> Text,
+        assumptions_json -> Text,
+        created_at -> Text,
+        updated_at -> Text,
+    }
+}
+
 diesel::joinable!(portfolio_accounts -> portfolios (portfolio_id));
 diesel::joinable!(portfolio_accounts -> accounts (account_id));
 

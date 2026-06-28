@@ -73,6 +73,28 @@ export type AccountScope =
   | { type: "portfolio"; portfolioId: string }
   | { type: "accounts"; accountIds: string[] };
 
+export interface PortfolioScenario {
+  id: string;
+  name: string;
+  description?: string | null;
+  accountScope: AccountScope;
+  resolvedAccountIds: string[];
+  asOfDate?: string | null;
+  benchmarkSymbols: string[];
+  assumptions: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewPortfolioScenario {
+  name: string;
+  description?: string | null;
+  accountScope: AccountScope;
+  asOfDate?: string | null;
+  benchmarkSymbols?: string[];
+  assumptions?: Record<string, unknown>;
+}
+
 export interface Account {
   id: string;
   name: string;

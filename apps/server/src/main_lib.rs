@@ -43,6 +43,7 @@ use wealthfolio_core::{
     },
     portfolios::{PortfolioService, PortfolioServiceTrait},
     quotes::{QuoteService, QuoteServiceTrait},
+    scenarios::{PortfolioScenarioService, PortfolioScenarioServiceTrait},
     secrets::SecretStore,
     settings::{SettingsRepositoryTrait, SettingsService, SettingsServiceTrait},
     taxonomies::{TaxonomyService, TaxonomyServiceTrait},
@@ -62,6 +63,7 @@ use wealthfolio_storage_sqlite::{
     market_data::{MarketDataRepository, QuoteSyncStateRepository},
     portfolio::{snapshot::SnapshotRepository, valuation::ValuationRepository},
     portfolios::PortfolioRepository,
+    scenarios::PortfolioScenarioRepository,
     settings::SettingsRepository,
     sync::{AppSyncRepository, BrokerSyncStateRepository, ImportRunRepository, PlatformRepository},
     taxonomies::TaxonomyRepository,
@@ -118,6 +120,7 @@ pub struct AppState {
     pub token_lifecycle: Arc<TokenLifecycleState>,
     pub custom_provider_service: Arc<wealthfolio_core::custom_provider::CustomProviderService>,
     pub portfolio_service: Arc<dyn PortfolioServiceTrait + Send + Sync>,
+    pub scenario_service: Arc<dyn PortfolioScenarioServiceTrait + Send + Sync>,
     pub spending_settings_service: Arc<wealthfolio_spending::settings::SpendingSettingsService>,
     pub cash_activity_service: Arc<wealthfolio_spending::cash_activities::CashActivityService>,
     pub categorization_rules_service:
@@ -395,6 +398,16 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
     let portfolio_service: Arc<dyn PortfolioServiceTrait + Send + Sync> = Arc::new(
         PortfolioService::new(portfolio_repository, account_repo.clone()),
     );
+    let scenario_repository = Arc::new(PortfolioScenarioRepository::new(
+        pool.clone(),
+        writer.clone(),
+    ));
+    let scenario_service: Arc<dyn PortfolioScenarioServiceTrait + Send + Sync> =
+        Arc::new(PortfolioScenarioService::new(
+            scenario_repository,
+            portfolio_service.clone(),
+            base_currency.read().unwrap().clone(),
+        ));
 
     // Create taxonomy service for auto-classification
     let taxonomy_repository = Arc::new(TaxonomyRepository::new(pool.clone(), writer.clone()));
@@ -764,6 +777,7 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         health_service.clone(),
         taxonomy_service.clone(),
         portfolio_service.clone(),
+        scenario_service.clone(),
         net_worth_service.clone(),
         limits_service.clone(),
         cash_activity_service.clone(),
@@ -890,6 +904,7 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         token_lifecycle,
         custom_provider_service,
         portfolio_service,
+        scenario_service,
         spending_settings_service,
         cash_activity_service,
         categorization_rules_service,

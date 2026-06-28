@@ -156,6 +156,11 @@ mod tests {
         ) -> Arc<dyn wealthfolio_core::portfolios::PortfolioServiceTrait> {
             unimplemented!("PanicEnv")
         }
+        fn scenario_service(
+            &self,
+        ) -> Arc<dyn wealthfolio_core::scenarios::PortfolioScenarioServiceTrait> {
+            unimplemented!("PanicEnv")
+        }
         fn net_worth_service(
             &self,
         ) -> Arc<dyn wealthfolio_core::portfolio::net_worth::NetWorthServiceTrait> {
@@ -219,8 +224,8 @@ mod tests {
         assert!(names.contains(&"get_import_mapping"));
         assert!(names.contains(&"prepare_activity_import"));
         assert!(names.contains(&"commit_activity_import"));
-        // Read-only token still sees exactly 16 read tools.
-        assert_eq!(crate::tools::v1_read_tools().len(), 16);
+        // Read-only token still sees exactly the shared read tools.
+        assert_eq!(crate::tools::v1_read_tools().len(), 23);
     }
 
     #[tokio::test]
