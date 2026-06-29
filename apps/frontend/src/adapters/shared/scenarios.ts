@@ -37,9 +37,11 @@ export const updateScenarioEntry = async (
     const payload: NewPortfolioScenario = {
       name: scenario.name,
       description: scenario.description,
+      kind: scenario.kind,
       accountScope: scenario.accountScope,
       asOfDate: scenario.asOfDate,
       benchmarkSymbols: scenario.benchmarkSymbols,
+      basket: scenario.basket,
       assumptions: scenario.assumptions,
     };
     return await invoke<PortfolioScenario>("update_scenario_entry", {

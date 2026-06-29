@@ -20,7 +20,7 @@ use std::sync::Arc;
 use wealthfolio_agent_tools::AgentTool;
 use wealthfolio_ai::env::test_env::MockEnvironment;
 use wealthfolio_ai::tools::{
-    ComparePortfolioToSymbols, CompareSavedScenario, CreateCategorizationRule,
+    CompareBasket, ComparePortfolioToSymbols, CompareSavedScenario, CreateCategorizationRule,
     CreatePortfolioScenario, DeletePortfolioScenario, GetAccounts, GetAssetAllocation,
     GetAssetTaxonomyAssignments, GetCashBalances, GetGoals, GetHealthStatus, GetHoldings,
     GetIncome, GetPerformance, GetPortfolioScenario, GetQuote, GetSymbolPerformance,
@@ -220,6 +220,12 @@ async fn snapshot_get_portfolio_scenario() {
 #[tokio::test]
 async fn snapshot_compare_saved_scenario() {
     let snapshot = schema_snapshot_dyn(&adapted(CompareSavedScenario)).await;
+    insta::assert_json_snapshot!(snapshot);
+}
+
+#[tokio::test]
+async fn snapshot_compare_basket() {
+    let snapshot = schema_snapshot_dyn(&adapted(CompareBasket)).await;
     insta::assert_json_snapshot!(snapshot);
 }
 

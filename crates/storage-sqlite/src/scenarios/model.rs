@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::errors::StorageError;
 use wealthfolio_core::portfolios::AccountScope;
-use wealthfolio_core::scenarios::{PortfolioScenario, PortfolioScenarioRecord};
+use wealthfolio_core::scenarios::{
+    BasketPosition, PortfolioScenario, PortfolioScenarioRecord, ScenarioKind,
+};
 use wealthfolio_core::{Error, Result};
 
 #[derive(
@@ -30,6 +32,8 @@ pub struct PortfolioScenarioDB {
     pub assumptions_json: String,
     pub created_at: String,
     pub updated_at: String,
+    pub kind: String,
+    pub basket_json: String,
 }
 
 impl PortfolioScenarioDB {
@@ -49,6 +53,9 @@ impl PortfolioScenarioDB {
                 .map_err(|e| Error::from(StorageError::SerializationError(e.to_string())))?,
             created_at: record.created_at,
             updated_at: record.updated_at,
+            kind: record.kind.as_str().to_string(),
+            basket_json: serde_json::to_string(&record.basket)
+                .map_err(|e| Error::from(StorageError::SerializationError(e.to_string())))?,
         })
     }
 
@@ -66,8 +73,11 @@ impl PortfolioScenarioDB {
             as_of_date: self.as_of_date,
             benchmark_symbols: serde_json::from_str::<Vec<String>>(&self.benchmark_symbols_json)
                 .map_err(|e| Error::from(StorageError::SerializationError(e.to_string())))?,
+            basket: serde_json::from_str::<Vec<BasketPosition>>(&self.basket_json)
+                .map_err(|e| Error::from(StorageError::SerializationError(e.to_string())))?,
             assumptions: serde_json::from_str(&self.assumptions_json)
                 .map_err(|e| Error::from(StorageError::SerializationError(e.to_string())))?,
+            kind: ScenarioKind::parse(&self.kind),
             created_at: self.created_at,
             updated_at: self.updated_at,
         })
@@ -87,9 +97,20 @@ mod tests {
             account_scope: AccountScope::Accounts {
                 account_ids: vec!["a-1".to_string(), "a-2".to_string()],
             },
+            kind: ScenarioKind::Basket,
             resolved_account_ids: vec!["a-1".to_string(), "a-2".to_string()],
             as_of_date: Some("2026-06-28".to_string()),
             benchmark_symbols: vec!["SPY".to_string(), "QQQ".to_string()],
+            basket: vec![
+                BasketPosition {
+                    symbol: "SPY".to_string(),
+                    weight: 60.0,
+                },
+                BasketPosition {
+                    symbol: "QQQ".to_string(),
+                    weight: 40.0,
+                },
+            ],
             assumptions: json!({ "note": "rebalance quarterly" }),
             created_at: "2026-06-28T00:00:00Z".to_string(),
             updated_at: "2026-06-28T00:00:00Z".to_string(),
@@ -114,6 +135,11 @@ mod tests {
         assert_eq!(domain.as_of_date, original.as_of_date);
         assert_eq!(domain.benchmark_symbols, original.benchmark_symbols);
         assert_eq!(domain.assumptions, original.assumptions);
+        assert_eq!(domain.kind, original.kind);
+        assert_eq!(
+            serde_json::to_value(&domain.basket).unwrap(),
+            serde_json::to_value(&original.basket).unwrap(),
+        );
     }
 
     #[test]

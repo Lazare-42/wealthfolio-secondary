@@ -53,6 +53,7 @@ fn default_allowlist_includes_core_data_tools() {
         "list_portfolio_scenarios",
         "get_portfolio_scenario",
         "compare_saved_scenario",
+        "compare_basket",
         "search_activities",
         "get_valuation_history",
         "get_income",

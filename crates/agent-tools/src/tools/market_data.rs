@@ -14,6 +14,7 @@ use wealthfolio_core::portfolio::performance::{
     PerformanceResult as CorePerformanceResult,
 };
 use wealthfolio_core::quotes::{Quote, SymbolSearchResult};
+use wealthfolio_core::scenarios::BasketPosition;
 
 use crate::env::AgentEnvironment;
 use crate::scope::AgentScope;
@@ -928,6 +929,184 @@ fn merge_quotes_by_date(local: Vec<Quote>, fetched: Vec<Quote>) -> Vec<Quote> {
     by_date.into_values().collect()
 }
 
+/// Replay a synthetic weighted basket over history as a buy-and-hold index.
+///
+/// Method (currency-agnostic, no FX): each leg is rebased to 1.0 at a common
+/// base date, and the basket index is the weight-normalized sum of leg ratios,
+/// scaled to 100 at the base. Legs are priced with [`load_benchmark_quotes`]
+/// (local-first + provider backfill), so any symbol — tracked or not, past or
+/// present — can take part. Legs with no usable history are dropped and the
+/// remaining weights renormalized, with a warning. The resulting index series
+/// is run through the same metric path as a single symbol, so the output is a
+/// [`SymbolPerformanceOutput`] labelled `Basket`.
+pub(crate) async fn compute_basket_performance(
+    env: Arc<dyn AgentEnvironment>,
+    positions: &[BasketPosition],
+    basis: PriceBasis,
+    start_date: Option<NaiveDate>,
+    end_date: Option<NaiveDate>,
+    sample_points: usize,
+) -> SymbolPerformanceOutput {
+    let end = end_date.unwrap_or_else(|| Local::now().date_naive());
+    let mut warnings = Vec::new();
+
+    // Price each leg into a sorted (date, price) series within [start, end].
+    let mut legs: Vec<(f64, Vec<(NaiveDate, f64)>)> = Vec::new();
+    for position in positions {
+        let treat_as_id = position.symbol.contains(':');
+        let resolved = match resolve_symbol_input(env.clone(), &position.symbol, treat_as_id).await
+        {
+            Ok(resolved) => resolved,
+            Err(e) => {
+                warnings.push(format!("Skipped basket leg '{}' ({e}).", position.symbol));
+                continue;
+            }
+        };
+        let (quotes, fetch_warnings) = load_benchmark_quotes(
+            env.clone(),
+            &resolved.asset_id,
+            resolved.currency.as_deref(),
+            start_date,
+            Some(end),
+        )
+        .await;
+        warnings.extend(fetch_warnings);
+
+        let mut series: Vec<(NaiveDate, f64)> =
+            BTreeMap::from_iter(quotes.iter().filter_map(|quote| {
+                let date = quote.timestamp.date_naive();
+                if date > end || start_date.is_some_and(|start| date < start) {
+                    return None;
+                }
+                price_for_quote(quote, basis).map(|price| (date, price))
+            }))
+            .into_iter()
+            .collect();
+        series.sort_by_key(|(date, _)| *date);
+
+        if series.is_empty() {
+            warnings.push(format!(
+                "Dropped basket leg '{}': no usable price history in range.",
+                resolved.symbol
+            ));
+            continue;
+        }
+        legs.push((position.weight, series));
+    }
+
+    if legs.is_empty() {
+        warnings.push("Basket has no priceable legs.".to_string());
+        return calculate_symbol_performance_from_quotes(
+            "Basket".to_string(),
+            "basket".to_string(),
+            PriceBasis::Close,
+            None,
+            None,
+            Vec::new(),
+            sample_points,
+            warnings,
+        );
+    }
+
+    // Common base date: the latest "first available" across legs, clamped to
+    // start_date when given — so every leg has a price at or before the base.
+    let base_date = legs
+        .iter()
+        .map(|(_, series)| series[0].0)
+        .max()
+        .map(|latest_first| match start_date {
+            Some(start) if start > latest_first => start,
+            _ => latest_first,
+        })
+        .expect("legs is non-empty");
+
+    let weight_sum: f64 = legs.iter().map(|(weight, _)| *weight).sum();
+    if weight_sum <= 0.0 {
+        warnings.push("Basket weights sum to zero.".to_string());
+        return calculate_symbol_performance_from_quotes(
+            "Basket".to_string(),
+            "basket".to_string(),
+            PriceBasis::Close,
+            None,
+            None,
+            Vec::new(),
+            sample_points,
+            warnings,
+        );
+    }
+
+    // Union of all leg dates within [base_date, end].
+    let mut dates: Vec<NaiveDate> = legs
+        .iter()
+        .flat_map(|(_, series)| series.iter().map(|(date, _)| *date))
+        .filter(|date| *date >= base_date)
+        .collect();
+    dates.sort_unstable();
+    dates.dedup();
+
+    let index: Vec<(NaiveDate, f64)> = dates
+        .into_iter()
+        .filter_map(|date| {
+            let mut value = 0.0;
+            for (weight, series) in &legs {
+                let base_price = price_asof(series, base_date)?;
+                let price = price_asof(series, date)?;
+                if base_price <= 0.0 {
+                    return None;
+                }
+                value += (weight / weight_sum) * (price / base_price);
+            }
+            Some((date, value * 100.0))
+        })
+        .collect();
+
+    let synthetic: Vec<Quote> = index
+        .into_iter()
+        .map(|(date, value)| synthetic_index_quote(date, value))
+        .collect();
+
+    calculate_symbol_performance_from_quotes(
+        "Basket".to_string(),
+        "basket".to_string(),
+        PriceBasis::Close,
+        None,
+        None,
+        synthetic,
+        sample_points,
+        warnings,
+    )
+}
+
+/// Last price at or before `target` in an ascending `(date, price)` series.
+fn price_asof(series: &[(NaiveDate, f64)], target: NaiveDate) -> Option<f64> {
+    let idx = series.partition_point(|(date, _)| *date <= target);
+    (idx > 0).then(|| series[idx - 1].1)
+}
+
+/// Build a synthetic daily quote carrying the basket index value as its price.
+fn synthetic_index_quote(date: NaiveDate, value: f64) -> Quote {
+    let price = Decimal::from_f64_retain(value).unwrap_or_default();
+    Quote {
+        id: format!("basket-{date}"),
+        asset_id: "basket".to_string(),
+        timestamp: date
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_local_timezone(chrono::Utc)
+            .unwrap(),
+        open: price,
+        high: price,
+        low: price,
+        close: price,
+        adjclose: price,
+        volume: Decimal::ZERO,
+        currency: "INDEX".to_string(),
+        data_source: "BASKET".to_string(),
+        created_at: chrono::Utc::now(),
+        notes: None,
+    }
+}
+
 pub(crate) fn parse_optional_date(
     value: Option<&str>,
     field: &str,
@@ -1465,6 +1644,16 @@ mod tests {
         assert!(!quote_history_reaches(&q, day("2024-02-01")));
         // Empty history never covers.
         assert!(!quote_history_reaches(&[], day("2024-03-01")));
+    }
+
+    #[test]
+    fn price_asof_returns_last_on_or_before() {
+        let series = vec![(day("2024-01-01"), 10.0), (day("2024-01-03"), 12.0)];
+        assert_eq!(price_asof(&series, day("2024-01-02")), Some(10.0));
+        assert_eq!(price_asof(&series, day("2024-01-03")), Some(12.0));
+        // Target before the first point has no as-of price.
+        assert_eq!(price_asof(&series, day("2023-12-31")), None);
+        assert_eq!(price_asof(&[], day("2024-01-01")), None);
     }
 
     #[test]

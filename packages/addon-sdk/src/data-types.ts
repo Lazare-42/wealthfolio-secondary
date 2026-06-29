@@ -175,14 +175,23 @@ export type AccountScope =
   | { type: 'portfolio'; portfolioId: string }
   | { type: 'accounts'; accountIds: string[] };
 
+export type ScenarioKind = 'comparison' | 'basket' | 'projection';
+
+export interface BasketPosition {
+  symbol: string;
+  weight: number;
+}
+
 export interface PortfolioScenario {
   id: string;
   name: string;
   description?: string | null;
+  kind: ScenarioKind;
   accountScope: AccountScope;
   resolvedAccountIds: string[];
   asOfDate?: string | null;
   benchmarkSymbols: string[];
+  basket: BasketPosition[];
   assumptions: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -191,9 +200,11 @@ export interface PortfolioScenario {
 export interface NewPortfolioScenario {
   name: string;
   description?: string | null;
+  kind?: ScenarioKind;
   accountScope: AccountScope;
   asOfDate?: string | null;
   benchmarkSymbols?: string[];
+  basket?: BasketPosition[];
   assumptions?: Record<string, unknown>;
 }
 

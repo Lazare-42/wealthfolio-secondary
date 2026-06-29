@@ -37,6 +37,7 @@ pub const DEFAULT_TOOLS_ALLOWLIST: &[&str] = &[
     "list_portfolio_scenarios",
     "get_portfolio_scenario",
     "compare_saved_scenario",
+    "compare_basket",
     "create_portfolio_scenario",
     "delete_portfolio_scenario",
     "search_activities",

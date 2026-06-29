@@ -3,25 +3,27 @@ source: crates/ai/tests/tool_schemas.rs
 expression: snapshot
 ---
 {
-  "name": "create_portfolio_scenario",
+  "name": "compare_basket",
   "parameters": {
     "properties": {
-      "accountId": {
+      "basis": {
+        "enum": [
+          "adjclose",
+          "close"
+        ],
         "type": "string"
       },
-      "accountIds": {
+      "benchmarks": {
         "items": {
           "type": "string"
         },
+        "maxItems": 5,
         "type": "array"
       },
-      "asOfDate": {
+      "endDate": {
         "type": "string"
       },
-      "assumptions": {
-        "type": "object"
-      },
-      "basket": {
+      "positions": {
         "items": {
           "properties": {
             "symbol": {
@@ -38,24 +40,20 @@ expression: snapshot
           "type": "object"
         },
         "maxItems": 10,
+        "minItems": 1,
         "type": "array"
       },
-      "benchmarkSymbols": {
-        "items": {
-          "type": "string"
-        },
-        "maxItems": 5,
-        "type": "array"
+      "samplePoints": {
+        "maximum": 120,
+        "minimum": 0,
+        "type": "integer"
       },
-      "name": {
-        "type": "string"
-      },
-      "portfolioId": {
+      "startDate": {
         "type": "string"
       }
     },
     "required": [
-      "name"
+      "positions"
     ],
     "type": "object"
   }

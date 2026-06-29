@@ -744,6 +744,8 @@ diesel::table! {
         assumptions_json -> Text,
         created_at -> Text,
         updated_at -> Text,
+        kind -> Text,
+        basket_json -> Text,
     }
 }
 

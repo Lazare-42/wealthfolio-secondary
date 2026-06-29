@@ -99,10 +99,11 @@ pub use record_activity::{
     ResolvedAsset, SubtypeOption, ValidationError, ValidationResult,
 };
 pub use scenarios::{
-    CompareSavedScenario, CompareSavedScenarioArgs, CompareSavedScenarioOutput,
-    CreatePortfolioScenario, CreatePortfolioScenarioArgs, DeletePortfolioScenario,
-    DeletePortfolioScenarioArgs, GetPortfolioScenario, GetPortfolioScenarioArgs,
-    ListPortfolioScenarios, ListPortfolioScenariosOutput,
+    CompareBasket, CompareBasketArgs, CompareBasketOutput, CompareSavedScenario,
+    CompareSavedScenarioArgs, CompareSavedScenarioOutput, CreatePortfolioScenario,
+    CreatePortfolioScenarioArgs, DeletePortfolioScenario, DeletePortfolioScenarioArgs,
+    GetPortfolioScenario, GetPortfolioScenarioArgs, ListPortfolioScenarios,
+    ListPortfolioScenariosOutput,
 };
 
 // MCP-only commit tools.
@@ -151,6 +152,7 @@ pub fn v1_read_tools() -> Vec<Arc<dyn AgentTool>> {
         Arc::new(ListPortfolioScenarios),
         Arc::new(GetPortfolioScenario),
         Arc::new(CompareSavedScenario),
+        Arc::new(CompareBasket),
     ]
 }
 
@@ -223,6 +225,7 @@ mod tests {
                 "list_portfolio_scenarios",
                 "get_portfolio_scenario",
                 "compare_saved_scenario",
+                "compare_basket",
             ]
         );
     }

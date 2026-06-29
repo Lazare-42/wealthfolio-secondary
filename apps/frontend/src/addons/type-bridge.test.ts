@@ -98,9 +98,11 @@ describe("Addon Type Bridge", () => {
       await sdkAPI.scenarios.update({
         id: "scenario-1",
         name: "Scenario",
+        kind: "comparison",
         accountScope: { type: "all" },
         resolvedAccountIds: [],
         benchmarkSymbols: [],
+        basket: [],
         assumptions: {},
         createdAt: "2026-06-28T00:00:00Z",
         updatedAt: "2026-06-28T00:00:00Z",
@@ -116,9 +118,11 @@ describe("Addon Type Bridge", () => {
       expect(mockUpdateScenarioEntry).toHaveBeenCalledWith({
         id: "scenario-1",
         name: "Scenario",
+        kind: "comparison",
         accountScope: { type: "all" },
         resolvedAccountIds: [],
         benchmarkSymbols: [],
+        basket: [],
         assumptions: {},
         createdAt: "2026-06-28T00:00:00Z",
         updatedAt: "2026-06-28T00:00:00Z",

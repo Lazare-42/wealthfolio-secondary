@@ -5,7 +5,9 @@ use serde_json::Value;
 use std::sync::Arc;
 use wealthfolio_core::portfolio::performance::performance_summary_scope_key;
 use wealthfolio_core::portfolios::AccountScope;
-use wealthfolio_core::scenarios::{NewPortfolioScenario, PortfolioScenario};
+use wealthfolio_core::scenarios::{
+    BasketPosition, NewPortfolioScenario, PortfolioScenario, ScenarioKind,
+};
 
 use crate::env::AgentEnvironment;
 use crate::scope::AgentScope;
@@ -13,9 +15,9 @@ use crate::tool::{AgentTool, AgentToolAccess, AgentToolError, AgentToolResult};
 
 use super::market_data::{
     calculate_portfolio_comparison_for_account_ids, calculate_symbol_performance_from_quotes,
-    load_benchmark_quotes, parse_optional_date, resolve_symbol_input, validate_date_order,
-    ComparePortfolioToSymbolsOutput, PriceBasis, DEFAULT_SYMBOL_SAMPLE_POINTS,
-    MAX_SYMBOL_SAMPLE_POINTS,
+    compute_basket_performance, load_benchmark_quotes, parse_optional_date, resolve_symbol_input,
+    validate_date_order, ComparePortfolioToSymbolsOutput, PriceBasis, SymbolPerformanceOutput,
+    DEFAULT_SYMBOL_SAMPLE_POINTS, MAX_SYMBOL_SAMPLE_POINTS,
 };
 
 const MAX_SAVED_SCENARIO_COMPARE_SYMBOLS: usize = 5;
@@ -36,6 +38,8 @@ pub struct CreatePortfolioScenarioArgs {
     pub as_of_date: Option<String>,
     #[serde(default)]
     pub benchmark_symbols: Vec<String>,
+    #[serde(default)]
+    pub basket: Vec<BasketPosition>,
     #[serde(default)]
     pub assumptions: Option<Value>,
 }
@@ -75,6 +79,19 @@ impl AgentTool for CreatePortfolioScenario {
                     "maxItems": 5,
                     "description": "Benchmark symbols or canonical Wealthfolio asset ids, e.g. SEC:SPY:ARCX. At most 5 so the saved scenario stays comparable."
                 },
+                "basket": {
+                    "type": "array",
+                    "maxItems": 10,
+                    "description": "Optional synthetic basket: securities with relative weights to replay as a hypothetical portfolio over history. Providing this makes the scenario a 'basket' scenario.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "symbol": { "type": "string", "description": "Ticker or canonical asset id." },
+                            "weight": { "type": "number", "description": "Relative weight (normalized at compute time)." }
+                        },
+                        "required": ["symbol", "weight"]
+                    }
+                },
                 "assumptions": {
                     "type": "object",
                     "description": "Optional structured assumptions such as cash flows, expected returns, or notes."
@@ -103,14 +120,23 @@ impl AgentTool for CreatePortfolioScenario {
             args.portfolio_id.as_deref(),
             &args.account_ids,
         );
+        // A basket scenario is implied by providing positions; otherwise it is
+        // a plain benchmark comparison.
+        let kind = if args.basket.is_empty() {
+            ScenarioKind::Comparison
+        } else {
+            ScenarioKind::Basket
+        };
         let scenario = env
             .scenario_service()
             .create_scenario(NewPortfolioScenario {
                 name: args.name,
                 description: args.description,
+                kind,
                 account_scope,
                 as_of_date: args.as_of_date,
                 benchmark_symbols: args.benchmark_symbols,
+                basket: args.basket,
                 assumptions: args
                     .assumptions
                     .unwrap_or_else(|| Value::Object(serde_json::Map::new())),
@@ -294,6 +320,9 @@ pub struct CompareSavedScenarioArgs {
 pub struct CompareSavedScenarioOutput {
     pub scenario: PortfolioScenario,
     pub comparison: ComparePortfolioToSymbolsOutput,
+    /// Synthetic basket replay, present when the scenario defines a basket.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub basket: Option<SymbolPerformanceOutput>,
 }
 
 pub struct CompareSavedScenario;
@@ -351,9 +380,9 @@ impl AgentTool for CompareSavedScenario {
             .scenario_service()
             .get_scenario(&args.id)
             .map_err(|e| AgentToolError::ExecutionFailed(e.to_string()))?;
-        if scenario.benchmark_symbols.is_empty() {
+        if scenario.benchmark_symbols.is_empty() && scenario.basket.is_empty() {
             return Err(AgentToolError::InvalidInput(
-                "Saved scenario has no benchmarkSymbols to compare.".to_string(),
+                "Saved scenario has no benchmarkSymbols or basket to compare.".to_string(),
             ));
         }
         if scenario.benchmark_symbols.len() > MAX_SAVED_SCENARIO_COMPARE_SYMBOLS {
@@ -428,10 +457,214 @@ impl AgentTool for CompareSavedScenario {
             warnings,
         };
 
+        // Replay the synthetic basket when the scenario defines one.
+        let basket = if scenario.basket.is_empty() {
+            None
+        } else {
+            Some(
+                compute_basket_performance(
+                    env.clone(),
+                    &scenario.basket,
+                    basis,
+                    start_date,
+                    end_date,
+                    sample_points,
+                )
+                .await,
+            )
+        };
+
         Ok(AgentToolResult {
             content: serde_json::to_value(CompareSavedScenarioOutput {
                 scenario,
                 comparison,
+                basket,
+            })?,
+        })
+    }
+}
+
+const MAX_BASKET_COMPARE_POSITIONS: usize = 10;
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompareBasketArgs {
+    pub positions: Vec<BasketPosition>,
+    #[serde(default)]
+    pub start_date: Option<String>,
+    #[serde(default)]
+    pub end_date: Option<String>,
+    #[serde(default)]
+    pub basis: Option<String>,
+    #[serde(default)]
+    pub sample_points: Option<usize>,
+    #[serde(default)]
+    pub benchmarks: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompareBasketOutput {
+    pub basket: SymbolPerformanceOutput,
+    pub benchmarks: Vec<SymbolPerformanceOutput>,
+    pub comparison_basis: String,
+    pub warnings: Vec<String>,
+}
+
+/// Ad-hoc synthetic basket comparison without saving a scenario.
+pub struct CompareBasket;
+
+#[async_trait::async_trait]
+impl AgentTool for CompareBasket {
+    fn name(&self) -> &'static str {
+        "compare_basket"
+    }
+
+    fn description(&self) -> &'static str {
+        "Replay a hypothetical weighted basket of securities over history (buy-and-hold) and optionally compare it to benchmark symbols. Prices any symbol via local-or-provider quotes, including past dates. Does not save anything."
+    }
+
+    fn input_schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "positions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "description": "Basket legs: securities with relative weights.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "symbol": { "type": "string", "description": "Ticker or canonical asset id." },
+                            "weight": { "type": "number", "description": "Relative weight (normalized at compute time)." }
+                        },
+                        "required": ["symbol", "weight"]
+                    }
+                },
+                "startDate": {
+                    "type": "string",
+                    "description": "Optional start date in YYYY-MM-DD format. Defaults to the earliest common history."
+                },
+                "endDate": {
+                    "type": "string",
+                    "description": "Optional end date in YYYY-MM-DD format. Defaults to today."
+                },
+                "basis": {
+                    "type": "string",
+                    "enum": ["adjclose", "close"],
+                    "description": "Leg price basis. Defaults to adjusted close."
+                },
+                "samplePoints": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 120,
+                    "description": "Maximum sampled points in the returned series. Defaults to 36."
+                },
+                "benchmarks": {
+                    "type": "array",
+                    "maxItems": 5,
+                    "items": { "type": "string" },
+                    "description": "Optional benchmark symbols to compare the basket against."
+                }
+            },
+            "required": ["positions"]
+        })
+    }
+
+    fn required_scopes(&self) -> &'static [AgentScope] {
+        &[AgentScope::PerformanceRead]
+    }
+
+    fn access_level(&self) -> AgentToolAccess {
+        AgentToolAccess::Read
+    }
+
+    async fn call(
+        &self,
+        env: Arc<dyn AgentEnvironment>,
+        args: serde_json::Value,
+    ) -> Result<AgentToolResult, AgentToolError> {
+        let args: CompareBasketArgs = serde_json::from_value(args)?;
+        if args.positions.is_empty() {
+            return Err(AgentToolError::InvalidInput(
+                "positions must contain at least one basket leg".to_string(),
+            ));
+        }
+        if args.positions.len() > MAX_BASKET_COMPARE_POSITIONS {
+            return Err(AgentToolError::InvalidInput(format!(
+                "positions can contain at most {MAX_BASKET_COMPARE_POSITIONS} legs"
+            )));
+        }
+        if args.benchmarks.len() > MAX_SAVED_SCENARIO_COMPARE_SYMBOLS {
+            return Err(AgentToolError::InvalidInput(format!(
+                "benchmarks can contain at most {MAX_SAVED_SCENARIO_COMPARE_SYMBOLS} symbols"
+            )));
+        }
+
+        let start_date = parse_optional_date(args.start_date.as_deref(), "startDate")?;
+        let end_date = parse_optional_date(args.end_date.as_deref(), "endDate")?;
+        validate_date_order(start_date, end_date)?;
+        let basis = PriceBasis::parse(args.basis.as_deref())?;
+        let sample_points = args
+            .sample_points
+            .unwrap_or(DEFAULT_SYMBOL_SAMPLE_POINTS)
+            .min(MAX_SYMBOL_SAMPLE_POINTS);
+
+        let basket = compute_basket_performance(
+            env.clone(),
+            &args.positions,
+            basis,
+            start_date,
+            end_date,
+            sample_points,
+        )
+        .await;
+
+        let mut benchmarks = Vec::with_capacity(args.benchmarks.len());
+        let mut warnings = Vec::new();
+        for symbol in &args.benchmarks {
+            let trimmed = symbol.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            let resolved =
+                resolve_symbol_input(env.clone(), trimmed, trimmed.contains(':')).await?;
+            let (quotes, fetch_warnings) = load_benchmark_quotes(
+                env.clone(),
+                &resolved.asset_id,
+                resolved.currency.as_deref(),
+                start_date,
+                end_date,
+            )
+            .await;
+            let mut symbol_warnings = resolved.warnings;
+            symbol_warnings.extend(fetch_warnings);
+            benchmarks.push(calculate_symbol_performance_from_quotes(
+                resolved.symbol,
+                resolved.asset_id,
+                basis,
+                start_date,
+                end_date,
+                quotes,
+                sample_points,
+                symbol_warnings,
+            ));
+        }
+
+        if basket.data_quality.status != "ok" {
+            warnings.push(format!(
+                "Basket data quality is {}.",
+                basket.data_quality.status
+            ));
+        }
+
+        Ok(AgentToolResult {
+            content: serde_json::to_value(CompareBasketOutput {
+                basket,
+                benchmarks,
+                comparison_basis: "Basket is a weight-normalized buy-and-hold index rebased to 100 at the common start; benchmarks are price-based returns from local or provider-fetched quote history.".to_string(),
+                warnings,
             })?,
         })
     }

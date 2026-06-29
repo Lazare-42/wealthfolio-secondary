@@ -8,6 +8,7 @@ import { AccountPurpose } from "@/lib/constants";
 import type {
   Account,
   AccountScope,
+  BasketPosition,
   NewPortfolioScenario,
   PortfolioScenario,
   PortfolioWithAccounts,
@@ -44,6 +45,22 @@ import { Button, Checkbox, EmptyPlaceholder, Icons, Separator, Skeleton } from "
 import { SettingsHeader } from "../settings-header";
 
 type ScenarioScopeMode = AccountScope["type"];
+
+const ADDON_SOURCE_PREFIX = "scenario-addon";
+
+/// A scenario the Scenario Planner add-on owns. The built-in page must not edit
+/// it: editing would rebuild `assumptions` and wipe the add-on's projection data.
+function isAddonOwned(scenario: PortfolioScenario): boolean {
+  if (scenario.kind === "projection") return true;
+  const source = (scenario.assumptions as { source?: unknown } | undefined)?.source;
+  return typeof source === "string" && source.startsWith(ADDON_SOURCE_PREFIX);
+}
+
+function scenarioBadge(scenario: PortfolioScenario): string | null {
+  if (isAddonOwned(scenario)) return "Planner add-on";
+  if (scenario.kind === "basket") return "Basket";
+  return null;
+}
 
 export default function ScenariosPage() {
   const navigate = useNavigate();
@@ -167,6 +184,11 @@ export default function ScenariosPage() {
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold">{scenario.name}</span>
+                      {scenarioBadge(scenario) && (
+                        <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400">
+                          {scenarioBadge(scenario)}
+                        </span>
+                      )}
                       {scenario.asOfDate && (
                         <span className="bg-muted text-muted-foreground rounded-md px-2 py-0.5 text-xs">
                           {scenario.asOfDate}
@@ -206,7 +228,12 @@ export default function ScenariosPage() {
                       <span className="sr-only">Open</span>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEdit(scenario)}>Edit</DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={isAddonOwned(scenario)}
+                        onClick={() => !isAddonOwned(scenario) && openEdit(scenario)}
+                      >
+                        {isAddonOwned(scenario) ? "Managed by add-on" : "Edit"}
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive flex cursor-pointer items-center"
@@ -294,6 +321,7 @@ function ScenarioDialog({
   );
   const [asOfDate, setAsOfDate] = useState(scenario?.asOfDate ?? "");
   const [benchmarks, setBenchmarks] = useState(scenario?.benchmarkSymbols.join(", ") ?? "SPY");
+  const [basket, setBasket] = useState<BasketPosition[]>(scenario?.basket ?? []);
   const [assumptions, setAssumptions] = useState(() => {
     const value = scenario?.assumptions ?? {};
     return Object.keys(value).length > 0 ? JSON.stringify(value, null, 2) : "";
@@ -310,6 +338,12 @@ function ScenarioDialog({
   const toggleAccount = (id: string) =>
     setAccountIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
+  const addBasketLeg = () => setBasket((prev) => [...prev, { symbol: "", weight: 0 }]);
+  const updateBasketLeg = (index: number, patch: Partial<BasketPosition>) =>
+    setBasket((prev) => prev.map((leg, idx) => (idx === index ? { ...leg, ...patch } : leg)));
+  const removeBasketLeg = (index: number) =>
+    setBasket((prev) => prev.filter((_, idx) => idx !== index));
+
   const handleSave = () => {
     setFormError(null);
     if (!canSave) return;
@@ -322,12 +356,18 @@ function ScenarioDialog({
       return;
     }
 
+    const cleanBasket = basket
+      .map((leg) => ({ symbol: leg.symbol.trim().toUpperCase(), weight: Number(leg.weight) }))
+      .filter((leg) => leg.symbol.length > 0 && Number.isFinite(leg.weight) && leg.weight > 0);
+
     const payload: NewPortfolioScenario = {
       name: name.trim(),
       description: description.trim() || undefined,
+      kind: cleanBasket.length > 0 ? "basket" : "comparison",
       accountScope: buildScope(scopeMode, accountId, portfolioId, accountIds),
       asOfDate: asOfDate || undefined,
       benchmarkSymbols: parseBenchmarkSymbols(benchmarks),
+      basket: cleanBasket,
       assumptions: parsedAssumptions,
     };
 
@@ -469,6 +509,56 @@ function ScenarioDialog({
                 placeholder='{"note":"rebalance quarterly"}'
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Basket (optional)</Label>
+                <p className="text-muted-foreground text-xs">
+                  Replay a hypothetical weighted portfolio of securities over history. Leave empty
+                  for a plain benchmark comparison.
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={addBasketLeg}>
+                <Icons.Plus className="mr-2 h-4 w-4" />
+                Add leg
+              </Button>
+            </div>
+            {basket.length > 0 && (
+              <div className="space-y-2">
+                {basket.map((leg, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={leg.symbol}
+                      onChange={(event) => updateBasketLeg(index, { symbol: event.target.value })}
+                      placeholder="Symbol e.g. SPY"
+                      className="flex-1"
+                    />
+                    <Input
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={Number.isFinite(leg.weight) && leg.weight !== 0 ? leg.weight : ""}
+                      onChange={(event) =>
+                        updateBasketLeg(index, { weight: Number(event.target.value) })
+                      }
+                      placeholder="Weight"
+                      className="w-28"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeBasketLeg(index)}
+                      aria-label="Remove leg"
+                    >
+                      <Icons.Trash className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {formError && <p className="text-destructive text-sm">{formError}</p>}
