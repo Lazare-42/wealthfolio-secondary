@@ -100,3 +100,13 @@ apps/tauri/db/
 tasks
 **/*.local.md
 wealthfolio.db
+
+# Nix build output
+/result
+/result-*
+
+# Local-only untracked dirs (keep the nix git+file flake tree clean & deterministic)
+/HSBC/
+/Neuflize/
+/SOFRA/
+/addons/
