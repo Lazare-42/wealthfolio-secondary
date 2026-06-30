@@ -1,9 +1,53 @@
 import { keepPreviousData, useQueries } from "@tanstack/react-query";
-import { calculatePerformanceHistory } from "@/adapters";
+import { calculatePerformanceHistory, getScenarioPerformance } from "@/adapters";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { QueryKeys } from "@/lib/query-keys";
-import { TrackedItem } from "@/lib/types";
+import type { PerformanceResult, ScenarioPerformanceResult, TrackedItem } from "@/lib/types";
+
+/** Basket replay returns percent values; the chart pipeline works in fractions. */
+const pctToFraction = (value: number | null | undefined): number | null =>
+  value == null ? null : value / 100;
+
+/**
+ * Shape a saved scenario's basket replay as a symbol-price-based PerformanceResult
+ * so it flows through the existing comparison pipeline as a dashed reference line.
+ */
+function scenarioToPerformanceResult(
+  item: TrackedItem,
+  result: ScenarioPerformanceResult,
+): PerformanceResult {
+  const series = result.points
+    .filter((point) => point.returnPct != null)
+    .map((point) => ({ date: point.date, value: (point.returnPct as number) / 100 }));
+
+  return {
+    scope: { id: item.id, currency: result.currency ?? "" },
+    period: { startDate: result.firstQuoteDate ?? null, endDate: result.lastQuoteDate ?? null },
+    mode: "symbolPriceBased",
+    returns: { valueReturn: pctToFraction(result.metrics.totalReturnPct) },
+    attribution: {
+      contributions: 0,
+      distributions: 0,
+      income: 0,
+      realizedPnl: 0,
+      unrealizedPnlChange: 0,
+      fxEffect: 0,
+      fees: 0,
+      taxes: 0,
+      residual: 0,
+    },
+    risk: {
+      volatility: pctToFraction(result.metrics.volatilityPct),
+      maxDrawdown: pctToFraction(result.metrics.maxDrawdownPct),
+    },
+    dataQuality: {
+      status: result.dataQuality.status,
+      warnings: result.dataQuality.warnings,
+    },
+    series,
+  };
+}
 
 /**
  * Hook to calculate cumulative returns for a list of comparison items.
@@ -56,15 +100,19 @@ export function useCalculatePerformanceHistory({
           trackingMode,
         ],
         queryFn: () =>
-          calculatePerformanceHistory(
-            item.type,
-            item.id,
-            startDate,
-            endDate,
-            // Only pass trackingMode for accounts, not for symbols
-            item.type === "account" ? trackingMode : undefined,
-            accountFilter,
-          ),
+          item.type === "scenario"
+            ? getScenarioPerformance(item.id, startDate, endDate).then((result) =>
+                scenarioToPerformanceResult(item, result),
+              )
+            : calculatePerformanceHistory(
+                item.type,
+                item.id,
+                startDate,
+                endDate,
+                // Only pass trackingMode for accounts, not for symbols
+                item.type === "account" ? trackingMode : undefined,
+                accountFilter,
+              ),
         // Enable query for all-time (`dateRange === undefined`) or valid bounded ranges.
         enabled: dateRange === undefined || (!!startDate && !!endDate),
         staleTime: 30 * 1000,

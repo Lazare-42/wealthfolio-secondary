@@ -1330,14 +1330,18 @@ export default function PerformancePage() {
     preserveCurrentChartAnchor(portfolioId);
   };
 
-  const handleSymbolSelect = (symbol: { id: string; name: string }) => {
+  const handleSymbolSelect = (symbol: {
+    id: string;
+    name: string;
+    type?: "symbol" | "scenario";
+  }) => {
     const symbolId = String(symbol.id);
     const exists = selectedItems.some((item) => item.id === symbolId);
     if (exists) return;
 
     const newSymbol: TrackedItem = {
       id: symbolId,
-      type: "symbol",
+      type: symbol.type ?? "symbol",
       name: symbol.name,
     };
 

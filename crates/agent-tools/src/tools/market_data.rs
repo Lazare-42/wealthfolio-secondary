@@ -932,6 +932,26 @@ fn merge_quotes_by_date(local: Vec<Quote>, fetched: Vec<Quote>) -> Vec<Quote> {
 /// Replay a synthetic weighted basket over history as a buy-and-hold index.
 ///
 /// Method (currency-agnostic, no FX): each leg is rebased to 1.0 at a common
+/// Public entry point for the command layer: replay a saved scenario's basket
+/// as a buy-and-hold index and return its return series. Uses adjusted close and
+/// the maximum sample density so the points line up with daily comparison charts.
+pub async fn compute_basket_return_series(
+    env: Arc<dyn AgentEnvironment>,
+    positions: &[BasketPosition],
+    start_date: Option<NaiveDate>,
+    end_date: Option<NaiveDate>,
+) -> SymbolPerformanceOutput {
+    compute_basket_performance(
+        env,
+        positions,
+        PriceBasis::AdjustedClose,
+        start_date,
+        end_date,
+        MAX_SYMBOL_SAMPLE_POINTS,
+    )
+    .await
+}
+
 /// base date, and the basket index is the weight-normalized sum of leg ratios,
 /// scaled to 100 at the base. Legs are priced with [`load_benchmark_quotes`]
 /// (local-first + provider backfill), so any symbol — tracked or not, past or

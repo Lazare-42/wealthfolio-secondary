@@ -13,10 +13,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@wealthfolio/ui/compone
 import { Skeleton } from "@wealthfolio/ui/components/ui/skeleton";
 import { SymbolSearchResult } from "@/lib/types";
 import { getExchangeDisplayName } from "@/lib/constants";
+import { useScenarios } from "@/hooks/use-scenarios";
 
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+const SCENARIO_ADDON_ROUTE = "/addon/scenario-addon";
 
 // Predefined benchmarks with canonical asset IDs
 // exchangeMic is undefined for indices (will use "INDEX" as pseudo-MIC)
@@ -111,7 +115,7 @@ const BENCHMARKS = [
 ];
 
 interface BenchmarkSymbolSelectorProps {
-  onSelect: (symbol: { id: string; name: string }) => void;
+  onSelect: (symbol: { id: string; name: string; type?: "symbol" | "scenario" }) => void;
   className?: string;
   iconOnly?: boolean;
 }
@@ -121,9 +125,25 @@ export function BenchmarkSymbolSelector({
   className,
   iconOnly = false,
 }: BenchmarkSymbolSelectorProps) {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Saved basket scenarios surfaced as benchmark options.
+  const { data: scenarios } = useScenarios();
+  const basketScenarios = (scenarios ?? []).filter((scenario) => scenario.kind === "basket");
+  const filteredScenarios = basketScenarios.filter(
+    (scenario) =>
+      searchQuery.length === 0 || scenario.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const handleScenarioSelect = (scenario: { id: string; name: string }) => {
+    setValue(scenario.name);
+    onSelect({ id: scenario.id, name: scenario.name, type: "scenario" });
+    setOpen(false);
+    setSearchQuery("");
+  };
 
   // Query for dynamic ticker search
   const {
@@ -196,6 +216,38 @@ export function BenchmarkSymbolSelector({
             <CommandEmpty>
               {isLoading ? "Searching..." : "No benchmarks or symbols found."}
             </CommandEmpty>
+
+            {/* Saved basket scenarios */}
+            {filteredScenarios.length > 0 && (
+              <CommandGroup
+                heading="Scenarios"
+                className="[&_[cmdk-group-heading]]:bg-popover [&_[cmdk-group-heading]]:border-border/10 [&_[cmdk-group-heading]]:sticky [&_[cmdk-group-heading]]:top-0 [&_[cmdk-group-heading]]:z-10 [&_[cmdk-group-heading]]:border-b"
+              >
+                {filteredScenarios.map((scenario) => (
+                  <CommandItem
+                    key={scenario.id}
+                    value={`scenario ${scenario.name} ${scenario.id}`}
+                    onSelect={() => handleScenarioSelect(scenario)}
+                  >
+                    <div className="flex flex-col">
+                      <div className="flex items-center">
+                        <Icons.TrendingUp className="text-muted-foreground mr-2 h-3.5 w-3.5" />
+                        <span className="font-medium">{scenario.name}</span>
+                      </div>
+                      <span className="text-muted-foreground text-xs">
+                        {scenario.basket.length} holdings · basket replay
+                      </span>
+                    </div>
+                    <Icons.Check
+                      className={cn(
+                        "ml-auto h-4 w-4",
+                        value === scenario.name ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
 
             {/* Predefined benchmark groups */}
             {BENCHMARKS.map((group) => (
@@ -307,6 +359,17 @@ export function BenchmarkSymbolSelector({
                 </CommandGroup>
               )}
           </CommandList>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              navigate(SCENARIO_ADDON_ROUTE);
+            }}
+            className="text-muted-foreground hover:text-foreground border-border/40 flex w-full items-center gap-1.5 border-t px-3 py-2 text-left text-xs"
+          >
+            <Icons.Settings className="h-3.5 w-3.5" />
+            Manage scenarios
+          </button>
         </Command>
       </PopoverContent>
     </Popover>

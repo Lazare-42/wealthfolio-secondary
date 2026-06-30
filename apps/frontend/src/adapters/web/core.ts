@@ -38,6 +38,7 @@ export const COMMANDS: CommandMap = {
   get_scenarios: { method: "GET", path: "/scenarios" },
   get_scenario: { method: "GET", path: "/scenarios" },
   create_scenario: { method: "POST", path: "/scenarios" },
+  calculate_scenario_performance: { method: "POST", path: "/scenarios" },
   update_scenario_entry: { method: "PUT", path: "/scenarios" },
   delete_scenario_entry: { method: "DELETE", path: "/scenarios" },
   get_arena_agents: { method: "GET", path: "/ai-arena/agents" },
@@ -526,6 +527,16 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
     case "create_scenario": {
       const { scenario } = payload as { scenario: Record<string, unknown> };
       body = JSON.stringify(scenario);
+      break;
+    }
+    case "calculate_scenario_performance": {
+      const { scenarioId, startDate, endDate } = payload as {
+        scenarioId: string;
+        startDate?: string;
+        endDate?: string;
+      };
+      url += `/${encodeURIComponent(scenarioId)}/performance`;
+      body = JSON.stringify({ startDate: startDate ?? null, endDate: endDate ?? null });
       break;
     }
     case "update_scenario_entry": {
