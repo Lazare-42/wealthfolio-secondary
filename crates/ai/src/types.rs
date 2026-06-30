@@ -58,6 +58,7 @@ pub const DEFAULT_TOOLS_ALLOWLIST: &[&str] = &[
     "get_portfolios",
     "get_net_worth",
     "get_contribution_limits",
+    "create_artifact",
 ];
 
 const LEGACY_VISIBLE_DATA_TOOLS: &[&str] = &[

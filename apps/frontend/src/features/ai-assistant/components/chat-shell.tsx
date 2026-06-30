@@ -23,6 +23,7 @@ import {
   AllocationToolUI,
   AssetClassificationToolUI,
   CategorizationProposalsToolUI,
+  CreateArtifactToolUI,
   CreateCategorizationRuleToolUI,
   GetAssetTaxonomyAssignmentsToolUI,
   GoalsToolUI,
@@ -39,6 +40,8 @@ import {
 import { ChatModelProvider, useChatModelContext } from "../hooks/use-chat-model-context";
 import { useChatRuntime } from "../hooks/use-chat-runtime";
 import { RuntimeProvider } from "../hooks/use-runtime-context";
+import { ArtifactProvider } from "../hooks/use-artifacts";
+import { ArtifactPane, ArtifactReopenButton } from "./artifact-pane";
 
 interface ChatShellProps {
   className?: string;
@@ -142,6 +145,7 @@ function Header({
       </ButtonWithTooltip>
       <ProviderPicker />
       <div className="flex-1" />
+      <ArtifactReopenButton />
     </header>
   );
 }
@@ -232,48 +236,54 @@ function ChatShellInner({ className }: ChatShellProps) {
 
   return (
     <RuntimeProvider runtime={runtime}>
-      <AssistantRuntimeProvider runtime={runtime}>
-        {/* Tool UIs - must be children of AssistantRuntimeProvider to register */}
-        <HoldingsToolUI />
-        <AccountsToolUI />
-        <ActivitiesToolUI />
-        <GoalsToolUI />
-        <ValuationToolUI />
-        <IncomeToolUI />
-        <AllocationToolUI />
-        <PerformanceToolUI />
-        <RecordActivityToolUI />
-        <RecordActivitiesToolUI />
-        <ImportCsvToolUI />
-        <CreateCategorizationRuleToolUI />
-        <ListAssetTaxonomiesToolUI />
-        <GetAssetTaxonomyAssignmentsToolUI />
-        <AssetClassificationToolUI />
-        <ListCategorizationContextToolUI />
-        <CategorizationProposalsToolUI />
+      <ArtifactProvider>
+        <AssistantRuntimeProvider runtime={runtime}>
+          {/* Tool UIs - must be children of AssistantRuntimeProvider to register */}
+          <HoldingsToolUI />
+          <AccountsToolUI />
+          <ActivitiesToolUI />
+          <GoalsToolUI />
+          <ValuationToolUI />
+          <IncomeToolUI />
+          <AllocationToolUI />
+          <PerformanceToolUI />
+          <RecordActivityToolUI />
+          <RecordActivitiesToolUI />
+          <ImportCsvToolUI />
+          <CreateCategorizationRuleToolUI />
+          <ListAssetTaxonomiesToolUI />
+          <GetAssetTaxonomyAssignmentsToolUI />
+          <AssetClassificationToolUI />
+          <ListCategorizationContextToolUI />
+          <CategorizationProposalsToolUI />
+          <CreateArtifactToolUI />
 
-        <InitialPromptSender />
+          <InitialPromptSender />
 
-        <div className={cn("bg-background flex h-full min-h-0 w-full", className)}>
-          {/* Desktop Sidebar */}
-          <div className="hidden md:block">
-            <Sidebar collapsed={sidebarCollapsed} />
+          <div className={cn("bg-background flex h-full min-h-0 w-full", className)}>
+            {/* Desktop Sidebar */}
+            <div className="hidden md:block">
+              <Sidebar collapsed={sidebarCollapsed} />
+            </div>
+
+            {/* Main Content Area */}
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <Header
+                sidebarCollapsed={sidebarCollapsed}
+                onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+              />
+
+              {/* Thread (Chat Messages) */}
+              <main className="min-h-0 flex-1 overflow-hidden">
+                <Thread composerActions={<ModelPicker />} />
+              </main>
+            </div>
+
+            {/* Document panel - renders only when the thread has an open artifact */}
+            <ArtifactPane />
           </div>
-
-          {/* Main Content Area */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <Header
-              sidebarCollapsed={sidebarCollapsed}
-              onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-            />
-
-            {/* Thread (Chat Messages) */}
-            <main className="min-h-0 flex-1 overflow-hidden">
-              <Thread composerActions={<ModelPicker />} />
-            </main>
-          </div>
-        </div>
-      </AssistantRuntimeProvider>
+        </AssistantRuntimeProvider>
+      </ArtifactProvider>
     </RuntimeProvider>
   );
 }
