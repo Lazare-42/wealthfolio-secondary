@@ -40,6 +40,24 @@ export const COMMANDS: CommandMap = {
   create_scenario: { method: "POST", path: "/scenarios" },
   update_scenario_entry: { method: "PUT", path: "/scenarios" },
   delete_scenario_entry: { method: "DELETE", path: "/scenarios" },
+  get_arena_agents: { method: "GET", path: "/ai-arena/agents" },
+  create_arena_agent: { method: "POST", path: "/ai-arena/agents" },
+  update_arena_agent: { method: "PUT", path: "/ai-arena/agents" },
+  delete_arena_agent: { method: "DELETE", path: "/ai-arena/agents" },
+  get_arena_challenges: { method: "GET", path: "/ai-arena/challenges" },
+  get_arena_challenge: { method: "GET", path: "/ai-arena/challenges" },
+  create_arena_challenge: { method: "POST", path: "/ai-arena/challenges" },
+  join_arena_challenge: { method: "POST", path: "/ai-arena/challenges" },
+  get_arena_participants: { method: "GET", path: "/ai-arena/challenges" },
+  run_arena_agent: { method: "POST", path: "/ai-arena/runs" },
+  run_due_arena_agents: { method: "POST", path: "/ai-arena/runs/due" },
+  settle_arena_challenge: { method: "POST", path: "/ai-arena/challenges" },
+  get_arena_leaderboard: { method: "GET", path: "/ai-arena/challenges" },
+  get_arena_portfolio: { method: "GET", path: "/ai-arena/participants" },
+  get_arena_runs: { method: "GET", path: "/ai-arena/challenges" },
+  get_arena_trades: { method: "GET", path: "/ai-arena/challenges" },
+  create_company_thesis: { method: "POST", path: "/ai-arena/theses" },
+  get_company_theses: { method: "GET", path: "/ai-arena/theses" },
   get_settings: { method: "GET", path: "/settings" },
   update_settings: { method: "PUT", path: "/settings" },
   is_auto_update_check_enabled: { method: "GET", path: "/settings/auto-update-enabled" },
@@ -525,6 +543,94 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
     case "delete_scenario_entry": {
       const { scenarioId } = payload as { scenarioId: string };
       url += `/${encodeURIComponent(scenarioId)}`;
+      break;
+    }
+    case "create_arena_agent": {
+      const { agent } = payload as { agent: Record<string, unknown> };
+      body = JSON.stringify(agent);
+      break;
+    }
+    case "update_arena_agent": {
+      const { agentId, agent } = payload as {
+        agentId: string;
+        agent: Record<string, unknown>;
+      };
+      url += `/${encodeURIComponent(agentId)}`;
+      body = JSON.stringify(agent);
+      break;
+    }
+    case "delete_arena_agent": {
+      const { agentId } = payload as { agentId: string };
+      url += `/${encodeURIComponent(agentId)}`;
+      break;
+    }
+    case "get_arena_challenge": {
+      const { challengeId } = payload as { challengeId: string };
+      url += `/${encodeURIComponent(challengeId)}`;
+      break;
+    }
+    case "create_arena_challenge": {
+      const { challenge } = payload as { challenge: Record<string, unknown> };
+      body = JSON.stringify(challenge);
+      break;
+    }
+    case "join_arena_challenge": {
+      const { challengeId, agentId } = payload as { challengeId: string; agentId: string };
+      url += `/${encodeURIComponent(challengeId)}/participants/${encodeURIComponent(agentId)}`;
+      break;
+    }
+    case "get_arena_participants": {
+      const { challengeId } = payload as { challengeId: string };
+      url += `/${encodeURIComponent(challengeId)}/participants`;
+      break;
+    }
+    case "run_arena_agent": {
+      const { request } = payload as { request: Record<string, unknown> };
+      body = JSON.stringify(request);
+      break;
+    }
+    case "settle_arena_challenge": {
+      const { challengeId } = payload as { challengeId: string };
+      url += `/${encodeURIComponent(challengeId)}/settle`;
+      break;
+    }
+    case "get_arena_leaderboard": {
+      const { challengeId } = payload as { challengeId: string };
+      url += `/${encodeURIComponent(challengeId)}/leaderboard`;
+      break;
+    }
+    case "get_arena_portfolio": {
+      const { participantId } = payload as { participantId: string };
+      url += `/${encodeURIComponent(participantId)}/portfolio`;
+      break;
+    }
+    case "get_arena_runs": {
+      const { challengeId } = payload as { challengeId: string };
+      url += `/${encodeURIComponent(challengeId)}/runs`;
+      break;
+    }
+    case "get_arena_trades": {
+      const { challengeId } = payload as { challengeId: string };
+      url += `/${encodeURIComponent(challengeId)}/trades`;
+      break;
+    }
+    case "create_company_thesis": {
+      const { thesis } = payload as { thesis: Record<string, unknown> };
+      body = JSON.stringify(thesis);
+      break;
+    }
+    case "get_company_theses": {
+      const { symbol, challengeId, limit } = (payload ?? {}) as {
+        symbol?: string;
+        challengeId?: string;
+        limit?: number;
+      };
+      const params = new URLSearchParams();
+      if (symbol) params.set("symbol", symbol);
+      if (challengeId) params.set("challengeId", challengeId);
+      if (limit !== undefined) params.set("limit", String(limit));
+      const qs = params.toString();
+      if (qs) url += `?${qs}`;
       break;
     }
     case "delete_database_backup": {

@@ -23,6 +23,7 @@ mod accounts;
 mod activities;
 mod addons;
 mod agent_access;
+mod ai_arena;
 mod ai_chat;
 mod ai_providers;
 mod allocation_targets;
@@ -100,6 +101,7 @@ pub fn app_router(state: Arc<AppState>, config: &Config) -> Router {
         .merge(accounts::router())
         .merge(portfolios::router())
         .merge(scenarios::router())
+        .merge(ai_arena::router())
         .merge(settings::router())
         .merge(data_exports::router())
         .merge(database_backups::router())

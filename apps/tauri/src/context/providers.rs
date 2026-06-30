@@ -13,6 +13,7 @@ use wealthfolio_connect::{
 use wealthfolio_core::{
     accounts::AccountService,
     activities::ActivityService,
+    ai_arena::{AiArenaDecisionRunner, AiArenaService},
     assets::{AlternativeAssetService, AssetClassificationService, AssetService},
     events::DomainEvent,
     fx::{FxService, FxServiceTrait},
@@ -40,6 +41,7 @@ use wealthfolio_storage_sqlite::{
     accounts::AccountRepository,
     activities::ActivityRepository,
     agent::{McpAuditRepository, PatRepository},
+    ai_arena::AiArenaRepository,
     ai_chat::AiChatRepository,
     assets::{AlternativeAssetRepository, AssetRepository},
     db::{self, write_actor},
@@ -566,6 +568,16 @@ pub async fn initialize_context(
     ));
     let agent_environment: Arc<dyn wealthfolio_agent_tools::AgentEnvironment> =
         ai_environment.clone();
+    let ai_arena_repository = Arc::new(AiArenaRepository::new(pool.clone(), writer.clone()));
+    let ai_arena_runner: Arc<dyn AiArenaDecisionRunner> = Arc::new(
+        wealthfolio_ai::AiArenaLlmRunner::new(ai_environment.clone()),
+    );
+    let ai_arena_service = Arc::new(AiArenaService::new(
+        ai_arena_repository,
+        quote_service.clone(),
+        asset_service.clone(),
+        Some(ai_arena_runner),
+    ));
     let ai_chat_service = Arc::new(ChatService::new(ai_environment, ChatConfig::default()));
 
     // MCP audit log repository (agent access audit trail)
@@ -630,6 +642,7 @@ pub async fn initialize_context(
             connect_service,
             ai_provider_service,
             ai_chat_service,
+            ai_arena_service,
             agent_environment,
             mcp_audit_repository,
             pat_repository,

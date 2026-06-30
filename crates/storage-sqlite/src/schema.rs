@@ -749,6 +749,143 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    arena_agents (id) {
+        id -> Text,
+        name -> Text,
+        provider_id -> Text,
+        model_id -> Text,
+        persona -> Text,
+        enabled -> Integer,
+        schedule_enabled -> Integer,
+        created_at -> Text,
+        updated_at -> Text,
+    }
+}
+
+diesel::table! {
+    arena_challenges (id) {
+        id -> Text,
+        name -> Text,
+        description -> Nullable<Text>,
+        status -> Text,
+        market -> Text,
+        scoring_method -> Text,
+        initial_cash -> Text,
+        max_position_pct -> Text,
+        max_drawdown_pct -> Text,
+        run_cadence -> Text,
+        scheduled_time_local -> Nullable<Text>,
+        universe_json -> Text,
+        start_at -> Nullable<Text>,
+        end_at -> Nullable<Text>,
+        settled_at -> Nullable<Text>,
+        created_at -> Text,
+        updated_at -> Text,
+    }
+}
+
+diesel::table! {
+    arena_participants (id) {
+        id -> Text,
+        challenge_id -> Text,
+        agent_id -> Text,
+        status -> Text,
+        joined_at -> Text,
+        starting_cash -> Text,
+        created_at -> Text,
+        updated_at -> Text,
+    }
+}
+
+diesel::table! {
+    arena_runs (id) {
+        id -> Text,
+        challenge_id -> Text,
+        agent_id -> Text,
+        participant_id -> Text,
+        run_type -> Text,
+        status -> Text,
+        idempotency_key -> Nullable<Text>,
+        prompt -> Text,
+        raw_response -> Nullable<Text>,
+        parsed_json -> Nullable<Text>,
+        error -> Nullable<Text>,
+        started_at -> Text,
+        completed_at -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
+    arena_trades (id) {
+        id -> Text,
+        challenge_id -> Text,
+        participant_id -> Text,
+        run_id -> Nullable<Text>,
+        symbol -> Text,
+        side -> Text,
+        quantity -> Text,
+        price -> Text,
+        notional -> Text,
+        status -> Text,
+        rationale -> Nullable<Text>,
+        rejection_reason -> Nullable<Text>,
+        executed_at -> Text,
+        created_at -> Text,
+    }
+}
+
+diesel::table! {
+    arena_snapshots (id) {
+        id -> Text,
+        challenge_id -> Text,
+        participant_id -> Text,
+        snapshot_date -> Text,
+        total_value -> Text,
+        cash -> Text,
+        return_pct -> Text,
+        max_drawdown_pct -> Text,
+        positions_json -> Text,
+        equity_curve_json -> Text,
+        created_at -> Text,
+    }
+}
+
+diesel::table! {
+    arena_results (id) {
+        id -> Text,
+        challenge_id -> Text,
+        participant_id -> Text,
+        return_pct -> Text,
+        max_drawdown_pct -> Text,
+        risk_adjusted_score -> Text,
+        final_score -> Text,
+        rank -> Nullable<Integer>,
+        trade_count -> Integer,
+        disqualified_reason -> Nullable<Text>,
+        metrics_json -> Text,
+        settled_at -> Text,
+    }
+}
+
+diesel::table! {
+    company_theses (id) {
+        id -> Text,
+        symbol -> Text,
+        agent_id -> Nullable<Text>,
+        challenge_id -> Nullable<Text>,
+        run_id -> Nullable<Text>,
+        rating -> Nullable<Text>,
+        confidence -> Nullable<Text>,
+        horizon -> Nullable<Text>,
+        thesis -> Text,
+        risks_json -> Text,
+        catalysts_json -> Text,
+        created_at -> Text,
+        updated_at -> Text,
+    }
+}
+
 diesel::joinable!(portfolio_accounts -> portfolios (portfolio_id));
 diesel::joinable!(portfolio_accounts -> accounts (account_id));
 
@@ -835,6 +972,22 @@ diesel::table! {
 }
 
 diesel::joinable!(allocation_target_constraints -> allocation_targets (target_id));
+
+diesel::joinable!(arena_participants -> arena_agents (agent_id));
+diesel::joinable!(arena_participants -> arena_challenges (challenge_id));
+diesel::joinable!(arena_runs -> arena_agents (agent_id));
+diesel::joinable!(arena_runs -> arena_challenges (challenge_id));
+diesel::joinable!(arena_runs -> arena_participants (participant_id));
+diesel::joinable!(arena_trades -> arena_challenges (challenge_id));
+diesel::joinable!(arena_trades -> arena_participants (participant_id));
+diesel::joinable!(arena_trades -> arena_runs (run_id));
+diesel::joinable!(arena_snapshots -> arena_challenges (challenge_id));
+diesel::joinable!(arena_snapshots -> arena_participants (participant_id));
+diesel::joinable!(arena_results -> arena_challenges (challenge_id));
+diesel::joinable!(arena_results -> arena_participants (participant_id));
+diesel::joinable!(company_theses -> arena_agents (agent_id));
+diesel::joinable!(company_theses -> arena_challenges (challenge_id));
+diesel::joinable!(company_theses -> arena_runs (run_id));
 
 diesel::joinable!(accounts -> platforms (platform_id));
 diesel::joinable!(activities -> accounts (account_id));
@@ -932,4 +1085,12 @@ diesel::allow_tables_to_appear_in_same_query!(
     personal_access_tokens,
     mcp_audit_log,
     allocation_target_constraints,
+    arena_agents,
+    arena_challenges,
+    arena_participants,
+    arena_runs,
+    arena_trades,
+    arena_snapshots,
+    arena_results,
+    company_theses,
 );

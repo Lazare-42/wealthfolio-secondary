@@ -2,7 +2,7 @@ use std::sync::{atomic::AtomicBool, Arc, RwLock};
 use wealthfolio_ai::{AiProviderServiceTrait, ChatService};
 use wealthfolio_connect::BrokerSyncServiceTrait;
 use wealthfolio_core::{
-    self, accounts, activities,
+    self, accounts, activities, ai_arena,
     assets::{self, AlternativeAssetServiceTrait},
     events::DomainEventSink,
     fx, goals, health, limits,
@@ -68,6 +68,7 @@ pub struct ServiceContext {
     pub connect_service: Arc<ConnectService>,
     pub ai_provider_service: Arc<dyn AiProviderServiceTrait>,
     pub ai_chat_service: Arc<ChatService<TauriAiEnvironment>>,
+    pub ai_arena_service: Arc<dyn ai_arena::AiArenaServiceTrait>,
     pub agent_environment: Arc<dyn wealthfolio_agent_tools::AgentEnvironment>,
     pub mcp_audit_repository: Arc<McpAuditRepository>,
     pub pat_repository: Arc<PatRepository>,
@@ -238,6 +239,10 @@ impl ServiceContext {
 
     pub fn ai_chat_service(&self) -> Arc<ChatService<TauriAiEnvironment>> {
         Arc::clone(&self.ai_chat_service)
+    }
+
+    pub fn ai_arena_service(&self) -> Arc<dyn ai_arena::AiArenaServiceTrait> {
+        Arc::clone(&self.ai_arena_service)
     }
 
     pub fn agent_environment(&self) -> Arc<dyn wealthfolio_agent_tools::AgentEnvironment> {

@@ -106,6 +106,196 @@ export interface NewPortfolioScenario {
   assumptions?: Record<string, unknown>;
 }
 
+export type ArenaChallengeStatus = "draft" | "active" | "settled" | "cancelled";
+export type ArenaScoringMethod = "returnOnly" | "riskAdjusted";
+export type ArenaRunType = "manual" | "scheduled" | "thesis";
+export type ArenaRunStatus = "running" | "completed" | "completedWithRejections" | "failed";
+export type ArenaTradeSide = "buy" | "sell";
+export type ArenaTradeStatus = "executed" | "rejected";
+
+export interface ArenaAgent {
+  id: string;
+  name: string;
+  providerId: string;
+  modelId: string;
+  persona: string;
+  enabled: boolean;
+  scheduleEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateArenaAgentRequest {
+  name: string;
+  providerId: string;
+  modelId: string;
+  persona?: string | null;
+  enabled?: boolean;
+  scheduleEnabled?: boolean;
+}
+
+export interface ArenaChallenge {
+  id: string;
+  name: string;
+  description?: string | null;
+  status: ArenaChallengeStatus;
+  market: string;
+  scoringMethod: ArenaScoringMethod;
+  initialCash: number;
+  maxPositionPct: number;
+  maxDrawdownPct: number;
+  runCadence: string;
+  scheduledTimeLocal?: string | null;
+  universe: string[];
+  startAt?: string | null;
+  endAt?: string | null;
+  settledAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateArenaChallengeRequest {
+  name: string;
+  description?: string | null;
+  market?: string;
+  scoringMethod?: ArenaScoringMethod;
+  initialCash?: number;
+  maxPositionPct?: number;
+  maxDrawdownPct?: number;
+  runCadence?: string;
+  scheduledTimeLocal?: string | null;
+  universe?: string[];
+  startAt?: string | null;
+  endAt?: string | null;
+}
+
+export interface ArenaParticipant {
+  id: string;
+  challengeId: string;
+  agentId: string;
+  status: string;
+  joinedAt: string;
+  startingCash: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RunArenaAgentRequest {
+  challengeId: string;
+  agentId: string;
+  runType?: ArenaRunType | null;
+}
+
+export interface ArenaRun {
+  id: string;
+  challengeId: string;
+  agentId: string;
+  participantId: string;
+  runType: ArenaRunType;
+  status: ArenaRunStatus;
+  idempotencyKey?: string | null;
+  prompt: string;
+  rawResponse?: string | null;
+  parsedJson?: unknown;
+  error?: string | null;
+  startedAt: string;
+  completedAt?: string | null;
+}
+
+export interface ArenaTrade {
+  id: string;
+  challengeId: string;
+  participantId: string;
+  runId?: string | null;
+  symbol: string;
+  side: ArenaTradeSide;
+  quantity: number;
+  price: number;
+  notional: number;
+  status: ArenaTradeStatus;
+  rationale?: string | null;
+  rejectionReason?: string | null;
+  executedAt: string;
+  createdAt: string;
+}
+
+export interface ArenaPosition {
+  symbol: string;
+  quantity: number;
+  avgEntryPrice: number;
+  currentPrice: number;
+  marketValue: number;
+  unrealizedPnlPct: number;
+}
+
+export interface ArenaEquityPoint {
+  date: string;
+  value: number;
+}
+
+export interface ArenaPortfolio {
+  participant: ArenaParticipant;
+  agent: ArenaAgent;
+  challenge: ArenaChallenge;
+  cash: number;
+  totalValue: number;
+  returnPct: number;
+  maxDrawdownPct: number;
+  tradeCount: number;
+  positions: ArenaPosition[];
+  equityCurve: ArenaEquityPoint[];
+  trades: ArenaTrade[];
+}
+
+export interface ArenaLeaderboardEntry {
+  rank?: number | null;
+  participantId: string;
+  agentId: string;
+  agentName: string;
+  totalValue: number;
+  cash: number;
+  returnPct: number;
+  maxDrawdownPct: number;
+  riskAdjustedScore: number;
+  finalScore: number;
+  tradeCount: number;
+  disqualifiedReason?: string | null;
+}
+
+export interface ArenaLeaderboard {
+  challenge: ArenaChallenge;
+  entries: ArenaLeaderboardEntry[];
+}
+
+export interface CompanyThesis {
+  id: string;
+  symbol: string;
+  agentId?: string | null;
+  challengeId?: string | null;
+  runId?: string | null;
+  rating?: string | null;
+  confidence?: number | null;
+  horizon?: string | null;
+  thesis: string;
+  risks: string[];
+  catalysts: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCompanyThesisRequest {
+  symbol: string;
+  agentId?: string | null;
+  challengeId?: string | null;
+  runId?: string | null;
+  rating?: string | null;
+  confidence?: number | null;
+  horizon?: string | null;
+  thesis: string;
+  risks?: string[];
+  catalysts?: string[];
+}
+
 export interface Account {
   id: string;
   name: string;

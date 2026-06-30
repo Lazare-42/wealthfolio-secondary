@@ -11,7 +11,7 @@ use tracing_subscriber::prelude::*;
 use tracing_subscriber::{fmt, EnvFilter};
 use wealthfolio_ai::{
     pdf_parser::{PdfTransactionParser, PdfTransactionParserTrait},
-    AiProviderService, AiProviderServiceTrait, ChatConfig, ChatService,
+    AiArenaLlmRunner, AiProviderService, AiProviderServiceTrait, ChatConfig, ChatService,
 };
 use wealthfolio_connect::{
     BrokerSyncService, BrokerSyncServiceTrait, CoreImportRunRepositoryAdapter,
@@ -21,6 +21,7 @@ use wealthfolio_core::addons::{AddonService, AddonServiceTrait};
 use wealthfolio_core::{
     accounts::{AccountService, AccountServiceTrait},
     activities::{ActivityService as CoreActivityService, ActivityServiceTrait},
+    ai_arena::{AiArenaDecisionRunner, AiArenaService, AiArenaServiceTrait},
     assets::{
         AlternativeAssetRepositoryTrait, AlternativeAssetService, AlternativeAssetServiceTrait,
         AssetClassificationService, AssetService, AssetServiceTrait,
@@ -53,6 +54,7 @@ use wealthfolio_storage_sqlite::{
     accounts::AccountRepository,
     activities::ActivityRepository,
     agent::{McpAuditRepository, PatRepository},
+    ai_arena::AiArenaRepository,
     ai_chat::AiChatRepository,
     assets::{AlternativeAssetRepository, AssetRepository},
     db::{self, write_actor},
@@ -105,6 +107,7 @@ pub struct AppState {
     pub connect_sync_service: Arc<dyn BrokerSyncServiceTrait + Send + Sync>,
     pub ai_provider_service: Arc<dyn AiProviderServiceTrait + Send + Sync>,
     pub ai_chat_service: Arc<ChatService<ServerAiEnvironment>>,
+    pub ai_arena_service: Arc<dyn AiArenaServiceTrait + Send + Sync>,
     pub data_root: String,
     pub db_path: String,
     pub instance_id: String,
@@ -788,6 +791,16 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         ai_environment.clone();
     let pdf_parser: Arc<dyn PdfTransactionParserTrait> =
         Arc::new(PdfTransactionParser::new(ai_environment.clone()));
+    let ai_arena_repository = Arc::new(AiArenaRepository::new(pool.clone(), writer.clone()));
+    let ai_arena_runner: Arc<dyn AiArenaDecisionRunner> =
+        Arc::new(AiArenaLlmRunner::new(ai_environment.clone()));
+    let ai_arena_service: Arc<dyn AiArenaServiceTrait + Send + Sync> =
+        Arc::new(AiArenaService::new(
+            ai_arena_repository,
+            quote_service.clone(),
+            asset_service.clone(),
+            Some(ai_arena_runner),
+        ));
     let ai_chat_service = Arc::new(ChatService::new(ai_environment, ChatConfig::default()));
 
     // Agent access: PAT auth + MCP audit trail (server-mode MCP)
@@ -889,6 +902,7 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         connect_sync_service,
         ai_provider_service,
         ai_chat_service,
+        ai_arena_service,
         data_root,
         db_path,
         instance_id: settings.instance_id,

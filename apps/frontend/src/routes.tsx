@@ -23,6 +23,7 @@ import PortfoliosPage from "@/pages/settings/portfolios/portfolios-page";
 import SettingsAppearancePage from "@/pages/settings/appearance/appearance-page";
 import ScenariosPage from "@/pages/settings/scenarios/scenarios-page";
 import AccountPage from "./pages/account/account-page";
+import AiArenaPage from "./pages/ai-arena/ai-arena-page";
 import AiAssistantPage from "./pages/ai-assistant/ai-assistant-page";
 import AssetProfilePage from "./pages/asset/asset-profile-page";
 import HealthPage from "./pages/health/health-page";
@@ -107,6 +108,7 @@ export function AppRoutes() {
           <Route path="reconciliation" element={<ReconciliationPage />} />
           <Route path="reconciliation/:runId" element={<ReconciliationDetailPage />} />
           <Route path="assistant" element={<AiAssistantPage />} />
+          <Route path="ai-arena" element={<AiArenaPage />} />
           <Route path="connect" element={<ConnectPage />} />
           <Route
             path="allocation-targets"

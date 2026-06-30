@@ -92,6 +92,9 @@ export {
   updateScenarioEntry,
 } from "../shared/scenarios";
 
+// AI Arena Commands
+export * from "../shared/ai-arena";
+
 // Account Commands
 export * from "../shared/accounts";
 

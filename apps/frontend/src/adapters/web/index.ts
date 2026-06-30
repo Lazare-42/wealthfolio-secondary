@@ -95,6 +95,9 @@ export {
   updateScenarioEntry,
 } from "../shared/scenarios";
 
+// AI Arena Commands
+export * from "../shared/ai-arena";
+
 // Account Commands
 export { createAccount, deleteAccount, getAccounts, updateAccount } from "../shared/accounts";
 

@@ -74,6 +74,13 @@ const staticNavigation: NavigationProps = {
       keywords: ["ai", "assistant", "chat", "help", "ask"],
       label: "AI Assistant",
     },
+    {
+      icon: <Icons.Brain className="size-6" />,
+      title: "AI Arena",
+      href: "/ai-arena",
+      keywords: ["ai", "arena", "agents", "stocks", "challenge"],
+      label: "AI Arena",
+    },
   ],
   secondary: [
     {

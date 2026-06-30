@@ -60,6 +60,7 @@
 //! }
 //! ```
 
+pub mod arena_runner;
 pub mod chat;
 pub mod env;
 pub mod error;
@@ -85,6 +86,7 @@ pub mod types;
 pub const SYSTEM_PROMPT: &str = include_str!("system_prompt.txt");
 
 // Re-export main types for convenience
+pub use arena_runner::AiArenaLlmRunner;
 pub use chat::{ChatConfig, ChatService};
 pub use env::{AgentEnvironment, AiEnvironment};
 pub use error::AiError;

@@ -33,6 +33,7 @@ pub mod utils;
 pub mod accounts;
 pub mod activities;
 pub mod agent;
+pub mod ai_arena;
 pub mod ai_chat;
 pub mod assets;
 pub mod custom_provider;
