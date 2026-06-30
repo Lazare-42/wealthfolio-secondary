@@ -63,6 +63,12 @@ pub struct StagingStore {
     entries: RwLock<HashMap<String, StagingEntry>>,
 }
 
+impl Default for StagingStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StagingStore {
     pub fn new() -> Self {
         Self {

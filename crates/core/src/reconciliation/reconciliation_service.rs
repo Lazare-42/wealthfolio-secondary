@@ -106,12 +106,9 @@ impl ReconciliationService {
         filename: &str,
         mappings: &'a [StatementAccountMapping],
     ) -> Option<&'a StatementAccountMapping> {
-        for mapping in mappings {
-            if glob_match(&mapping.file_pattern, filename) {
-                return Some(mapping);
-            }
-        }
-        None
+        mappings
+            .iter()
+            .find(|mapping| glob_match(&mapping.file_pattern, filename))
     }
 
     /// Parse a bank statement CSV and extract rows.
@@ -254,7 +251,7 @@ impl ReconciliationService {
         }
 
         // Remaining unmatched existing activities → Missing
-        for (_, acts) in &pool {
+        for acts in pool.values() {
             for act in acts {
                 items.push(ReconciliationItem {
                     row_index: u32::MAX,
@@ -297,9 +294,9 @@ impl ReconciliationService {
 
             let mut run_activities: Vec<Activity> = Vec::new();
             for id in &draft_ids {
-                match self.activity_service.get_activity(id) {
-                    Ok(act) => run_activities.push(act),
-                    Err(_) => {} // Activity may have been deleted (rejected)
+                // Activity may have been deleted (rejected).
+                if let Ok(act) = self.activity_service.get_activity(id) {
+                    run_activities.push(act);
                 }
             }
 

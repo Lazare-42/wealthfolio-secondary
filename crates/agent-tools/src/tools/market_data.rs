@@ -1149,6 +1149,7 @@ fn price_for_quote(quote: &Quote, basis: PriceBasis) -> Option<f64> {
     (value > Decimal::ZERO).then(|| value.to_f64()).flatten()
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn calculate_symbol_performance_from_quotes(
     symbol: String,
     asset_id: String,

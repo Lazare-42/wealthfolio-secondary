@@ -77,7 +77,7 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
                 let key = api_key.ok_or_else(|| AiError::MissingApiKey(request.provider_id))?;
                 let mut builder = groq::Client::<HttpClient>::builder().api_key(&key);
                 if let Some(url) = provider_url {
-                    builder = builder.base_url(&ensure_openai_v1_base_url(&url));
+                    builder = builder.base_url(ensure_openai_v1_base_url(&url));
                 }
                 let client = builder
                     .build()
@@ -115,7 +115,7 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
                 let key = api_key.ok_or_else(|| AiError::MissingApiKey(request.provider_id))?;
                 let mut builder = openrouter::Client::<HttpClient>::builder().api_key(&key);
                 if let Some(url) = provider_url {
-                    builder = builder.base_url(&ensure_openai_v1_base_url(&url));
+                    builder = builder.base_url(ensure_openai_v1_base_url(&url));
                 }
                 let client = builder
                     .build()
@@ -134,7 +134,7 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
                 let key = api_key.ok_or_else(|| AiError::MissingApiKey(request.provider_id))?;
                 let mut builder = openai::CompletionsClient::<HttpClient>::builder().api_key(&key);
                 if let Some(url) = provider_url {
-                    builder = builder.base_url(&ensure_openai_v1_base_url(&url));
+                    builder = builder.base_url(ensure_openai_v1_base_url(&url));
                 }
                 let client = builder
                     .build()

@@ -14,8 +14,6 @@
 //! See `crates/ai/evals/README.md` for run instructions and TOML schema.
 //! See `crates/ai/src/bin/eval.rs` for the runner binary.
 
-#![cfg(feature = "test-utils")]
-
 pub mod schema;
 pub mod trace;
 

@@ -107,7 +107,7 @@ impl AiArenaRepositoryTrait for AiArenaRepository {
                     .values(&db)
                     .execute(tx.conn())
                     .map_err(StorageError::from)?;
-                Ok(ArenaChallenge::try_from(db)?)
+                ArenaChallenge::try_from(db)
             })
             .await
     }
@@ -121,7 +121,7 @@ impl AiArenaRepositoryTrait for AiArenaRepository {
                     .set(&db)
                     .execute(tx.conn())
                     .map_err(StorageError::from)?;
-                Ok(ArenaChallenge::try_from(db)?)
+                ArenaChallenge::try_from(db)
             })
             .await
     }
@@ -159,7 +159,7 @@ impl AiArenaRepositoryTrait for AiArenaRepository {
                     .values(&db)
                     .execute(tx.conn())
                     .map_err(StorageError::from)?;
-                Ok(ArenaParticipant::try_from(db)?)
+                ArenaParticipant::try_from(db)
             })
             .await
     }
@@ -212,7 +212,7 @@ impl AiArenaRepositoryTrait for AiArenaRepository {
                     .values(&db)
                     .execute(tx.conn())
                     .map_err(StorageError::from)?;
-                Ok(ArenaRun::try_from(db)?)
+                ArenaRun::try_from(db)
             })
             .await
     }
@@ -278,7 +278,7 @@ impl AiArenaRepositoryTrait for AiArenaRepository {
                     .values(&db)
                     .execute(tx.conn())
                     .map_err(StorageError::from)?;
-                Ok(ArenaTrade::try_from(db)?)
+                ArenaTrade::try_from(db)
             })
             .await
     }
@@ -326,7 +326,7 @@ impl AiArenaRepositoryTrait for AiArenaRepository {
                     .values(&db)
                     .execute(tx.conn())
                     .map_err(StorageError::from)?;
-                Ok(ArenaSnapshot::try_from(db)?)
+                ArenaSnapshot::try_from(db)
             })
             .await
     }
@@ -367,10 +367,10 @@ impl AiArenaRepositoryTrait for AiArenaRepository {
                         .execute(tx.conn())
                         .map_err(StorageError::from)?;
                 }
-                Ok(db_results
+                db_results
                     .into_iter()
                     .map(ArenaResult::try_from)
-                    .collect::<Result<Vec<_>>>()?)
+                    .collect::<Result<Vec<_>>>()
             })
             .await
     }
@@ -396,7 +396,7 @@ impl AiArenaRepositoryTrait for AiArenaRepository {
                     .values(&db)
                     .execute(tx.conn())
                     .map_err(StorageError::from)?;
-                Ok(CompanyThesis::try_from(db)?)
+                CompanyThesis::try_from(db)
             })
             .await
     }
