@@ -27,6 +27,8 @@ expression: snapshot
           "TAX",
           "CREDIT",
           "ADJUSTMENT",
+          "LOAN_ORIGINATION",
+          "LOAN_PAYMENT",
           "UNKNOWN"
         ],
         "type": "string"
