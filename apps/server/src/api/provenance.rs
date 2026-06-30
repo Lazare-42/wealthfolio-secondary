@@ -6,10 +6,44 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use wealthfolio_core::provenance::{
     ActivitySource, ChatSourceEmail, NewActivitySource, NewChatSourceEmail,
 };
+
+/// Merged provenance for one activity: the explicit source links plus the
+/// intrinsic import fields every activity already carries (so bank CSV/PDF
+/// imports are traceable without any new annotation).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ActivityProvenanceView {
+    activity_id: String,
+    source_system: Option<String>,
+    source_record_id: Option<String>,
+    source_group_id: Option<String>,
+    import_run_id: Option<String>,
+    has_metadata: bool,
+    notes: Option<String>,
+    sources: Vec<ActivitySource>,
+}
+
+async fn activity_provenance(
+    Path(id): Path<String>,
+    State(state): State<Arc<AppState>>,
+) -> ApiResult<Json<ActivityProvenanceView>> {
+    let activity = state.activity_service.get_activity(&id)?;
+    let sources = state.provenance_service.activity_sources(&id).await?;
+    Ok(Json(ActivityProvenanceView {
+        activity_id: id,
+        source_system: activity.source_system,
+        source_record_id: activity.source_record_id,
+        source_group_id: activity.source_group_id,
+        import_run_id: activity.import_run_id,
+        has_metadata: activity.metadata.is_some(),
+        notes: activity.notes,
+        sources,
+    }))
+}
 
 async fn record_source(
     State(state): State<Arc<AppState>>,
@@ -63,6 +97,7 @@ pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/provenance/sources", post(record_source))
         .route("/activities/{id}/sources", get(activity_sources))
+        .route("/activities/{id}/provenance", get(activity_provenance))
         .route(
             "/provenance/source-emails",
             post(save_source_email).get(list_source_emails),
