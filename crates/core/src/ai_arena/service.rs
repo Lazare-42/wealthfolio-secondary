@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use chrono::{NaiveDate, Utc};
+use chrono::{DateTime, Local, NaiveDate, NaiveTime, Utc};
 use num_traits::ToPrimitive;
 use serde_json::Value;
 
@@ -51,11 +51,19 @@ impl AiArenaService {
         require_positive(input.initial_cash, "initialCash must be positive")?;
         require_pct(input.max_position_pct, "maxPositionPct")?;
         require_pct(input.max_drawdown_pct, "maxDrawdownPct")?;
-        if let Some(start) = input.start_at.as_deref().filter(|v| !v.trim().is_empty()) {
-            parse_date_prefix(start, "startAt")?;
+        let start_at = parse_challenge_time(input.start_at.as_deref(), "startAt")?;
+        let end_at = parse_challenge_time(input.end_at.as_deref(), "endAt")?;
+        if let (Some(start_at), Some(end_at)) = (start_at, end_at) {
+            if end_at <= start_at {
+                return invalid("endAt must be after startAt");
+            }
         }
-        if let Some(end) = input.end_at.as_deref().filter(|v| !v.trim().is_empty()) {
-            parse_date_prefix(end, "endAt")?;
+        if let Some(scheduled_time) = input
+            .scheduled_time_local
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        {
+            parse_hh_mm(scheduled_time, "scheduledTimeLocal")?;
         }
         Ok(())
     }
@@ -404,6 +412,14 @@ Use at most 5 orders. It is valid to return an empty orders array.",
     }
 
     async fn build_portfolio(&self, participant: &ArenaParticipant) -> Result<ArenaPortfolio> {
+        self.build_portfolio_with_marks(participant, true).await
+    }
+
+    async fn build_portfolio_with_marks(
+        &self,
+        participant: &ArenaParticipant,
+        mark_open_positions: bool,
+    ) -> Result<ArenaPortfolio> {
         let challenge = self.repository.get_challenge(&participant.challenge_id)?;
         let agent = self.repository.get_agent(&participant.agent_id)?;
         let trades = self
@@ -446,10 +462,13 @@ Use at most 5 orders. It is valid to return an empty orders array.",
         }
 
         let symbols: Vec<String> = positions.keys().cloned().collect();
-        let latest_quotes = self
-            .quote_service
-            .get_latest_quotes(&symbols)
-            .unwrap_or_default();
+        let latest_quotes = if mark_open_positions {
+            self.quote_service
+                .get_latest_quotes(&symbols)
+                .unwrap_or_default()
+        } else {
+            HashMap::new()
+        };
         let mut output_positions = Vec::new();
         for (symbol, position) in positions {
             let current_price = latest_quotes
@@ -511,7 +530,10 @@ Use at most 5 orders. It is valid to return an empty orders array.",
     async fn leaderboard_entries(
         &self,
         challenge: &ArenaChallenge,
+        mark_open_positions: bool,
     ) -> Result<Vec<ArenaLeaderboardEntry>> {
+        let mark_open_positions =
+            mark_open_positions && challenge.status != ArenaChallengeStatus::Settled;
         if challenge.status == ArenaChallengeStatus::Settled {
             let results = self.repository.list_results(&challenge.id)?;
             if !results.is_empty() {
@@ -551,7 +573,9 @@ Use at most 5 orders. It is valid to return an empty orders array.",
         let participants = self.repository.list_participants(&challenge.id)?;
         let mut entries = Vec::new();
         for participant in participants {
-            let portfolio = self.build_portfolio(&participant).await?;
+            let portfolio = self
+                .build_portfolio_with_marks(&participant, mark_open_positions)
+                .await?;
             let disqualified_reason =
                 if portfolio.max_drawdown_pct > challenge.max_drawdown_pct + 0.0001 {
                     Some(format!(
@@ -570,6 +594,8 @@ Use at most 5 orders. It is valid to return an empty orders array.",
                 ArenaScoringMethod::ReturnOnly => portfolio.return_pct,
                 ArenaScoringMethod::RiskAdjusted => risk_adjusted_score,
             };
+            let final_score =
+                rankable_final_score(portfolio.trade_count, &disqualified_reason, final_score);
             entries.push(ArenaLeaderboardEntry {
                 rank: None,
                 participant_id: participant.id.clone(),
@@ -589,7 +615,7 @@ Use at most 5 orders. It is valid to return an empty orders array.",
         let mut rankable: Vec<usize> = entries
             .iter()
             .enumerate()
-            .filter(|(_, entry)| entry.trade_count > 0 && entry.disqualified_reason.is_none())
+            .filter(|(_, entry)| entry.final_score.is_some())
             .map(|(idx, _)| idx)
             .collect();
         rankable.sort_by(|a, b| {
@@ -660,10 +686,11 @@ impl AiArenaServiceTrait for AiArenaService {
     }
 
     async fn join_challenge(&self, challenge_id: &str, agent_id: &str) -> Result<ArenaParticipant> {
+        let challenge = self.repository.get_challenge(challenge_id)?;
+        ensure_challenge_joinable(&challenge)?;
         if let Some(existing) = self.repository.get_participant(challenge_id, agent_id)? {
             return Ok(existing);
         }
-        let challenge = self.repository.get_challenge(challenge_id)?;
         self.repository.get_agent(agent_id)?;
         self.repository
             .create_participant(ArenaParticipant::new(&challenge, agent_id))
@@ -677,9 +704,7 @@ impl AiArenaServiceTrait for AiArenaService {
     async fn run_agent(&self, request: RunArenaAgentRequest) -> Result<ArenaRun> {
         let run_type = request.run_type.unwrap_or(ArenaRunType::Manual);
         let challenge = self.repository.get_challenge(&request.challenge_id)?;
-        if challenge.status != ArenaChallengeStatus::Active {
-            return invalid("Challenge is not active");
-        }
+        ensure_challenge_tradeable(&challenge)?;
         let agent = self.repository.get_agent(&request.agent_id)?;
         if !agent.enabled {
             return invalid("Agent is disabled");
@@ -759,9 +784,16 @@ impl AiArenaServiceTrait for AiArenaService {
 
     async fn run_due_scheduled(&self) -> Result<Vec<ArenaRun>> {
         let mut runs = Vec::new();
+        let local_now = Local::now().time();
         for challenge in self.repository.list_challenges()? {
             if challenge.status != ArenaChallengeStatus::Active || challenge.run_cadence != "daily"
             {
+                continue;
+            }
+            if !challenge_is_tradeable_now(&challenge)? {
+                continue;
+            }
+            if !scheduled_time_is_due(challenge.scheduled_time_local.as_deref(), local_now)? {
                 continue;
             }
             for participant in self.repository.list_participants(&challenge.id)? {
@@ -783,7 +815,7 @@ impl AiArenaServiceTrait for AiArenaService {
 
     async fn settle_challenge(&self, challenge_id: &str) -> Result<ArenaLeaderboard> {
         let mut challenge = self.repository.get_challenge(challenge_id)?;
-        let entries = self.leaderboard_entries(&challenge).await?;
+        let entries = self.leaderboard_entries(&challenge, false).await?;
         let settled_at = now_string();
         let results = entries
             .iter()
@@ -814,7 +846,7 @@ impl AiArenaServiceTrait for AiArenaService {
 
     async fn get_leaderboard(&self, challenge_id: &str) -> Result<ArenaLeaderboard> {
         let challenge = self.repository.get_challenge(challenge_id)?;
-        let entries = self.leaderboard_entries(&challenge).await?;
+        let entries = self.leaderboard_entries(&challenge, true).await?;
         Ok(ArenaLeaderboard { challenge, entries })
     }
 
@@ -887,18 +919,96 @@ fn invalid<T>(message: &str) -> Result<T> {
     )))
 }
 
-fn parse_date_prefix(value: &str, field: &str) -> Result<()> {
+fn parse_challenge_time(value: Option<&str>, field: &str) -> Result<Option<DateTime<Utc>>> {
+    let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    if let Ok(parsed) = DateTime::parse_from_rfc3339(value) {
+        return Ok(Some(parsed.with_timezone(&Utc)));
+    }
     let date = value.get(0..10).ok_or_else(|| {
         Error::Validation(ValidationError::InvalidInput(format!(
-            "{field} must start with YYYY-MM-DD"
+            "{field} must be an RFC3339 timestamp or YYYY-MM-DD date"
         )))
     })?;
-    NaiveDate::parse_from_str(date, "%Y-%m-%d").map_err(|_| {
+    let date = NaiveDate::parse_from_str(date, "%Y-%m-%d").map_err(|_| {
         Error::Validation(ValidationError::InvalidInput(format!(
-            "{field} must start with YYYY-MM-DD"
+            "{field} must be an RFC3339 timestamp or YYYY-MM-DD date"
         )))
     })?;
+    let midnight = date.and_hms_opt(0, 0, 0).ok_or_else(|| {
+        Error::Validation(ValidationError::InvalidInput(format!(
+            "{field} must be a valid date"
+        )))
+    })?;
+    Ok(Some(DateTime::from_naive_utc_and_offset(midnight, Utc)))
+}
+
+fn parse_hh_mm(value: &str, field: &str) -> Result<NaiveTime> {
+    let value = value.trim();
+    let candidate = value.get(0..5).unwrap_or(value);
+    NaiveTime::parse_from_str(candidate, "%H:%M").map_err(|_| {
+        Error::Validation(ValidationError::InvalidInput(format!(
+            "{field} must use HH:mm"
+        )))
+    })
+}
+
+fn scheduled_time_is_due(value: Option<&str>, local_now: NaiveTime) -> Result<bool> {
+    let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(true);
+    };
+    Ok(local_now >= parse_hh_mm(value, "scheduledTimeLocal")?)
+}
+
+fn challenge_is_joinable_now(challenge: &ArenaChallenge) -> Result<bool> {
+    if challenge.status != ArenaChallengeStatus::Active {
+        return Ok(false);
+    }
+    if let Some(end_at) = parse_challenge_time(challenge.end_at.as_deref(), "endAt")? {
+        if Utc::now() >= end_at {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+fn challenge_is_tradeable_now(challenge: &ArenaChallenge) -> Result<bool> {
+    if !challenge_is_joinable_now(challenge)? {
+        return Ok(false);
+    }
+    if let Some(start_at) = parse_challenge_time(challenge.start_at.as_deref(), "startAt")? {
+        if Utc::now() < start_at {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+fn ensure_challenge_joinable(challenge: &ArenaChallenge) -> Result<()> {
+    if !challenge_is_joinable_now(challenge)? {
+        return invalid("Challenge is not joinable");
+    }
     Ok(())
+}
+
+fn ensure_challenge_tradeable(challenge: &ArenaChallenge) -> Result<()> {
+    if !challenge_is_tradeable_now(challenge)? {
+        return invalid("Challenge is not active for trading");
+    }
+    Ok(())
+}
+
+fn rankable_final_score(
+    trade_count: usize,
+    disqualified_reason: &Option<String>,
+    score: f64,
+) -> Option<f64> {
+    if trade_count > 0 && disqualified_reason.is_none() && score.is_finite() {
+        Some(score)
+    } else {
+        None
+    }
 }
 
 fn parse_model_json(raw: &str) -> Result<Value> {
@@ -1030,5 +1140,46 @@ mod tests {
         assert!(validate_external_quote_type("COMMODITY", "Crude Oil").is_err());
         assert!(validate_external_quote_type("INDEX", "S&P 500").is_err());
         assert!(validate_external_quote_type("ETF", "Treasury Bond ETF").is_err());
+    }
+
+    #[test]
+    fn challenge_time_validation_rejects_reversed_windows() {
+        let mut request = CreateArenaChallengeRequest {
+            name: "Window check".to_string(),
+            description: None,
+            market: "us-stock".to_string(),
+            scoring_method: ArenaScoringMethod::RiskAdjusted,
+            initial_cash: 100_000.0,
+            max_position_pct: 50.0,
+            max_drawdown_pct: 25.0,
+            run_cadence: "daily".to_string(),
+            scheduled_time_local: Some("09:30".to_string()),
+            universe: vec![],
+            start_at: Some("2026-06-30T10:00:00Z".to_string()),
+            end_at: Some("2026-06-30T09:59:00Z".to_string()),
+        };
+        assert!(AiArenaService::validate_challenge_input(&request).is_err());
+
+        request.end_at = Some("2026-06-30T10:01:00Z".to_string());
+        assert!(AiArenaService::validate_challenge_input(&request).is_ok());
+    }
+
+    #[test]
+    fn scheduled_time_gate_uses_local_clock_minutes() {
+        let before = NaiveTime::from_hms_opt(9, 29, 0).unwrap();
+        let at_time = NaiveTime::from_hms_opt(9, 30, 0).unwrap();
+        assert!(!scheduled_time_is_due(Some("09:30"), before).unwrap());
+        assert!(scheduled_time_is_due(Some("09:30"), at_time).unwrap());
+        assert!(scheduled_time_is_due(None, before).unwrap());
+    }
+
+    #[test]
+    fn final_score_is_null_for_unrankable_rows() {
+        assert_eq!(rankable_final_score(0, &None, 0.0), None);
+        assert_eq!(
+            rankable_final_score(1, &Some("max_drawdown_pct_exceeded".to_string()), 10.0),
+            None
+        );
+        assert_eq!(rankable_final_score(1, &None, 0.0), Some(0.0));
     }
 }

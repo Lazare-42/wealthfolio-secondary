@@ -362,7 +362,7 @@ pub struct ArenaLeaderboardEntry {
     pub return_pct: f64,
     pub max_drawdown_pct: f64,
     pub risk_adjusted_score: f64,
-    pub final_score: f64,
+    pub final_score: Option<f64>,
     pub trade_count: usize,
     pub disqualified_reason: Option<String>,
 }
@@ -383,7 +383,7 @@ pub struct ArenaResult {
     pub return_pct: f64,
     pub max_drawdown_pct: f64,
     pub risk_adjusted_score: f64,
-    pub final_score: f64,
+    pub final_score: Option<f64>,
     pub rank: Option<i32>,
     pub trade_count: i32,
     pub disqualified_reason: Option<String>,

@@ -983,7 +983,7 @@ function LeaderboardTable({
           returnPct: 0,
           maxDrawdownPct: 0,
           riskAdjustedScore: 0,
-          finalScore: 0,
+          finalScore: null,
           tradeCount: 0,
           disqualifiedReason: null,
         }));
@@ -1021,7 +1021,9 @@ function LeaderboardTable({
               <TableCell className="text-right">
                 {formatPct(-Math.abs(entry.maxDrawdownPct))}
               </TableCell>
-              <TableCell className="text-right">{decimal.format(entry.finalScore)}</TableCell>
+              <TableCell className="text-right">
+                {entry.finalScore == null ? "-" : decimal.format(entry.finalScore)}
+              </TableCell>
               <TableCell className="text-right">{entry.tradeCount}</TableCell>
             </TableRow>
           ))}

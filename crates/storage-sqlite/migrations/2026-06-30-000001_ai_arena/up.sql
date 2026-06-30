@@ -108,7 +108,7 @@ CREATE TABLE arena_results (
     return_pct TEXT NOT NULL,
     max_drawdown_pct TEXT NOT NULL,
     risk_adjusted_score TEXT NOT NULL,
-    final_score TEXT NOT NULL,
+    final_score TEXT,
     rank INTEGER,
     trade_count INTEGER NOT NULL,
     disqualified_reason TEXT,

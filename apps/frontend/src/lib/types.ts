@@ -257,7 +257,7 @@ export interface ArenaLeaderboardEntry {
   returnPct: number;
   maxDrawdownPct: number;
   riskAdjustedScore: number;
-  finalScore: number;
+  finalScore?: number | null;
   tradeCount: number;
   disqualifiedReason?: string | null;
 }

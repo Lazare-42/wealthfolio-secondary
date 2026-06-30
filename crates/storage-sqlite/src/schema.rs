@@ -859,7 +859,7 @@ diesel::table! {
         return_pct -> Text,
         max_drawdown_pct -> Text,
         risk_adjusted_score -> Text,
-        final_score -> Text,
+        final_score -> Nullable<Text>,
         rank -> Nullable<Integer>,
         trade_count -> Integer,
         disqualified_reason -> Nullable<Text>,
