@@ -54,6 +54,8 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/scenarios", get(list_scenarios).post(create_scenario))
         .route(
             "/scenarios/{id}",
-            get(get_scenario).put(update_scenario).delete(delete_scenario),
+            get(get_scenario)
+                .put(update_scenario)
+                .delete(delete_scenario),
         )
 }

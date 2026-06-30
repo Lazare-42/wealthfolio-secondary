@@ -57,10 +57,7 @@ export function PdfImportReviewSheet({ importId, open, onOpenChange }: Props) {
   useEffect(() => {
     if (!open) return;
     const suggestedAccountId = importData?.suggestedAccountId;
-    if (
-      suggestedAccountId &&
-      accounts?.some((account) => account.id === suggestedAccountId)
-    ) {
+    if (suggestedAccountId && accounts?.some((account) => account.id === suggestedAccountId)) {
       setAccountId(suggestedAccountId);
       return;
     }

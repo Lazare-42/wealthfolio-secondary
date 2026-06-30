@@ -145,15 +145,9 @@ const CustomTooltip = ({
             return null;
           }
           return (
-            <div
-              key={account.accountId}
-              className="flex items-center justify-between space-x-2"
-            >
+            <div key={account.accountId} className="flex items-center justify-between space-x-2">
               <div className="flex items-center space-x-1.5">
-                <span
-                  className="block h-0.5 w-3"
-                  style={{ backgroundColor: account.color }}
-                />
+                <span className="block h-0.5 w-3" style={{ backgroundColor: account.color }} />
                 <span className="text-muted-foreground max-w-[10rem] truncate text-xs">
                   {account.accountName}:
                 </span>
