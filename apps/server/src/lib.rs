@@ -10,6 +10,7 @@ pub mod features;
 mod main_lib;
 pub mod mcp;
 pub mod models;
+pub mod nav_healing;
 pub mod oidc;
 pub mod pdf_import;
 pub mod secrets;
