@@ -750,6 +750,33 @@ diesel::table! {
 }
 
 diesel::table! {
+    activity_sources (id) {
+        id -> Text,
+        activity_id -> Text,
+        source_kind -> Text,
+        source_ref -> Nullable<Text>,
+        funding_activity_id -> Nullable<Text>,
+        thread_id -> Nullable<Text>,
+        detail_json -> Nullable<Text>,
+        created_at -> Text,
+    }
+}
+
+diesel::table! {
+    chat_source_emails (id) {
+        id -> Text,
+        thread_id -> Nullable<Text>,
+        message_id -> Text,
+        subject -> Nullable<Text>,
+        sender -> Nullable<Text>,
+        sent_at -> Nullable<Text>,
+        snapshot_json -> Nullable<Text>,
+        linked_activity_id -> Nullable<Text>,
+        created_at -> Text,
+    }
+}
+
+diesel::table! {
     arena_agents (id) {
         id -> Text,
         name -> Text,

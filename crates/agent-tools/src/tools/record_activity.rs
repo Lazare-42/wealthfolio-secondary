@@ -10,9 +10,9 @@ use wealthfolio_core::activities::{
     ACTIVITY_SUBTYPE_BONUS, ACTIVITY_SUBTYPE_DIVIDEND_IN_KIND, ACTIVITY_SUBTYPE_DRIP,
     ACTIVITY_SUBTYPE_STAKING_REWARD, ACTIVITY_TYPE_ADJUSTMENT, ACTIVITY_TYPE_BUY,
     ACTIVITY_TYPE_CREDIT, ACTIVITY_TYPE_DEPOSIT, ACTIVITY_TYPE_DIVIDEND, ACTIVITY_TYPE_FEE,
-    ACTIVITY_TYPE_INTEREST, ACTIVITY_TYPE_SELL, ACTIVITY_TYPE_SPLIT, ACTIVITY_TYPE_TAX,
-    ACTIVITY_TYPE_TRANSFER_IN, ACTIVITY_TYPE_TRANSFER_OUT, ACTIVITY_TYPE_UNKNOWN,
-    ACTIVITY_TYPE_WITHDRAWAL,
+    ACTIVITY_TYPE_INTEREST, ACTIVITY_TYPE_LOAN_ORIGINATION, ACTIVITY_TYPE_LOAN_PAYMENT,
+    ACTIVITY_TYPE_SELL, ACTIVITY_TYPE_SPLIT, ACTIVITY_TYPE_TAX, ACTIVITY_TYPE_TRANSFER_IN,
+    ACTIVITY_TYPE_TRANSFER_OUT, ACTIVITY_TYPE_UNKNOWN, ACTIVITY_TYPE_WITHDRAWAL,
 };
 
 use crate::env::AgentEnvironment;
@@ -202,6 +202,8 @@ const ACTIVITY_TYPES: &[&str] = &[
     ACTIVITY_TYPE_TAX,
     ACTIVITY_TYPE_CREDIT,
     ACTIVITY_TYPE_ADJUSTMENT,
+    ACTIVITY_TYPE_LOAN_ORIGINATION,
+    ACTIVITY_TYPE_LOAN_PAYMENT,
     ACTIVITY_TYPE_UNKNOWN,
 ];
 
@@ -245,8 +247,8 @@ pub(crate) fn record_activity_schema() -> serde_json::Value {
         "properties": {
             "activityType": {
                 "type": "string",
-                "description": "Activity type: BUY, SELL, DIVIDEND, DEPOSIT, WITHDRAWAL, TRANSFER_IN, TRANSFER_OUT, INTEREST, FEE, SPLIT, TAX, CREDIT, ADJUSTMENT",
-                "enum": ["BUY", "SELL", "DIVIDEND", "DEPOSIT", "WITHDRAWAL", "TRANSFER_IN", "TRANSFER_OUT", "INTEREST", "FEE", "SPLIT", "TAX", "CREDIT", "ADJUSTMENT", "UNKNOWN"]
+                "description": "Activity type. LOAN_ORIGINATION/LOAN_PAYMENT track a loan position (the symbol is the loan asset): origination books the principal (lender disburses cash, borrower receives it), payment reduces it. Direction comes from the loan asset's kind (liability = borrower, otherwise lender/receivable e.g. a compte courant d'associé).",
+                "enum": ["BUY", "SELL", "DIVIDEND", "DEPOSIT", "WITHDRAWAL", "TRANSFER_IN", "TRANSFER_OUT", "INTEREST", "FEE", "SPLIT", "TAX", "CREDIT", "ADJUSTMENT", "LOAN_ORIGINATION", "LOAN_PAYMENT", "UNKNOWN"]
             },
             "symbol": {
                 "type": "string",
@@ -586,6 +588,19 @@ fn validate_draft(draft: &ActivityDraft) -> ValidationResult {
                 missing_fields.push("quantity".to_string());
             }
             // Either unit_price or amount is required
+            if draft.unit_price.is_none() && draft.amount.is_none() {
+                missing_fields.push("unit_price".to_string());
+            }
+        }
+        s if s == ACTIVITY_TYPE_LOAN_ORIGINATION || s == ACTIVITY_TYPE_LOAN_PAYMENT => {
+            // The symbol identifies the loan asset (its kind sets borrower vs lender
+            // direction); quantity is the principal; price/amount the per-unit value.
+            if draft.symbol.is_none() && draft.asset_id.is_none() {
+                missing_fields.push("symbol".to_string());
+            }
+            if draft.quantity.is_none() {
+                missing_fields.push("quantity".to_string());
+            }
             if draft.unit_price.is_none() && draft.amount.is_none() {
                 missing_fields.push("unit_price".to_string());
             }

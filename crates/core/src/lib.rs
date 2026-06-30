@@ -22,6 +22,7 @@ pub mod lots;
 pub mod planning;
 pub mod portfolio;
 pub mod portfolios;
+pub mod provenance;
 pub mod quotes;
 pub mod reconciliation;
 pub mod scenarios;
