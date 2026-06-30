@@ -180,7 +180,7 @@ export function DashboardContent() {
 
     // Index each account's base value by date, then attach as account_<id> keys
     // so HistoryChart can overlay one line per account.
-    const valuesByDate = new Map<string, { [key: `account_${string}`]: number }>();
+    const valuesByDate = new Map<string, Record<`account_${string}`, number>>();
     for (const account of allAccountsHistory) {
       for (const valuation of account.valuations) {
         let row = valuesByDate.get(valuation.valuationDate);
