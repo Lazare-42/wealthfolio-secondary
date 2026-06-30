@@ -65,9 +65,10 @@ export function useAllAccountsValuationHistory(
     enabled: isEnabled,
     placeholderData: keepPreviousData,
   });
+  const normalizedHistory = Array.isArray(allAccountsHistory) ? allAccountsHistory : [];
 
   return {
-    allAccountsHistory,
+    allAccountsHistory: normalizedHistory,
     isLoading: isLoading || isFetching,
   };
 }

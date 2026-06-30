@@ -24,7 +24,7 @@ export function useAccounts(options?: {
   });
 
   const filteredAccounts = useMemo(() => {
-    let accounts = fetchedAccounts;
+    let accounts = Array.isArray(fetchedAccounts) ? fetchedAccounts : [];
 
     // Filter inactive if requested
     if (filterActive) {

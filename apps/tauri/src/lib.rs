@@ -542,6 +542,19 @@ pub fn run() {
             commands::ai_arena::get_arena_trades,
             commands::ai_arena::create_company_thesis,
             commands::ai_arena::get_company_theses,
+            // PDF import commands
+            commands::pdf_import::get_pdf_imports_staged,
+            commands::pdf_import::get_pdf_import_detail,
+            commands::pdf_import::delete_pdf_import_staged,
+            commands::pdf_import::confirm_pdf_import,
+            commands::pdf_import::check_pdf_import,
+            // Reconciliation commands
+            commands::reconciliation::reconciliation_scan,
+            commands::reconciliation::reconciliation_pending,
+            commands::reconciliation::reconciliation_detail,
+            commands::reconciliation::reconciliation_resolve,
+            commands::reconciliation::get_reconciliation_config,
+            commands::reconciliation::update_reconciliation_config,
             // Portfolio commands
             commands::portfolio::get_holdings,
             commands::portfolio::get_holdings_list,

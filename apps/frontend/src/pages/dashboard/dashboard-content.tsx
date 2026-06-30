@@ -116,23 +116,6 @@ export function DashboardContent() {
   const { settings } = useSettingsContext();
   const baseCurrency = settings?.baseCurrency ?? "USD";
 
-  // Per-account overlay on the history chart — opt-in, only meaningful with >1 account.
-  const { accounts } = useAccounts();
-  const overlayAccounts = useMemo(
-    () => (accounts.length > 1 ? accounts.map((a) => ({ id: a.id, name: a.name })) : []),
-    [accounts],
-  );
-  const accountColors = useMemo<HistoryChartAccountSeries[]>(() => {
-    const colors = generateDistinctColors(overlayAccounts.length);
-    return overlayAccounts.map((account, i) => ({
-      accountId: account.id,
-      accountName: account.name,
-      color: colors[i] ?? "#888888",
-    }));
-  }, [overlayAccounts]);
-  const { allAccountsHistory, isLoading: isAllAccountsHistoryLoading } =
-    useAllAccountsValuationHistory(dateRange, overlayAccounts);
-
   const startDate =
     !isAllTime && dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
   const endDate = !isAllTime && dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
@@ -154,6 +137,23 @@ export function DashboardContent() {
     staleTime: 30 * 1000,
     retry: 1,
   });
+
+  // Per-account overlay on the history chart — opt-in, only meaningful with >1 account.
+  const { accounts } = useAccounts();
+  const overlayAccounts = useMemo(
+    () => (accounts.length > 1 ? accounts.map((a) => ({ id: a.id, name: a.name })) : []),
+    [accounts],
+  );
+  const accountColors = useMemo<HistoryChartAccountSeries[]>(() => {
+    const colors = generateDistinctColors(overlayAccounts.length);
+    return overlayAccounts.map((account, i) => ({
+      accountId: account.id,
+      accountName: account.name,
+      color: colors[i] ?? "#888888",
+    }));
+  }, [overlayAccounts]);
+  const { allAccountsHistory, isLoading: isAllAccountsHistoryLoading } =
+    useAllAccountsValuationHistory(dateRange, overlayAccounts);
 
   const gainLossAmount = performancePeriodPnl(portfolioPerformance);
   const simpleReturn = performanceSummaryReturn(portfolioPerformance);
