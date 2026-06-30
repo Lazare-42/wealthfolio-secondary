@@ -149,7 +149,8 @@ def main():
         print(payload)
     else:
         out = args.out
-        if os.path.isdir(out):
+        if out.endswith(os.sep) or os.path.isdir(out):
+            os.makedirs(out, exist_ok=True)
             stem = re.sub(r"[^A-Za-z0-9_.-]", "_", os.path.splitext(source)[0])
             out = os.path.join(out, f"nav-{as_of}-{stem}.json")
         with open(out, "w", encoding="utf-8") as f:
