@@ -43,6 +43,7 @@ use wealthfolio_core::{
         valuation::{ValuationService, ValuationServiceTrait},
     },
     portfolios::{PortfolioService, PortfolioServiceTrait},
+    provenance::{ProvenanceService, ProvenanceServiceTrait},
     quotes::{QuoteService, QuoteServiceTrait},
     scenarios::{PortfolioScenarioService, PortfolioScenarioServiceTrait},
     secrets::SecretStore,
@@ -65,6 +66,7 @@ use wealthfolio_storage_sqlite::{
     market_data::{MarketDataRepository, QuoteSyncStateRepository},
     portfolio::{snapshot::SnapshotRepository, valuation::ValuationRepository},
     portfolios::PortfolioRepository,
+    provenance::ProvenanceRepository,
     scenarios::PortfolioScenarioRepository,
     settings::SettingsRepository,
     sync::{AppSyncRepository, BrokerSyncStateRepository, ImportRunRepository, PlatformRepository},
@@ -124,6 +126,7 @@ pub struct AppState {
     pub custom_provider_service: Arc<wealthfolio_core::custom_provider::CustomProviderService>,
     pub portfolio_service: Arc<dyn PortfolioServiceTrait + Send + Sync>,
     pub scenario_service: Arc<dyn PortfolioScenarioServiceTrait + Send + Sync>,
+    pub provenance_service: Arc<dyn ProvenanceServiceTrait + Send + Sync>,
     pub spending_settings_service: Arc<wealthfolio_spending::settings::SpendingSettingsService>,
     pub cash_activity_service: Arc<wealthfolio_spending::cash_activities::CashActivityService>,
     pub categorization_rules_service:
@@ -411,6 +414,12 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
             portfolio_service.clone(),
             base_currency.read().unwrap().clone(),
         ));
+
+    let provenance_service: Arc<dyn ProvenanceServiceTrait + Send + Sync> =
+        Arc::new(ProvenanceService::new(Arc::new(ProvenanceRepository::new(
+            pool.clone(),
+            writer.clone(),
+        ))));
 
     // Create taxonomy service for auto-classification
     let taxonomy_repository = Arc::new(TaxonomyRepository::new(pool.clone(), writer.clone()));
@@ -919,6 +928,7 @@ pub async fn build_state(config: &Config) -> anyhow::Result<Arc<AppState>> {
         custom_provider_service,
         portfolio_service,
         scenario_service,
+        provenance_service,
         spending_settings_service,
         cash_activity_service,
         categorization_rules_service,

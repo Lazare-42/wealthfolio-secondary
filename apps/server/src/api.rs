@@ -49,6 +49,7 @@ mod pdf_import;
 mod performance;
 mod portfolio;
 mod portfolios;
+mod provenance;
 mod reconciliation;
 mod scenarios;
 mod secrets;
@@ -101,6 +102,7 @@ pub fn app_router(state: Arc<AppState>, config: &Config) -> Router {
         .merge(accounts::router())
         .merge(portfolios::router())
         .merge(scenarios::router())
+        .merge(provenance::router())
         .merge(ai_arena::router())
         .merge(settings::router())
         .merge(data_exports::router())
