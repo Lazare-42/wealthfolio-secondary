@@ -196,7 +196,7 @@ async fn upload_pdf(
 
     let (provider_id, model_id) =
         pdf_import::get_default_ai_config(state.ai_provider_service.as_ref())
-            .map_err(|e| ApiError::BadRequest(e))?;
+            .map_err(ApiError::BadRequest)?;
 
     let import = pdf_import::process_pdf(
         &bytes,
@@ -208,7 +208,7 @@ async fn upload_pdf(
         None,
     )
     .await
-    .map_err(|e| ApiError::Internal(e))?;
+    .map_err(ApiError::Internal)?;
 
     state.pdf_staging.insert(import.clone());
     Ok(Json(import))

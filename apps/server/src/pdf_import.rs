@@ -59,6 +59,7 @@ struct StagingEntry {
 
 const STAGING_EXPIRY: Duration = Duration::from_secs(3600); // 1 hour
 
+#[derive(Default)]
 pub struct StagingStore {
     entries: RwLock<HashMap<String, StagingEntry>>,
 }
