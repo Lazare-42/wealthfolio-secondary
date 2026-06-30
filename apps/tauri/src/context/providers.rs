@@ -31,6 +31,7 @@ use wealthfolio_core::{
         valuation::ValuationService,
     },
     portfolios::PortfolioService,
+    provenance::ProvenanceService,
     quotes::{QuoteService, QuoteServiceTrait},
     scenarios::PortfolioScenarioService,
     settings::{SettingsRepositoryTrait, SettingsService, SettingsServiceTrait},
@@ -55,6 +56,7 @@ use wealthfolio_storage_sqlite::{
         valuation::ValuationRepository,
     },
     portfolios::PortfolioRepository,
+    provenance::ProvenanceRepository,
     scenarios::PortfolioScenarioRepository,
     settings::SettingsRepository,
     sync::{AppSyncRepository, BrokerSyncStateRepository, ImportRunRepository, PlatformRepository},
@@ -221,6 +223,10 @@ pub async fn initialize_context(
         portfolio_service.clone(),
         base_currency.read().unwrap().clone(),
     ));
+    let provenance_service = Arc::new(ProvenanceService::new(Arc::new(ProvenanceRepository::new(
+        pool.clone(),
+        writer.clone(),
+    ))));
 
     // Custom provider service
     let custom_provider_service = Arc::new(
@@ -653,6 +659,7 @@ pub async fn initialize_context(
             custom_provider_service,
             portfolio_service,
             scenario_service,
+            provenance_service,
             spending_settings_service,
             cash_activity_service,
             categorization_rules_service,

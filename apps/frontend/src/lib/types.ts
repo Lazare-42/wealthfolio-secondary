@@ -96,6 +96,50 @@ export interface PortfolioScenario {
   updatedAt: string;
 }
 
+export type ProvenanceSourceKind = "email" | "pdf" | "csv" | "bank" | "manual" | "chat";
+
+export interface ActivitySource {
+  id: string;
+  activityId: string;
+  sourceKind: ProvenanceSourceKind;
+  sourceRef?: string | null;
+  fundingActivityId?: string | null;
+  threadId?: string | null;
+  detail?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface NewActivitySource {
+  activityId: string;
+  sourceKind: ProvenanceSourceKind;
+  sourceRef?: string | null;
+  fundingActivityId?: string | null;
+  threadId?: string | null;
+  detail?: Record<string, unknown> | null;
+}
+
+export interface ChatSourceEmail {
+  id: string;
+  threadId?: string | null;
+  messageId: string;
+  subject?: string | null;
+  sender?: string | null;
+  sentAt?: string | null;
+  snapshot?: Record<string, unknown> | null;
+  linkedActivityId?: string | null;
+  createdAt: string;
+}
+
+export interface NewChatSourceEmail {
+  threadId?: string | null;
+  messageId: string;
+  subject?: string | null;
+  sender?: string | null;
+  sentAt?: string | null;
+  snapshot?: Record<string, unknown> | null;
+  linkedActivityId?: string | null;
+}
+
 export interface NewPortfolioScenario {
   name: string;
   description?: string | null;

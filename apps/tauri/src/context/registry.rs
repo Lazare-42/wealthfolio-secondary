@@ -79,6 +79,7 @@ pub struct ServiceContext {
     pub custom_provider_service: Arc<wealthfolio_core::custom_provider::CustomProviderService>,
     pub portfolio_service: Arc<dyn portfolios::PortfolioServiceTrait>,
     pub scenario_service: Arc<dyn wealthfolio_core::scenarios::PortfolioScenarioServiceTrait>,
+    pub provenance_service: Arc<dyn wealthfolio_core::provenance::ProvenanceServiceTrait>,
     pub spending_settings_service: Arc<SpendingSettingsService>,
     pub cash_activity_service: Arc<CashActivityService>,
     pub categorization_rules_service: Arc<CategorizationRulesService>,
@@ -265,6 +266,12 @@ impl ServiceContext {
         &self,
     ) -> Arc<dyn wealthfolio_core::scenarios::PortfolioScenarioServiceTrait> {
         Arc::clone(&self.scenario_service)
+    }
+
+    pub fn provenance_service(
+        &self,
+    ) -> Arc<dyn wealthfolio_core::provenance::ProvenanceServiceTrait> {
+        Arc::clone(&self.provenance_service)
     }
 
     pub fn device_enroll_service(&self) -> Arc<DeviceEnrollService> {

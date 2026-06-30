@@ -25,6 +25,7 @@ pub mod pdf_import;
 pub mod platform;
 pub mod portfolio;
 pub mod portfolios;
+pub mod provenance;
 pub mod providers_settings;
 pub mod reconciliation;
 pub mod scenarios;

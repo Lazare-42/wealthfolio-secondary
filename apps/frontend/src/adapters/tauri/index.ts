@@ -92,6 +92,14 @@ export {
   updateScenarioEntry,
 } from "../shared/scenarios";
 
+// Provenance / import traceability
+export {
+  getActivitySources,
+  listSourceEmails,
+  recordActivitySource,
+  saveSourceEmail,
+} from "../shared/provenance";
+
 // AI Arena Commands
 export * from "../shared/ai-arena";
 

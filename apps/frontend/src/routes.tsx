@@ -22,6 +22,7 @@ import SettingsAccountsPage from "@/pages/settings/accounts/accounts-page";
 import PortfoliosPage from "@/pages/settings/portfolios/portfolios-page";
 import SettingsAppearancePage from "@/pages/settings/appearance/appearance-page";
 import ScenariosPage from "@/pages/settings/scenarios/scenarios-page";
+import ImportSourcesPage from "@/pages/settings/import-sources/import-sources-page";
 import AccountPage from "./pages/account/account-page";
 import AiArenaPage from "./pages/ai-arena/ai-arena-page";
 import AiAssistantPage from "./pages/ai-assistant/ai-assistant-page";
@@ -140,6 +141,7 @@ export function AppRoutes() {
             <Route path="accounts" element={<SettingsAccountsPage />} />
             <Route path="portfolios" element={<PortfoliosPage />} />
             <Route path="scenarios" element={<ScenariosPage />} />
+            <Route path="import-sources" element={<ImportSourcesPage />} />
             <Route path="appearance" element={<SettingsAppearancePage />} />
             <Route path="about" element={<AboutSettingsPage />} />
             <Route path="exports" element={<ExportSettingsPage />} />
