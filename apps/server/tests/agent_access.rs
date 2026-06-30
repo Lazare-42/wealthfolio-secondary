@@ -291,8 +291,8 @@ async fn mcp_pat_lifecycle() {
     let tools = list["result"]["tools"].as_array().unwrap();
     assert_eq!(
         tools.len(),
-        17,
-        "read-only catalog must expose 17 tools (incl. get_import_mapping): {tools:?}"
+        22,
+        "read-only catalog must expose 22 tools (incl. get_import_mapping, get_quote, compare_basket): {tools:?}"
     );
 
     // (h) tools/call succeeds and writes an audit row (awaited before the
@@ -479,8 +479,8 @@ async fn mcp_write_scoped_token_sees_write_tools() {
     let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
     assert_eq!(
         tools.len(),
-        26,
-        "full-scope token must see all 26 tools: {names:?}"
+        31,
+        "full-scope token must see all 31 tools: {names:?}"
     );
     assert!(
         names.contains(&"commit_activity_import"),
