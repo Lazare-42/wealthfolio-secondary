@@ -307,7 +307,7 @@ export const exportedFileFormatSchema = z.enum([
   ExportedFileFormat.SQLITE,
 ]);
 
-// Canonical activity types (closed set of 14)
+// Canonical activity types (closed set of 16)
 export const ActivityType = {
   BUY: "BUY",
   SELL: "SELL",
@@ -322,6 +322,8 @@ export const ActivityType = {
   TAX: "TAX",
   CREDIT: "CREDIT",
   ADJUSTMENT: "ADJUSTMENT",
+  LOAN_ORIGINATION: "LOAN_ORIGINATION",
+  LOAN_PAYMENT: "LOAN_PAYMENT",
   UNKNOWN: "UNKNOWN",
 } as const;
 
@@ -342,6 +344,8 @@ export const ACTIVITY_TYPES = [
   ActivityType.TAX,
   ActivityType.CREDIT,
   ActivityType.ADJUSTMENT,
+  ActivityType.LOAN_ORIGINATION,
+  ActivityType.LOAN_PAYMENT,
   ActivityType.UNKNOWN,
 ] as const;
 
@@ -361,6 +365,11 @@ export const SYMBOL_REQUIRED_TYPES = [
 
 export const INCOME_ACTIVITY_TYPES = [ActivityType.DIVIDEND, ActivityType.INTEREST] as const;
 
+export const LOAN_ACTIVITY_TYPES = [
+  ActivityType.LOAN_ORIGINATION,
+  ActivityType.LOAN_PAYMENT,
+] as const;
+
 // Zod schema for activity type validation
 export const activityTypeSchema = z.enum([
   ActivityType.BUY,
@@ -376,6 +385,8 @@ export const activityTypeSchema = z.enum([
   ActivityType.TAX,
   ActivityType.CREDIT,
   ActivityType.ADJUSTMENT,
+  ActivityType.LOAN_ORIGINATION,
+  ActivityType.LOAN_PAYMENT,
   ActivityType.UNKNOWN,
 ]);
 
@@ -394,6 +405,8 @@ export const ActivityTypeNames: Record<ActivityType, string> = {
   [ActivityType.TAX]: "Tax",
   [ActivityType.CREDIT]: "Credit",
   [ActivityType.ADJUSTMENT]: "Adjustment",
+  [ActivityType.LOAN_ORIGINATION]: "Loan Origination",
+  [ActivityType.LOAN_PAYMENT]: "Loan Payment",
   [ActivityType.UNKNOWN]: "Unknown",
 };
 

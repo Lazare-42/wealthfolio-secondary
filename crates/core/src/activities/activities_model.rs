@@ -1485,9 +1485,11 @@ pub enum ActivityType {
     Fee,
     Tax,
     Split,
-    Credit,     // Cash-only credit: refunds, rebates, bonuses
-    Adjustment, // Non-trade correction / transformation (usually no cash)
-    Unknown,    // Unmapped/unknown activity types
+    Credit,          // Cash-only credit: refunds, rebates, bonuses
+    Adjustment,      // Non-trade correction / transformation (usually no cash)
+    LoanOrigination, // Creates a liability position, adds loan proceeds to cash
+    LoanPayment,     // Reduces a liability, deducts payment from cash
+    Unknown,         // Unmapped/unknown activity types
 }
 
 impl ActivityType {
@@ -1507,6 +1509,8 @@ impl ActivityType {
             ActivityType::Split => ACTIVITY_TYPE_SPLIT,
             ActivityType::Credit => ACTIVITY_TYPE_CREDIT,
             ActivityType::Adjustment => ACTIVITY_TYPE_ADJUSTMENT,
+            ActivityType::LoanOrigination => ACTIVITY_TYPE_LOAN_ORIGINATION,
+            ActivityType::LoanPayment => ACTIVITY_TYPE_LOAN_PAYMENT,
             ActivityType::Unknown => ACTIVITY_TYPE_UNKNOWN,
         }
     }
@@ -1531,6 +1535,8 @@ impl FromStr for ActivityType {
             s if s == ACTIVITY_TYPE_SPLIT => Ok(ActivityType::Split),
             s if s == ACTIVITY_TYPE_CREDIT => Ok(ActivityType::Credit),
             s if s == ACTIVITY_TYPE_ADJUSTMENT => Ok(ActivityType::Adjustment),
+            s if s == ACTIVITY_TYPE_LOAN_ORIGINATION => Ok(ActivityType::LoanOrigination),
+            s if s == ACTIVITY_TYPE_LOAN_PAYMENT => Ok(ActivityType::LoanPayment),
             s if s == ACTIVITY_TYPE_UNKNOWN => Ok(ActivityType::Unknown),
             _ => Err(format!("Unknown activity type: {}", s)),
         }

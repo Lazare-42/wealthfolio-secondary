@@ -14,6 +14,7 @@ import {
   isTradeActivity,
   isFeeActivity,
   isSplitActivity,
+  isLoanActivity,
 } from "./activity-utils";
 
 /**
@@ -179,7 +180,9 @@ export const importActivitySchema = z
       .refine(
         (val) => {
           if (!val || val.trim() === "") return true;
-          return /^(?=.{1,100}$)(CASH:[A-Z]{3}|[A-Z0-9_]+([.-][A-Z0-9_]+){0,2})$/.test(val.trim());
+          return /^(?=.{1,100}$)(CASH:[A-Z]{3}|LIAB:[A-Za-z0-9_-]+|[A-Z0-9_]+([.-][A-Z0-9_]+){0,2})$/.test(
+            val.trim(),
+          );
         },
         { message: "Invalid symbol format" },
       ),
@@ -362,7 +365,8 @@ export const importActivitySchema = z
         !(data.symbol && isCashTransfer(data.activityType as string, data.symbol)) &&
         !isTradeActivity(data.activityType as string) &&
         !isFeeActivity(data.activityType as string) &&
-        !isSplitActivity(data.activityType as string);
+        !isSplitActivity(data.activityType as string) &&
+        !isLoanActivity(data.activityType as string);
 
       if (isNonCashNonTradeActivity) {
         const quantity = parseNumberLike(data.quantity);

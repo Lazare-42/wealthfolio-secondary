@@ -4,6 +4,7 @@ import {
   DECIMAL_PRECISION,
   INCOME_ACTIVITY_TYPES,
   InstrumentType,
+  LOAN_ACTIVITY_TYPES,
   METADATA_CONTRACT_MULTIPLIER,
   normalizePositionIntentAlias,
   POSITION_INTENT_ALIASES,
@@ -238,6 +239,11 @@ export const isTaxActivity = (activityType: string): boolean => {
 // Helper to check if activity is a split type
 export const isSplitActivity = (activityType: string): boolean => {
   return activityType === ActivityType.SPLIT;
+};
+
+// Helper to check if activity is a loan type
+export const isLoanActivity = (activityType: string): boolean => {
+  return (LOAN_ACTIVITY_TYPES as readonly string[]).includes(activityType);
 };
 
 // Format a split ratio stored as a decimal multiplier into a human-readable ratio string.

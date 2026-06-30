@@ -16,8 +16,10 @@ import { looksLikeIsin } from "@/lib/isin";
 import { findMappedActivityType } from "./activity-type-mapping";
 import { normalizeInstrumentType, splitInstrumentPrefixedSymbol } from "./instrument-type";
 
-// Ticker symbol validation regex (full symbol bounded to 100 chars via the leading lookahead)
-const tickerRegex = /^(?=.{1,100}$)(CASH:[A-Z]{3}|[A-Z0-9_]+([.-][A-Z0-9_]+){0,2})$/;
+// Ticker symbol validation regex (full symbol bounded to 100 chars via the leading lookahead).
+// Includes the LIAB: prefix for loan/liability activities.
+const tickerRegex =
+  /^(?=.{1,100}$)(CASH:[A-Z]{3}|LIAB:[A-Za-z0-9_-]+|[A-Z0-9_]+([.-][A-Z0-9_]+){0,2})$/;
 
 // CUSIP: 9 alphanumeric chars ending in a digit
 const cusipRegex = /^[A-Z0-9]{8}\d$/;
@@ -381,6 +383,40 @@ const activityLogicMap: Partial<Record<ActivityType, ActivityLogicConfig>> = {
     },
     calculateFee: (activity) => {
       const f = toNum(activity.fee);
+      return f ? Math.abs(f) : 0;
+    },
+  },
+  [ActivityType.LOAN_ORIGINATION]: {
+    calculateSymbol: (activity) => activity.symbol, // Keep LIAB:xxx symbol
+    calculateAmount: (activity) => {
+      // Amount = principal (|quantity| * |unitPrice|), fallback to |amount|
+      const qty = toNum(activity.quantity);
+      const price = toNum(activity.unitPrice);
+      if (qty && Math.abs(qty) > 0 && price && Math.abs(price) > 0) {
+        return Math.abs(qty) * Math.abs(price);
+      }
+      const amt = toNum(activity.amount);
+      return amt ? Math.abs(amt) : amt;
+    },
+    calculateFee: (activity) => {
+      const f = toNum(activity.fee); // Origination fees
+      return f ? Math.abs(f) : 0;
+    },
+  },
+  [ActivityType.LOAN_PAYMENT]: {
+    calculateSymbol: (activity) => activity.symbol, // Keep LIAB:xxx symbol
+    calculateAmount: (activity) => {
+      // Amount = principal portion (|quantity| * |unitPrice|), fallback to |amount|
+      const qty = toNum(activity.quantity);
+      const price = toNum(activity.unitPrice);
+      if (qty && Math.abs(qty) > 0 && price && Math.abs(price) > 0) {
+        return Math.abs(qty) * Math.abs(price);
+      }
+      const amt = toNum(activity.amount);
+      return amt ? Math.abs(amt) : amt;
+    },
+    calculateFee: (activity) => {
+      const f = toNum(activity.fee); // Interest portion
       return f ? Math.abs(f) : 0;
     },
   },

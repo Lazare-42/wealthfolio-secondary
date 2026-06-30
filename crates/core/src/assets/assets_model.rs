@@ -226,6 +226,31 @@ pub fn build_option_metadata(symbol: &str, multiplier: Decimal) -> Option<serde_
     Some(serde_json::json!({ "option": spec }))
 }
 
+/// Loan type classification for liability assets
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum LoanType {
+    Mortgage,
+    Personal,
+    Auto,
+    Student,
+    Business,
+    Revolving,
+    Other,
+}
+
+/// Loan-specific metadata stored in Asset.metadata.loan
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoanSpec {
+    pub loan_type: LoanType,
+    pub lender: Option<String>,
+    pub interest_rate: Option<Decimal>,
+    pub origination_date: Option<chrono::NaiveDate>,
+    pub maturity_date: Option<chrono::NaiveDate>,
+    pub principal_amount: Option<Decimal>,
+}
+
 /// Domain model representing an asset in the system.
 ///
 /// Identity is opaque (UUID). Classification is mutable.
@@ -441,6 +466,17 @@ impl Asset {
         self.metadata
             .as_ref()
             .and_then(|m| m.get("bond"))
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+    }
+
+    /// Get loan metadata if this is a liability
+    pub fn loan_spec(&self) -> Option<LoanSpec> {
+        if self.kind != AssetKind::Liability {
+            return None;
+        }
+        self.metadata
+            .as_ref()
+            .and_then(|m| m.get("loan"))
             .and_then(|v| serde_json::from_value(v.clone()).ok())
     }
 
@@ -701,6 +737,25 @@ impl NewAsset {
             instrument_exchange_mic: None,
             provider_config,
             notes: None,
+            is_active: true,
+            ..Default::default()
+        }
+    }
+
+    /// Creates a new liability asset for loan tracking.
+    ///
+    /// Uses ID format: `LIAB:{symbol}:{currency}` (e.g., "LIAB:Mortgage:USD").
+    /// Liabilities are user-priced (Manual quote mode) at face value.
+    pub fn new_liability_asset(symbol: &str, currency: &str, name: Option<&str>) -> Self {
+        let currency_upper = currency.to_uppercase();
+        let asset_id = format!("LIAB:{}:{}", symbol, currency_upper);
+        Self {
+            id: Some(asset_id),
+            kind: AssetKind::Liability,
+            name: name.map(String::from),
+            display_code: Some(symbol.to_string()),
+            quote_mode: QuoteMode::Manual,
+            quote_ccy: currency_upper,
             is_active: true,
             ..Default::default()
         }
