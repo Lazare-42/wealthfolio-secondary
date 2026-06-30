@@ -45,6 +45,7 @@ pub struct ServerAiEnvironment {
     taxonomy_service: Arc<dyn TaxonomyServiceTrait + Send + Sync>,
     portfolio_service: Arc<dyn PortfolioServiceTrait + Send + Sync>,
     scenario_service: Arc<dyn PortfolioScenarioServiceTrait + Send + Sync>,
+    provenance_service: Arc<dyn wealthfolio_core::provenance::ProvenanceServiceTrait + Send + Sync>,
     net_worth_service: Arc<dyn NetWorthServiceTrait + Send + Sync>,
     contribution_limit_service: Arc<dyn ContributionLimitServiceTrait + Send + Sync>,
     cash_activity_service: Arc<CashActivityService>,
@@ -74,6 +75,9 @@ impl ServerAiEnvironment {
         taxonomy_service: Arc<dyn TaxonomyServiceTrait + Send + Sync>,
         portfolio_service: Arc<dyn PortfolioServiceTrait + Send + Sync>,
         scenario_service: Arc<dyn PortfolioScenarioServiceTrait + Send + Sync>,
+        provenance_service: Arc<
+            dyn wealthfolio_core::provenance::ProvenanceServiceTrait + Send + Sync,
+        >,
         net_worth_service: Arc<dyn NetWorthServiceTrait + Send + Sync>,
         contribution_limit_service: Arc<dyn ContributionLimitServiceTrait + Send + Sync>,
         cash_activity_service: Arc<CashActivityService>,
@@ -99,6 +103,7 @@ impl ServerAiEnvironment {
             taxonomy_service,
             portfolio_service,
             scenario_service,
+            provenance_service,
             net_worth_service,
             contribution_limit_service,
             cash_activity_service,
@@ -171,6 +176,10 @@ impl AgentEnvironment for ServerAiEnvironment {
 
     fn scenario_service(&self) -> Arc<dyn PortfolioScenarioServiceTrait> {
         self.scenario_service.clone()
+    }
+
+    fn provenance_service(&self) -> Arc<dyn wealthfolio_core::provenance::ProvenanceServiceTrait> {
+        self.provenance_service.clone()
     }
 
     fn net_worth_service(&self) -> Arc<dyn NetWorthServiceTrait> {

@@ -79,6 +79,13 @@ pub trait AgentEnvironment: Send + Sync {
     /// Get the scenario service for saved scenario definitions.
     fn scenario_service(&self) -> Arc<dyn PortfolioScenarioServiceTrait>;
 
+    /// Get the provenance service for import traceability (activity sources,
+    /// chat-chosen source emails). Defaults to an unsupported no-op so existing
+    /// environments need not implement it until they opt in.
+    fn provenance_service(&self) -> Arc<dyn wealthfolio_core::provenance::ProvenanceServiceTrait> {
+        Arc::new(UnsupportedProvenanceService)
+    }
+
     /// Get the net-worth service for assets-minus-liabilities reads.
     fn net_worth_service(&self) -> Arc<dyn NetWorthServiceTrait>;
 
@@ -90,4 +97,51 @@ pub trait AgentEnvironment: Send + Sync {
 
     /// Get the categorization-rules service for the rules-first pass in category proposals.
     fn categorization_rules_service(&self) -> Arc<dyn CategorizationRulesServiceTrait>;
+}
+
+/// No-op provenance service used as the trait default, so environments that do
+/// not wire real storage (tests, lightweight contexts) still satisfy
+/// `AgentEnvironment`. Writes fail clearly; reads return empty.
+pub struct UnsupportedProvenanceService;
+
+#[async_trait::async_trait]
+impl wealthfolio_core::provenance::ProvenanceServiceTrait for UnsupportedProvenanceService {
+    async fn record_source(
+        &self,
+        _new: wealthfolio_core::provenance::NewActivitySource,
+    ) -> wealthfolio_core::Result<wealthfolio_core::provenance::ActivitySource> {
+        Err(wealthfolio_core::Error::Validation(
+            wealthfolio_core::errors::ValidationError::InvalidInput(
+                "provenance is not available in this environment".to_string(),
+            ),
+        ))
+    }
+    async fn activity_sources(
+        &self,
+        _activity_id: &str,
+    ) -> wealthfolio_core::Result<Vec<wealthfolio_core::provenance::ActivitySource>> {
+        Ok(Vec::new())
+    }
+    async fn save_email(
+        &self,
+        _new: wealthfolio_core::provenance::NewChatSourceEmail,
+    ) -> wealthfolio_core::Result<wealthfolio_core::provenance::ChatSourceEmail> {
+        Err(wealthfolio_core::Error::Validation(
+            wealthfolio_core::errors::ValidationError::InvalidInput(
+                "provenance is not available in this environment".to_string(),
+            ),
+        ))
+    }
+    async fn thread_emails(
+        &self,
+        _thread_id: &str,
+    ) -> wealthfolio_core::Result<Vec<wealthfolio_core::provenance::ChatSourceEmail>> {
+        Ok(Vec::new())
+    }
+    async fn recent_emails(
+        &self,
+        _limit: i64,
+    ) -> wealthfolio_core::Result<Vec<wealthfolio_core::provenance::ChatSourceEmail>> {
+        Ok(Vec::new())
+    }
 }

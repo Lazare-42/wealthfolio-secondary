@@ -59,6 +59,8 @@ pub const DEFAULT_TOOLS_ALLOWLIST: &[&str] = &[
     "get_net_worth",
     "get_contribution_limits",
     "create_artifact",
+    "save_source_email",
+    "link_activity_source",
 ];
 
 const LEGACY_VISIBLE_DATA_TOOLS: &[&str] = &[

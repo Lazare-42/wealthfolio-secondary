@@ -25,6 +25,7 @@ pub mod net_worth;
 pub mod performance;
 pub mod portfolios;
 pub mod propose_categories;
+pub mod provenance;
 pub mod record_activities;
 pub mod record_activity;
 pub mod scenarios;
@@ -178,7 +179,11 @@ pub fn draft_suggest_tools() -> Vec<Arc<dyn AgentTool>> {
 /// catalog). `create_artifact` authors a side-panel document and touches no
 /// services, so it has no place in a token-scoped surface.
 pub fn assistant_only_tools() -> Vec<Arc<dyn AgentTool>> {
-    vec![Arc::new(CreateArtifact)]
+    vec![
+        Arc::new(CreateArtifact),
+        Arc::new(provenance::SaveSourceEmail),
+        Arc::new(provenance::LinkActivitySource),
+    ]
 }
 
 /// The MCP-only commit tools that persist reviewed drafts. Never exposed to the
