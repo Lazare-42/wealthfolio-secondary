@@ -355,6 +355,12 @@ export default function AiArenaPage() {
                 <h3 className="text-sm font-medium">Agent</h3>
                 <Badge variant="outline">{enabledProviders.length} providers</Badge>
               </div>
+              {enabledProviders.length === 0 && (
+                <div className="text-muted-foreground rounded-md border border-dashed p-3 text-sm">
+                  Enable an AI provider in Settings → AI before creating an agent. Each agent uses
+                  one provider + model to make its trading calls.
+                </div>
+              )}
               <Field label="Name">
                 <Input
                   value={agentForm.name}
@@ -542,13 +548,18 @@ export default function AiArenaPage() {
               <h2 className="truncate text-sm font-semibold">
                 {selectedChallenge?.name ?? "No challenge"}
               </h2>
-              {selectedChallenge && (
+              {selectedChallenge ? (
                 <div className="text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
                   <span>{selectedChallenge.market}</span>
                   <span>{formatMoney(selectedChallenge.initialCash)}</span>
                   <span>max {decimal.format(selectedChallenge.maxPositionPct)}%</span>
                   <span>{selectedChallenge.universe.join(", ") || "open universe"}</span>
                 </div>
+              ) : (
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Create a challenge in Setup to start a match — agents trade paper money against
+                  its universe.
+                </p>
               )}
             </div>
             <select
@@ -597,7 +608,11 @@ export default function AiArenaPage() {
                 })}
                 {participants.length === 0 && (
                   <div className="text-muted-foreground rounded-md border border-dashed p-3 text-sm">
-                    No participants
+                    {!selectedChallengeId
+                      ? "Select or create a challenge to add participants."
+                      : agents.length === 0
+                        ? "No agents yet. Add one in Setup, then join it here."
+                        : "Join an agent below to enter it in this match."}
                   </div>
                 )}
               </div>
@@ -670,7 +685,12 @@ export default function AiArenaPage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                      {trades.length === 0 && <EmptyRow colSpan={5} label="No trades" />}
+                      {trades.length === 0 && (
+                        <EmptyRow
+                          colSpan={5}
+                          label="Paper trades appear after an agent runs. Pick a participant and Run, or use Run due."
+                        />
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -703,7 +723,12 @@ export default function AiArenaPage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                      {runs.length === 0 && <EmptyRow colSpan={5} label="No runs" />}
+                      {runs.length === 0 && (
+                        <EmptyRow
+                          colSpan={5}
+                          label="Each agent decision is logged here. Click Run on a participant to start one."
+                        />
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -762,7 +787,9 @@ export default function AiArenaPage() {
               </>
             ) : (
               <div className="text-muted-foreground rounded-md border border-dashed p-4 text-sm">
-                Select participant
+                {participants.length === 0
+                  ? "No participants yet — join an agent to a challenge to build a paper portfolio."
+                  : "Select a participant to view its cash, positions, return, and drawdown."}
               </div>
             )}
 
@@ -866,7 +893,8 @@ export default function AiArenaPage() {
                 ))}
                 {theses.length === 0 && (
                   <div className="text-muted-foreground rounded-md border border-dashed p-3 text-sm">
-                    No theses
+                    Save a thesis above, or run an agent — model decisions are stored here with
+                    rating and confidence.
                   </div>
                 )}
               </div>
@@ -1027,7 +1055,12 @@ function LeaderboardTable({
               <TableCell className="text-right">{entry.tradeCount}</TableCell>
             </TableRow>
           ))}
-          {participantRows.length === 0 && <EmptyRow colSpan={7} label="No leaderboard" />}
+          {participantRows.length === 0 && (
+            <EmptyRow
+              colSpan={7}
+              label="Join agents to a challenge and run them — rankings by return and risk show here."
+            />
+          )}
         </TableBody>
       </Table>
     </div>
