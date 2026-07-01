@@ -963,6 +963,7 @@ export function useChatRuntime(config?: ChatModelConfig) {
   return useMemo(
     () => ({
       ...runtime,
+      isRunning,
       currentThreadId,
       switchingThreadId,
       setThreadListState: updateThreadListState,
@@ -980,6 +981,7 @@ export function useChatRuntime(config?: ChatModelConfig) {
     }),
     [
       runtime,
+      isRunning,
       currentThreadId,
       switchingThreadId,
       updateThreadListState,

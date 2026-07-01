@@ -86,6 +86,11 @@ pub fn normalize_tools_allowlist(tools_allowlist: Option<Vec<String>>) -> Option
 
     let has = |tools: &[String], tool: &str| tools.iter().any(|item| item == tool);
 
+    // UI-only document authoring tool. It grants no data access by itself, but
+    // older restricted provider settings predate the side-panel tool and would
+    // otherwise leave the model unable to create artifacts.
+    push_tool_once(&mut tools, "create_artifact");
+
     if has(&tools, "get_accounts") {
         push_tool_once(&mut tools, "get_cash_balances");
         push_tool_once(&mut tools, "get_portfolios");

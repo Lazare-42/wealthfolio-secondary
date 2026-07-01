@@ -28,7 +28,7 @@ function CreateArtifactLoadingState() {
   );
 }
 
-function CreateArtifactToolUIContentImpl({
+export function CreateArtifactToolUIContentImpl({
   args,
   result,
   status,
@@ -36,16 +36,19 @@ function CreateArtifactToolUIContentImpl({
 }: CreateArtifactToolUIContentProps) {
   const runtime = useRuntimeContext();
   const threadId = runtime.currentThreadId;
+  const isLiveRun = runtime.isRunning;
   const { upsertArtifact, openArtifact } = useArtifactStore();
 
   const wasRunning = useRef(false);
   const autoOpened = useRef(false);
+  const hasOpenedForContent = useRef(false);
   if (status?.type === "running") wasRunning.current = true;
 
   const artifact = threadId ? buildArtifact(args, result, toolCallId, threadId) : null;
   const artifactKey = artifact
     ? `${artifact.id}:${args?.markdown ?? ""}:${JSON.stringify(args?.table ?? null)}`
     : null;
+  const hasArtifactContent = Boolean(args?.markdown?.trim() || args?.table);
 
   // Register the artifact in the panel store whenever its content changes.
   useEffect(() => {
@@ -55,16 +58,23 @@ function CreateArtifactToolUIContentImpl({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [artifactKey]);
 
-  // Auto-open the panel only for a document generated live this session — not
-  // when an old thread is reloaded (those arrive already "complete").
+  // Auto-open for live documents. Some providers/tool adapters surface complete
+  // tool parts without a visible "running" transition, so content arrival is
+  // also treated as a live signal.
   useEffect(() => {
     if (!artifact || !threadId) return;
-    if (status?.type === "complete" && wasRunning.current && !autoOpened.current) {
+    const completedLive = status?.type === "complete" && wasRunning.current;
+    const contentArrivedLive = isLiveRun && hasArtifactContent;
+    if (
+      !autoOpened.current &&
+      (completedLive || (contentArrivedLive && !hasOpenedForContent.current))
+    ) {
       autoOpened.current = true;
+      hasOpenedForContent.current = true;
       openArtifact(threadId, artifact.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status?.type, artifactKey, threadId]);
+  }, [status?.type, artifactKey, threadId, hasArtifactContent, isLiveRun]);
 
   if (status?.type === "running" && !artifact) return <CreateArtifactLoadingState />;
   if (!artifact) return null;
