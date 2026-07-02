@@ -39,7 +39,9 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
         match provider_id {
             "anthropic" => {
                 let client = create_anthropic_client(api_key, provider_id, provider_url)?;
-                prompt_once(client, &request.model_id, &system_prompt, &prompt).await
+                // `temperature` is deprecated on newer Anthropic models
+                // (e.g. claude-opus-4-7 returns 400), so we omit it here.
+                prompt_once_opts(client, &request.model_id, &system_prompt, &prompt, None).await
             }
             "gemini" | "google" => {
                 let client = create_gemini_client(api_key, provider_id, provider_url)?;
@@ -72,11 +74,31 @@ async fn prompt_once<C: CompletionClient>(
     system_prompt: &str,
     prompt: &str,
 ) -> Result<String, AiError> {
-    client
+    prompt_once_opts(
+        client,
+        model_id,
+        system_prompt,
+        prompt,
+        Some(ARENA_TEMPERATURE),
+    )
+    .await
+}
+
+async fn prompt_once_opts<C: CompletionClient>(
+    client: C,
+    model_id: &str,
+    system_prompt: &str,
+    prompt: &str,
+    temperature: Option<f64>,
+) -> Result<String, AiError> {
+    let mut agent = client
         .agent(model_id)
         .preamble(system_prompt)
-        .max_tokens(ARENA_MAX_TOKENS)
-        .temperature(ARENA_TEMPERATURE)
+        .max_tokens(ARENA_MAX_TOKENS);
+    if let Some(t) = temperature {
+        agent = agent.temperature(t);
+    }
+    agent
         .build()
         .prompt(prompt)
         .await
