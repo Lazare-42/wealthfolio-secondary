@@ -12,7 +12,7 @@
 
 mod attachments;
 mod history;
-mod provider_clients;
+pub(crate) mod provider_clients;
 mod streaming;
 mod working_context;
 

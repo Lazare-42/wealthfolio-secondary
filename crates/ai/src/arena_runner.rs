@@ -1,19 +1,20 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use reqwest::Client as HttpClient;
-use rig::{
-    client::{CompletionClient, Nothing},
-    completion::Prompt,
-    providers::{anthropic, gemini, groq, ollama, openai, openrouter},
-};
+use rig::{client::CompletionClient, completion::Prompt};
 use wealthfolio_core::ai_arena::{AiArenaDecisionRunner, ArenaDecisionRequest};
 use wealthfolio_core::errors::{Error as CoreError, Result as CoreResult};
 
+use crate::chat::provider_clients::{
+    create_anthropic_client, create_gemini_client, create_groq_client, create_ollama_client,
+    create_openai_client, create_openrouter_client,
+};
 use crate::env::AiEnvironment;
 use crate::error::AiError;
-use crate::provider_urls::ensure_openai_v1_base_url;
 use crate::providers::ProviderService;
+
+const ARENA_MAX_TOKENS: u64 = 4096;
+const ARENA_TEMPERATURE: f64 = 0.2;
 
 pub struct AiArenaLlmRunner<E: AiEnvironment> {
     env: Arc<E>,
@@ -34,123 +35,52 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
             request.system_prompt.trim()
         );
 
-        match request.provider_id.as_str() {
+        let provider_id = request.provider_id.as_str();
+        match provider_id {
             "anthropic" => {
-                let key = api_key.ok_or_else(|| AiError::MissingApiKey(request.provider_id))?;
-                let mut builder = anthropic::Client::<HttpClient>::builder().api_key(&key);
-                if let Some(url) = provider_url {
-                    builder = builder.base_url(&url);
-                }
-                let client = builder
-                    .build()
-                    .map_err(|e| AiError::Provider(e.to_string()))?;
-                client
-                    .agent(&request.model_id)
-                    .preamble(&system_prompt)
-                    .max_tokens(4096)
-                    .temperature(0.2)
-                    .build()
-                    .prompt(&prompt)
-                    .await
-                    .map_err(|e| AiError::Provider(e.to_string()))
+                let client = create_anthropic_client(api_key, provider_id, provider_url)?;
+                prompt_once(client, &request.model_id, &system_prompt, &prompt).await
             }
             "gemini" | "google" => {
-                let key = api_key.ok_or_else(|| AiError::MissingApiKey(request.provider_id))?;
-                let mut builder = gemini::Client::<HttpClient>::builder().api_key(&key);
-                if let Some(url) = provider_url {
-                    builder = builder.base_url(&url);
-                }
-                let client = builder
-                    .build()
-                    .map_err(|e| AiError::Provider(e.to_string()))?;
-                client
-                    .agent(&request.model_id)
-                    .preamble(&system_prompt)
-                    .max_tokens(4096)
-                    .temperature(0.2)
-                    .build()
-                    .prompt(&prompt)
-                    .await
-                    .map_err(|e| AiError::Provider(e.to_string()))
+                let client = create_gemini_client(api_key, provider_id, provider_url)?;
+                prompt_once(client, &request.model_id, &system_prompt, &prompt).await
             }
             "groq" => {
-                let key = api_key.ok_or_else(|| AiError::MissingApiKey(request.provider_id))?;
-                let mut builder = groq::Client::<HttpClient>::builder().api_key(&key);
-                if let Some(url) = provider_url {
-                    builder = builder.base_url(ensure_openai_v1_base_url(&url));
-                }
-                let client = builder
-                    .build()
-                    .map_err(|e| AiError::Provider(e.to_string()))?;
-                client
-                    .agent(&request.model_id)
-                    .preamble(&system_prompt)
-                    .max_tokens(4096)
-                    .temperature(0.2)
-                    .build()
-                    .prompt(&prompt)
-                    .await
-                    .map_err(|e| AiError::Provider(e.to_string()))
+                let client = create_groq_client(api_key, provider_id, provider_url)?;
+                prompt_once(client, &request.model_id, &system_prompt, &prompt).await
             }
             "ollama" => {
-                let mut builder = ollama::Client::<HttpClient>::builder().api_key(Nothing);
-                if let Some(url) = provider_url {
-                    let normalized = url.trim_end_matches('/').trim_end_matches("/v1");
-                    builder = builder.base_url(normalized);
-                }
-                let client = builder
-                    .build()
-                    .map_err(|e| AiError::Provider(e.to_string()))?;
-                client
-                    .agent(&request.model_id)
-                    .preamble(&system_prompt)
-                    .max_tokens(4096)
-                    .temperature(0.2)
-                    .build()
-                    .prompt(&prompt)
-                    .await
-                    .map_err(|e| AiError::Provider(e.to_string()))
+                let client = create_ollama_client(provider_url)?;
+                prompt_once(client, &request.model_id, &system_prompt, &prompt).await
             }
             "openrouter" => {
-                let key = api_key.ok_or_else(|| AiError::MissingApiKey(request.provider_id))?;
-                let mut builder = openrouter::Client::<HttpClient>::builder().api_key(&key);
-                if let Some(url) = provider_url {
-                    builder = builder.base_url(ensure_openai_v1_base_url(&url));
-                }
-                let client = builder
-                    .build()
-                    .map_err(|e| AiError::Provider(e.to_string()))?;
-                client
-                    .agent(&request.model_id)
-                    .preamble(&system_prompt)
-                    .max_tokens(4096)
-                    .temperature(0.2)
-                    .build()
-                    .prompt(&prompt)
-                    .await
-                    .map_err(|e| AiError::Provider(e.to_string()))
+                let client = create_openrouter_client(api_key, provider_id, provider_url)?;
+                prompt_once(client, &request.model_id, &system_prompt, &prompt).await
             }
             _ => {
-                let key = api_key.ok_or_else(|| AiError::MissingApiKey(request.provider_id))?;
-                let mut builder = openai::CompletionsClient::<HttpClient>::builder().api_key(&key);
-                if let Some(url) = provider_url {
-                    builder = builder.base_url(ensure_openai_v1_base_url(&url));
-                }
-                let client = builder
-                    .build()
-                    .map_err(|e| AiError::Provider(e.to_string()))?;
-                client
-                    .agent(&request.model_id)
-                    .preamble(&system_prompt)
-                    .max_tokens(4096)
-                    .temperature(0.2)
-                    .build()
-                    .prompt(&prompt)
-                    .await
-                    .map_err(|e| AiError::Provider(e.to_string()))
+                let client = create_openai_client(api_key, provider_id, provider_url)?;
+                prompt_once(client, &request.model_id, &system_prompt, &prompt).await
             }
         }
     }
+}
+
+/// Run a single non-streaming prompt against any provider client.
+async fn prompt_once<C: CompletionClient>(
+    client: C,
+    model_id: &str,
+    system_prompt: &str,
+    prompt: &str,
+) -> Result<String, AiError> {
+    client
+        .agent(model_id)
+        .preamble(system_prompt)
+        .max_tokens(ARENA_MAX_TOKENS)
+        .temperature(ARENA_TEMPERATURE)
+        .build()
+        .prompt(prompt)
+        .await
+        .map_err(|e| AiError::Provider(e.to_string()))
 }
 
 #[async_trait]
