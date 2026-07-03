@@ -21,3 +21,4 @@ pub use catalog::AgentToolCatalog;
 pub use env::AgentEnvironment;
 pub use scope::{AgentScope, AgentScopeSet};
 pub use tool::{AgentTool, AgentToolAccess, AgentToolError, AgentToolResult};
+pub use tools::market_data::{replay_scenario_performance, SymbolPerformanceOutput};

@@ -1,12 +1,17 @@
 use std::sync::Arc;
 
-use crate::{error::ApiResult, main_lib::AppState};
+use crate::{
+    error::{ApiError, ApiResult},
+    main_lib::AppState,
+};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
     routing::get,
     Json, Router,
 };
+use serde::Deserialize;
+use wealthfolio_agent_tools::{replay_scenario_performance, SymbolPerformanceOutput};
 use wealthfolio_core::scenarios::{NewPortfolioScenario, PortfolioScenario};
 
 async fn list_scenarios(
@@ -49,6 +54,31 @@ async fn delete_scenario(
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ScenarioPerformanceRequest {
+    #[serde(default)]
+    start_date: Option<String>,
+    #[serde(default)]
+    end_date: Option<String>,
+}
+
+async fn calculate_scenario_performance(
+    Path(id): Path<String>,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<ScenarioPerformanceRequest>,
+) -> ApiResult<Json<SymbolPerformanceOutput>> {
+    let series = replay_scenario_performance(
+        state.agent_environment.clone(),
+        &id,
+        payload.start_date.as_deref(),
+        payload.end_date.as_deref(),
+    )
+    .await
+    .map_err(|e| ApiError::BadRequest(e.to_string()))?;
+    Ok(Json(series))
+}
+
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/scenarios", get(list_scenarios).post(create_scenario))
@@ -57,5 +87,9 @@ pub fn router() -> Router<Arc<AppState>> {
             get(get_scenario)
                 .put(update_scenario)
                 .delete(delete_scenario),
+        )
+        .route(
+            "/scenarios/{id}/performance",
+            axum::routing::post(calculate_scenario_performance),
         )
 }

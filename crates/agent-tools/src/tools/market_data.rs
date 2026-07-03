@@ -14,7 +14,7 @@ use wealthfolio_core::portfolio::performance::{
     PerformanceResult as CorePerformanceResult,
 };
 use wealthfolio_core::quotes::{Quote, SymbolSearchResult};
-use wealthfolio_core::scenarios::BasketPosition;
+use wealthfolio_core::scenarios::{BasketPosition, ScenarioKind};
 
 use crate::env::AgentEnvironment;
 use crate::scope::AgentScope;
@@ -927,6 +927,39 @@ fn merge_quotes_by_date(local: Vec<Quote>, fetched: Vec<Quote>) -> Vec<Quote> {
         by_date.insert(quote.timestamp.date_naive(), quote);
     }
     by_date.into_values().collect()
+}
+
+/// Public entry point for the command layer (server and Tauri): load a saved
+/// scenario, validate it has a basket, parse the optional YYYY-MM-DD bounds,
+/// and replay the basket as a buy-and-hold index. Uses adjusted close at full
+/// density (no sampling) so the points line up with the daily series the
+/// performance chart rebases everything onto.
+pub async fn replay_scenario_performance(
+    env: Arc<dyn AgentEnvironment>,
+    scenario_id: &str,
+    start_date: Option<&str>,
+    end_date: Option<&str>,
+) -> Result<SymbolPerformanceOutput, AgentToolError> {
+    let scenario = env
+        .scenario_service()
+        .get_scenario(scenario_id)
+        .map_err(|e| AgentToolError::InvalidInput(format!("Failed to load scenario: {e}")))?;
+    if scenario.kind != ScenarioKind::Basket || scenario.basket.is_empty() {
+        return Err(AgentToolError::InvalidInput(
+            "Scenario has no basket to replay.".to_string(),
+        ));
+    }
+    let start = parse_optional_date(start_date, "startDate")?;
+    let end = parse_optional_date(end_date, "endDate")?;
+    Ok(compute_basket_performance(
+        env,
+        &scenario.basket,
+        PriceBasis::AdjustedClose,
+        start,
+        end,
+        usize::MAX,
+    )
+    .await)
 }
 
 /// Replay a synthetic weighted basket over history as a buy-and-hold index.

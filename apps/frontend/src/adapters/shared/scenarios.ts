@@ -1,4 +1,8 @@
-import type { NewPortfolioScenario, PortfolioScenario } from "@/lib/types";
+import type {
+  NewPortfolioScenario,
+  PortfolioScenario,
+  ScenarioPerformanceResult,
+} from "@/lib/types";
 import { invoke, logger } from "./platform";
 
 export const getScenarios = async (): Promise<PortfolioScenario[]> => {
@@ -15,6 +19,23 @@ export const getScenario = async (scenarioId: string): Promise<PortfolioScenario
     return await invoke<PortfolioScenario>("get_scenario", { scenarioId });
   } catch (error) {
     logger.error("Error fetching scenario.");
+    throw error;
+  }
+};
+
+export const getScenarioPerformance = async (
+  scenarioId: string,
+  startDate?: string,
+  endDate?: string,
+): Promise<ScenarioPerformanceResult> => {
+  try {
+    return await invoke<ScenarioPerformanceResult>("calculate_scenario_performance", {
+      scenarioId,
+      startDate,
+      endDate,
+    });
+  } catch (error) {
+    logger.error("Error replaying scenario performance.");
     throw error;
   }
 };

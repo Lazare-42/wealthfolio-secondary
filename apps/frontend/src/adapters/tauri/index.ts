@@ -88,6 +88,7 @@ export {
   createScenario,
   deleteScenario,
   getScenario,
+  getScenarioPerformance,
   getScenarios,
   updateScenarioEntry,
 } from "../shared/scenarios";

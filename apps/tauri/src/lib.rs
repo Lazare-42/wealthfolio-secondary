@@ -520,6 +520,7 @@ pub fn run() {
             // Scenarios (saved comparison definitions)
             commands::scenarios::get_scenarios,
             commands::scenarios::get_scenario,
+            commands::scenarios::calculate_scenario_performance,
             commands::scenarios::create_scenario,
             commands::scenarios::update_scenario_entry,
             commands::scenarios::delete_scenario_entry,

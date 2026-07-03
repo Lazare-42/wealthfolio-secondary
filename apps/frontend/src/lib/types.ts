@@ -1541,9 +1541,35 @@ export interface UpdateAssetProfile {
 // Rename ComparisonItem to TrackedItem
 export interface TrackedItem {
   id: string;
-  type: "account" | "symbol";
+  type: "account" | "symbol" | "scenario";
   name: string;
   accountScope?: AccountScope;
+}
+
+/** Replay output for a saved basket scenario (mirrors SymbolPerformanceOutput). */
+export interface ScenarioPerformancePoint {
+  date: string;
+  price: number;
+  returnPct?: number | null;
+  drawdownPct?: number | null;
+}
+
+export interface ScenarioPerformanceResult {
+  symbol: string;
+  assetId: string;
+  basis: string;
+  currency?: string | null;
+  firstQuoteDate?: string | null;
+  lastQuoteDate?: string | null;
+  quoteCount: number;
+  metrics: {
+    totalReturnPct?: number | null;
+    annualizedReturnPct?: number | null;
+    volatilityPct?: number | null;
+    maxDrawdownPct?: number | null;
+  };
+  dataQuality: { status: "ok" | "partial" | "noData"; warnings?: string[] };
+  points: ScenarioPerformancePoint[];
 }
 
 // Addon Store Types
