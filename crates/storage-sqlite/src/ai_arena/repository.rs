@@ -88,15 +88,14 @@ impl AiArenaRepositoryTrait for AiArenaRepository {
 
     fn list_agents(&self) -> Result<Vec<ArenaAgent>> {
         let mut conn = get_connection(&self.pool)?;
-        arena_agents::table
+        Ok(arena_agents::table
             .select(ArenaAgentDB::as_select())
             .order((arena_agents::updated_at.desc(), arena_agents::name.asc()))
             .load::<ArenaAgentDB>(&mut conn)
             .map_err(StorageError::from)?
             .into_iter()
             .map(ArenaAgent::from)
-            .collect::<Vec<_>>()
-            .pipe(Ok)
+            .collect())
     }
 
     async fn create_challenge(&self, challenge: ArenaChallenge) -> Result<ArenaChallenge> {
@@ -426,11 +425,3 @@ impl AiArenaRepositoryTrait for AiArenaRepository {
             .collect()
     }
 }
-
-trait Pipe: Sized {
-    fn pipe<T>(self, f: impl FnOnce(Self) -> T) -> T {
-        f(self)
-    }
-}
-
-impl<T> Pipe for T {}
