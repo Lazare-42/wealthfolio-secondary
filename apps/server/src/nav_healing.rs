@@ -77,9 +77,12 @@ struct NavPrice {
 struct AssetIndex(HashMap<String, (String, String)>);
 
 impl AssetIndex {
-    fn build(state: &AppState) -> Self {
+    fn build(state: &AppState) -> Result<Self, String> {
         let mut map: HashMap<String, (String, String)> = HashMap::new();
-        let assets = state.asset_service.get_assets().unwrap_or_default();
+        let assets = state
+            .asset_service
+            .get_assets()
+            .map_err(|e| format!("failed to load assets: {e}"))?;
         for asset in assets {
             let value = (asset.id.clone(), asset.quote_ccy.clone());
             map.insert(asset.id.to_uppercase(), value.clone());
@@ -92,7 +95,7 @@ impl AssetIndex {
                     .or_insert_with(|| value.clone());
             }
         }
-        AssetIndex(map)
+        Ok(AssetIndex(map))
     }
 
     fn resolve(&self, price: &NavPrice) -> Option<(String, String)> {
@@ -134,11 +137,28 @@ pub fn start_nav_healing_watcher(state: Arc<AppState>) {
                 Err(_) => continue,
             };
 
+            let mut files: Vec<PathBuf> = Vec::new();
             while let Ok(Some(entry)) = read_dir.next_entry().await {
                 let path = entry.path();
-                if !is_json(&path) {
+                if is_json(&path) {
+                    files.push(path);
+                }
+            }
+            if files.is_empty() {
+                continue;
+            }
+
+            // A transient DB failure must not condemn the envelopes: leave
+            // them in the inbox and retry on the next poll.
+            let index = match AssetIndex::build(&state) {
+                Ok(index) => index,
+                Err(err) => {
+                    warn!("NAV healing: {}, leaving inbox untouched", err);
                     continue;
                 }
+            };
+
+            for path in files {
                 let file_name = path
                     .file_name()
                     .unwrap_or_default()
@@ -147,7 +167,7 @@ pub fn start_nav_healing_watcher(state: Arc<AppState>) {
 
                 info!("NAV healing: processing {}", file_name);
 
-                match process_file(&state, &path).await {
+                match process_file(&state, &index, &path).await {
                     Ok(applied) if applied > 0 => {
                         info!("NAV healing: applied {} NAV(s) from {}", applied, file_name);
                         // Recompute snapshots + valuations so the new manual
@@ -186,7 +206,7 @@ pub fn start_nav_healing_watcher(state: Arc<AppState>) {
 /// Returns the number of NAVs applied. Errors only on unrecoverable problems
 /// (unreadable/unparseable file, unsupported version); individual unmatched or
 /// bad-date prices are skipped with a warning.
-async fn process_file(state: &AppState, path: &Path) -> Result<usize, String> {
+async fn process_file(state: &AppState, index: &AssetIndex, path: &Path) -> Result<usize, String> {
     let content = tokio::fs::read_to_string(path)
         .await
         .map_err(|e| format!("read error: {e}"))?;
@@ -200,7 +220,6 @@ async fn process_file(state: &AppState, path: &Path) -> Result<usize, String> {
         return Err("envelope contains no prices".to_string());
     }
 
-    let index = AssetIndex::build(state);
     let source = envelope
         .source
         .clone()
