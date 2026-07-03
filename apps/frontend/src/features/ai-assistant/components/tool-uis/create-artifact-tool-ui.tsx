@@ -41,7 +41,6 @@ export function CreateArtifactToolUIContentImpl({
 
   const wasRunning = useRef(false);
   const autoOpened = useRef(false);
-  const hasOpenedForContent = useRef(false);
   if (status?.type === "running") wasRunning.current = true;
 
   const artifact = threadId ? buildArtifact(args, result, toolCallId, threadId) : null;
@@ -75,12 +74,8 @@ export function CreateArtifactToolUIContentImpl({
     if (!artifact || !threadId) return;
     const completedLive = status?.type === "complete" && wasRunning.current;
     const contentArrivedLive = isLiveRun && hasArtifactContent;
-    if (
-      !autoOpened.current &&
-      (completedLive || (contentArrivedLive && !hasOpenedForContent.current))
-    ) {
+    if (!autoOpened.current && (completedLive || contentArrivedLive)) {
       autoOpened.current = true;
-      hasOpenedForContent.current = true;
       openArtifact(threadId, artifact.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
