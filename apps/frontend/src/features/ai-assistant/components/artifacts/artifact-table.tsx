@@ -1,3 +1,4 @@
+import { formatAmount } from "@wealthfolio/ui";
 import { memo } from "react";
 
 import { cn } from "@/lib/utils";
@@ -20,7 +21,7 @@ function formatCell(value: string | number | null | undefined, column: ArtifactC
 
   switch (column.format) {
     case "currency":
-      return decimalFormat.format(value);
+      return column.currency ? formatAmount(value, column.currency) : decimalFormat.format(value);
     case "percent":
       return `${numberFormat.format(value)}%`;
     case "number":

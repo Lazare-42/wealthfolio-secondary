@@ -900,6 +900,8 @@ export interface ArtifactColumn {
   label: string;
   align?: "left" | "right" | "center";
   format?: "currency" | "percent" | "number" | "text";
+  /** ISO currency code for `format: "currency"` cells (e.g. "USD"). */
+  currency?: string;
 }
 
 export interface ArtifactTableData {

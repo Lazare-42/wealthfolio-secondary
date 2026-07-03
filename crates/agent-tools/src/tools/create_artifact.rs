@@ -62,6 +62,9 @@ pub struct ArtifactColumn {
     /// Display format hint: "currency", "percent", "number", or "text".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub format: Option<String>,
+    /// ISO currency code (e.g. "USD") for `format: "currency"` cells.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
 }
 
 /// Minimal confirmation handed back to the model. The document content is NOT
@@ -199,7 +202,8 @@ impl AgentTool for CreateArtifact {
                                     "key": { "type": "string", "description": "Field key used in each row object." },
                                     "label": { "type": "string", "description": "Column header." },
                                     "align": { "type": "string", "enum": ["left", "right", "center"], "description": "Cell alignment. Default left; use right for numbers." },
-                                    "format": { "type": "string", "enum": ["currency", "percent", "number", "text"], "description": "Display format hint." }
+                                    "format": { "type": "string", "enum": ["currency", "percent", "number", "text"], "description": "Display format hint." },
+                                    "currency": { "type": "string", "description": "ISO currency code (e.g. \"USD\") for format \"currency\" cells; the cell renders with the currency symbol." }
                                 },
                                 "required": ["key", "label"]
                             }
