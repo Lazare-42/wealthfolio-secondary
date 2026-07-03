@@ -37,10 +37,9 @@ use rust_decimal::Decimal;
 use serde::Deserialize;
 use tracing::{error, info, warn};
 
-use wealthfolio_core::portfolio::{snapshot::SnapshotRecalcMode, valuation::ValuationRecalcMode};
-use wealthfolio_core::quotes::{MarketSyncMode, Quote, DATA_SOURCE_MANUAL};
+use wealthfolio_core::quotes::{Quote, DATA_SOURCE_MANUAL};
 
-use crate::api::shared::{enqueue_portfolio_job, PortfolioJobConfig};
+use crate::api::shared::trigger_full_portfolio_recalc;
 use crate::main_lib::AppState;
 
 #[derive(Debug, Deserialize)]
@@ -158,6 +157,7 @@ pub fn start_nav_healing_watcher(state: Arc<AppState>) {
                 }
             };
 
+            let mut any_applied = false;
             for path in files {
                 let file_name = path
                     .file_name()
@@ -170,19 +170,7 @@ pub fn start_nav_healing_watcher(state: Arc<AppState>) {
                 match process_file(&state, &index, &path).await {
                     Ok(applied) if applied > 0 => {
                         info!("NAV healing: applied {} NAV(s) from {}", applied, file_name);
-                        // Recompute snapshots + valuations so the new manual
-                        // quotes flow into account history and clear the health
-                        // issues. No market sync — these assets have no provider.
-                        enqueue_portfolio_job(
-                            state.clone(),
-                            PortfolioJobConfig {
-                                account_ids: None,
-                                market_sync_mode: MarketSyncMode::None,
-                                snapshot_mode: SnapshotRecalcMode::Full,
-                                valuation_mode: ValuationRecalcMode::Full,
-                                since_date: None,
-                            },
-                        );
+                        any_applied = true;
                         move_file(&path, &processed.join(&file_name)).await;
                     }
                     Ok(_) => {
@@ -197,6 +185,13 @@ pub fn start_nav_healing_watcher(state: Arc<AppState>) {
                         move_file(&path, &failed.join(&file_name)).await;
                     }
                 }
+            }
+
+            if any_applied {
+                // Recompute snapshots + valuations so the new manual quotes
+                // flow into account history and clear the health issues.
+                // No market sync — these assets have no provider.
+                trigger_full_portfolio_recalc(state.clone());
             }
         }
     });
