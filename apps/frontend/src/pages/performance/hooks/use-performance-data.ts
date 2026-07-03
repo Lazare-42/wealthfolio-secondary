@@ -19,7 +19,7 @@ function scenarioToPerformanceResult(
 ): PerformanceResult {
   const series = result.points
     .filter((point) => point.returnPct != null)
-    .map((point) => ({ date: point.date, value: (point.returnPct as number) / 100 }));
+    .map((point) => ({ date: point.date, value: pctToFraction(point.returnPct) as number }));
 
   return {
     scope: { id: item.id, currency: result.currency ?? "" },
