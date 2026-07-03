@@ -14,7 +14,6 @@ use crate::error::AiError;
 use crate::providers::ProviderService;
 
 const ARENA_MAX_TOKENS: u64 = 4096;
-const ARENA_TEMPERATURE: f64 = 0.2;
 
 pub struct AiArenaLlmRunner<E: AiEnvironment> {
     env: Arc<E>,
@@ -29,6 +28,13 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
         let provider_service = ProviderService::new(self.env.clone());
         let api_key = provider_service.get_api_key(&request.provider_id)?;
         let provider_url = provider_service.get_provider_url(&request.provider_id);
+        // Resolve tuning through the same catalog+overrides engine the chat path
+        // uses (get_resolved_tuning). Temperature is applied only when the
+        // resolved tuning provides it — the Anthropic catalog omits it, so newer
+        // Claude models (e.g. claude-opus-4-7, which 400s on `temperature`) never
+        // receive it. Avoids hardcoding per-provider knowledge here.
+        let tuning = provider_service.get_resolved_tuning(&request.provider_id);
+        let temperature = tuning.temperature;
         let prompt = request.prompt;
         let system_prompt = format!(
             "{}\n\nReturn only valid JSON. No markdown. No prose outside JSON.",
@@ -39,52 +45,77 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
         match provider_id {
             "anthropic" => {
                 let client = create_anthropic_client(api_key, provider_id, provider_url)?;
-                // `temperature` is deprecated on newer Anthropic models
-                // (e.g. claude-opus-4-7 returns 400), so we omit it here.
-                prompt_once_opts(client, &request.model_id, &system_prompt, &prompt, None).await
+                prompt_once(
+                    client,
+                    &request.model_id,
+                    &system_prompt,
+                    &prompt,
+                    temperature,
+                )
+                .await
             }
             "gemini" | "google" => {
                 let client = create_gemini_client(api_key, provider_id, provider_url)?;
-                prompt_once(client, &request.model_id, &system_prompt, &prompt).await
+                prompt_once(
+                    client,
+                    &request.model_id,
+                    &system_prompt,
+                    &prompt,
+                    temperature,
+                )
+                .await
             }
             "groq" => {
                 let client = create_groq_client(api_key, provider_id, provider_url)?;
-                prompt_once(client, &request.model_id, &system_prompt, &prompt).await
+                prompt_once(
+                    client,
+                    &request.model_id,
+                    &system_prompt,
+                    &prompt,
+                    temperature,
+                )
+                .await
             }
             "ollama" => {
                 let client = create_ollama_client(provider_url)?;
-                prompt_once(client, &request.model_id, &system_prompt, &prompt).await
+                prompt_once(
+                    client,
+                    &request.model_id,
+                    &system_prompt,
+                    &prompt,
+                    temperature,
+                )
+                .await
             }
             "openrouter" => {
                 let client = create_openrouter_client(api_key, provider_id, provider_url)?;
-                prompt_once(client, &request.model_id, &system_prompt, &prompt).await
+                prompt_once(
+                    client,
+                    &request.model_id,
+                    &system_prompt,
+                    &prompt,
+                    temperature,
+                )
+                .await
             }
             _ => {
                 let client = create_openai_client(api_key, provider_id, provider_url)?;
-                prompt_once(client, &request.model_id, &system_prompt, &prompt).await
+                prompt_once(
+                    client,
+                    &request.model_id,
+                    &system_prompt,
+                    &prompt,
+                    temperature,
+                )
+                .await
             }
         }
     }
 }
 
-/// Run a single non-streaming prompt against any provider client.
+/// Run a single non-streaming prompt against any provider client, applying
+/// temperature only when the resolved provider tuning supplies one.
 async fn prompt_once<C: CompletionClient>(
-    client: C,
-    model_id: &str,
-    system_prompt: &str,
-    prompt: &str,
-) -> Result<String, AiError> {
-    prompt_once_opts(
-        client,
-        model_id,
-        system_prompt,
-        prompt,
-        Some(ARENA_TEMPERATURE),
-    )
-    .await
-}
-
-async fn prompt_once_opts<C: CompletionClient>(
     client: C,
     model_id: &str,
     system_prompt: &str,
