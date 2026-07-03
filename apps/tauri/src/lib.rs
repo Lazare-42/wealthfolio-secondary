@@ -523,9 +523,6 @@ pub fn run() {
             commands::scenarios::create_scenario,
             commands::scenarios::update_scenario_entry,
             commands::scenarios::delete_scenario_entry,
-            commands::provenance::record_activity_source,
-            commands::provenance::get_activity_sources,
-            commands::provenance::save_source_email,
             commands::provenance::list_source_emails,
             // AI Arena commands
             commands::ai_arena::get_arena_agents,

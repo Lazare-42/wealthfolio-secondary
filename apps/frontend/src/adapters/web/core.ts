@@ -35,9 +35,6 @@ export const COMMANDS: CommandMap = {
   create_portfolio: { method: "POST", path: "/portfolios" },
   update_portfolio_entry: { method: "PUT", path: "/portfolios" },
   delete_portfolio_entry: { method: "DELETE", path: "/portfolios" },
-  record_activity_source: { method: "POST", path: "/provenance/sources" },
-  get_activity_sources: { method: "GET", path: "/activities" },
-  save_source_email: { method: "POST", path: "/provenance/source-emails" },
   list_source_emails: { method: "GET", path: "/provenance/source-emails" },
   get_scenarios: { method: "GET", path: "/scenarios" },
   get_scenario: { method: "GET", path: "/scenarios" },
@@ -525,21 +522,6 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
     case "get_scenario": {
       const { scenarioId } = payload as { scenarioId: string };
       url += `/${encodeURIComponent(scenarioId)}`;
-      break;
-    }
-    case "record_activity_source": {
-      const { source } = payload as { source: Record<string, unknown> };
-      body = JSON.stringify(source);
-      break;
-    }
-    case "get_activity_sources": {
-      const { activityId } = payload as { activityId: string };
-      url += `/${encodeURIComponent(activityId)}/sources`;
-      break;
-    }
-    case "save_source_email": {
-      const { email } = payload as { email: Record<string, unknown> };
-      body = JSON.stringify(email);
       break;
     }
     case "list_source_emails": {
