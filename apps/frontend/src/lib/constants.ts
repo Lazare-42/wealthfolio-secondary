@@ -361,6 +361,8 @@ export const SYMBOL_REQUIRED_TYPES = [
   ActivityType.SPLIT,
   ActivityType.DIVIDEND,
   ActivityType.ADJUSTMENT,
+  ActivityType.LOAN_ORIGINATION,
+  ActivityType.LOAN_PAYMENT,
 ] as const;
 
 export const INCOME_ACTIVITY_TYPES = [ActivityType.DIVIDEND, ActivityType.INTEREST] as const;

@@ -444,6 +444,74 @@ describe("validation-utils", () => {
       expect(activity.errors?.symbol).toContain("Symbol is required for non-cash activities");
     });
 
+    const loanMapping = {
+      ...testMapping,
+      activityMappings: {
+        ...testMapping.activityMappings,
+        [ActivityType.LOAN_ORIGINATION]: ["LOAN_ORIGINATION"],
+        [ActivityType.LOAN_PAYMENT]: ["LOAN_PAYMENT"],
+      },
+    };
+
+    it("should fail loan activities without a symbol", () => {
+      const testData = [
+        {
+          lineNumber: "1",
+          date: "2024-01-01T00:00:00.000Z",
+          symbol: "",
+          activityType: "LOAN_ORIGINATION",
+          quantity: "",
+          unitPrice: "",
+          amount: "250000",
+          fee: "0",
+          currency: "USD",
+        },
+        {
+          lineNumber: "2",
+          date: "2024-02-01T00:00:00.000Z",
+          symbol: "",
+          activityType: "LOAN_PAYMENT",
+          quantity: "",
+          unitPrice: "",
+          amount: "1200",
+          fee: "50",
+          currency: "USD",
+        },
+      ];
+
+      const result = validateActivityImport(testData, loanMapping, "test-account", "USD");
+
+      expect(result.activities).toHaveLength(2);
+      for (const activity of result.activities) {
+        expect(activity.isValid).toBe(false);
+        expect(activity.errors?.symbol).toContain("Symbol is required for non-cash activities");
+      }
+    });
+
+    it("should keep the LIAB: symbol and amount for loan activities", () => {
+      const testData = [
+        {
+          lineNumber: "1",
+          date: "2024-01-01T00:00:00.000Z",
+          symbol: "LIAB:Mortgage",
+          activityType: "LOAN_ORIGINATION",
+          quantity: "",
+          unitPrice: "",
+          amount: "250000",
+          fee: "0",
+          currency: "USD",
+        },
+      ];
+
+      const result = validateActivityImport(testData, loanMapping, "test-account", "USD");
+
+      expect(result.activities).toHaveLength(1);
+      const activity = result.activities[0];
+      expect(activity.isValid).toBe(true);
+      expect(activity.symbol).toBe("LIAB:Mortgage");
+      expect(activity.amount).toBe(250000);
+    });
+
     it("should handle CSV values with currency symbols like real broker exports", () => {
       const testData = [
         {
