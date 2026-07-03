@@ -14,7 +14,7 @@ use wealthfolio_core::portfolio::performance::{
     PerformanceResult as CorePerformanceResult,
 };
 use wealthfolio_core::quotes::{Quote, SymbolSearchResult};
-use wealthfolio_core::scenarios::BasketPosition;
+use wealthfolio_core::scenarios::{BasketPosition, ScenarioKind};
 
 use crate::env::AgentEnvironment;
 use crate::scope::AgentScope;
@@ -929,29 +929,42 @@ fn merge_quotes_by_date(local: Vec<Quote>, fetched: Vec<Quote>) -> Vec<Quote> {
     by_date.into_values().collect()
 }
 
+/// Public entry point for the command layer (server and Tauri): load a saved
+/// scenario, validate it has a basket, parse the optional YYYY-MM-DD bounds,
+/// and replay the basket as a buy-and-hold index. Uses adjusted close at full
+/// density (no sampling) so the points line up with the daily series the
+/// performance chart rebases everything onto.
+pub async fn replay_scenario_performance(
+    env: Arc<dyn AgentEnvironment>,
+    scenario_id: &str,
+    start_date: Option<&str>,
+    end_date: Option<&str>,
+) -> Result<SymbolPerformanceOutput, AgentToolError> {
+    let scenario = env
+        .scenario_service()
+        .get_scenario(scenario_id)
+        .map_err(|e| AgentToolError::InvalidInput(format!("Failed to load scenario: {e}")))?;
+    if scenario.kind != ScenarioKind::Basket || scenario.basket.is_empty() {
+        return Err(AgentToolError::InvalidInput(
+            "Scenario has no basket to replay.".to_string(),
+        ));
+    }
+    let start = parse_optional_date(start_date, "startDate")?;
+    let end = parse_optional_date(end_date, "endDate")?;
+    Ok(compute_basket_performance(
+        env,
+        &scenario.basket,
+        PriceBasis::AdjustedClose,
+        start,
+        end,
+        usize::MAX,
+    )
+    .await)
+}
+
 /// Replay a synthetic weighted basket over history as a buy-and-hold index.
 ///
 /// Method (currency-agnostic, no FX): each leg is rebased to 1.0 at a common
-/// Public entry point for the command layer: replay a saved scenario's basket
-/// as a buy-and-hold index and return its return series. Uses adjusted close and
-/// the maximum sample density so the points line up with daily comparison charts.
-pub async fn compute_basket_return_series(
-    env: Arc<dyn AgentEnvironment>,
-    positions: &[BasketPosition],
-    start_date: Option<NaiveDate>,
-    end_date: Option<NaiveDate>,
-) -> SymbolPerformanceOutput {
-    compute_basket_performance(
-        env,
-        positions,
-        PriceBasis::AdjustedClose,
-        start_date,
-        end_date,
-        MAX_SYMBOL_SAMPLE_POINTS,
-    )
-    .await
-}
-
 /// base date, and the basket index is the weight-normalized sum of leg ratios,
 /// scaled to 100 at the base. Legs are priced with [`load_benchmark_quotes`]
 /// (local-first + provider backfill), so any symbol — tracked or not, past or

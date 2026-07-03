@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
-use chrono::NaiveDate;
 use tauri::State;
 
 use crate::context::ServiceContext;
-use wealthfolio_agent_tools::{compute_basket_return_series, SymbolPerformanceOutput};
-use wealthfolio_core::scenarios::{NewPortfolioScenario, PortfolioScenario, ScenarioKind};
+use wealthfolio_agent_tools::{replay_scenario_performance, SymbolPerformanceOutput};
+use wealthfolio_core::scenarios::{NewPortfolioScenario, PortfolioScenario};
 
 #[tauri::command]
 pub async fn get_scenarios(
@@ -62,25 +61,14 @@ pub async fn calculate_scenario_performance(
     end_date: Option<String>,
     state: State<'_, Arc<ServiceContext>>,
 ) -> Result<SymbolPerformanceOutput, String> {
-    let scenario = state
-        .scenario_service()
-        .get_scenario(&scenario_id)
-        .map_err(|e| format!("Failed to load scenario: {}", e))?;
-    if scenario.kind != ScenarioKind::Basket || scenario.basket.is_empty() {
-        return Err("Scenario has no basket to replay.".to_string());
-    }
-    let start = parse_optional_date(start_date.as_deref())?;
-    let end = parse_optional_date(end_date.as_deref())?;
-    Ok(compute_basket_return_series(state.agent_environment(), &scenario.basket, start, end).await)
-}
-
-fn parse_optional_date(value: Option<&str>) -> Result<Option<NaiveDate>, String> {
-    match value.map(str::trim).filter(|s| !s.is_empty()) {
-        Some(s) => NaiveDate::parse_from_str(s, "%Y-%m-%d")
-            .map(Some)
-            .map_err(|_| format!("Invalid date '{}'. Expected YYYY-MM-DD.", s)),
-        None => Ok(None),
-    }
+    replay_scenario_performance(
+        state.agent_environment(),
+        &scenario_id,
+        start_date.as_deref(),
+        end_date.as_deref(),
+    )
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

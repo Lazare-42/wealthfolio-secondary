@@ -10,10 +10,9 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use chrono::NaiveDate;
 use serde::Deserialize;
-use wealthfolio_agent_tools::{compute_basket_return_series, SymbolPerformanceOutput};
-use wealthfolio_core::scenarios::{NewPortfolioScenario, PortfolioScenario, ScenarioKind};
+use wealthfolio_agent_tools::{replay_scenario_performance, SymbolPerformanceOutput};
+use wealthfolio_core::scenarios::{NewPortfolioScenario, PortfolioScenario};
 
 async fn list_scenarios(
     State(state): State<Arc<AppState>>,
@@ -69,33 +68,15 @@ async fn calculate_scenario_performance(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<ScenarioPerformanceRequest>,
 ) -> ApiResult<Json<SymbolPerformanceOutput>> {
-    let scenario = state.scenario_service.get_scenario(&id)?;
-    if scenario.kind != ScenarioKind::Basket || scenario.basket.is_empty() {
-        return Err(ApiError::BadRequest(
-            "Scenario has no basket to replay.".to_string(),
-        ));
-    }
-    let start = parse_optional_date(payload.start_date.as_deref())?;
-    let end = parse_optional_date(payload.end_date.as_deref())?;
-    let series = compute_basket_return_series(
+    let series = replay_scenario_performance(
         state.agent_environment.clone(),
-        &scenario.basket,
-        start,
-        end,
+        &id,
+        payload.start_date.as_deref(),
+        payload.end_date.as_deref(),
     )
-    .await;
+    .await
+    .map_err(|e| ApiError::BadRequest(e.to_string()))?;
     Ok(Json(series))
-}
-
-fn parse_optional_date(value: Option<&str>) -> Result<Option<NaiveDate>, ApiError> {
-    match value.map(str::trim).filter(|s| !s.is_empty()) {
-        Some(s) => NaiveDate::parse_from_str(s, "%Y-%m-%d")
-            .map(Some)
-            .map_err(|_| {
-                ApiError::BadRequest(format!("Invalid date '{}'. Expected YYYY-MM-DD.", s))
-            }),
-        None => Ok(None),
-    }
 }
 
 pub fn router() -> Router<Arc<AppState>> {
