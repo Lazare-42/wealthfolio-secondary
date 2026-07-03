@@ -21,6 +21,9 @@ export const QueryKeys = {
   ACTIVITY_DATA: "activity-data",
   ACTIVITIES: "activities",
 
+  // Import traceability keys
+  SOURCE_EMAILS: "source-emails",
+
   // Portfolio related keys
   HOLDINGS: "holdings",
   HOLDING: "holding",
