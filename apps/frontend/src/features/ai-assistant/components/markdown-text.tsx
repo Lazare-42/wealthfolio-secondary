@@ -28,7 +28,7 @@ const MarkdownTextImpl = () => {
 
 export const MarkdownText = memo(MarkdownTextImpl);
 
-const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
+export const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
   const { isCopied, copyToClipboard } = useCopyToClipboard();
   const onCopy = () => {
     if (!code || isCopied) return;
@@ -68,7 +68,7 @@ const useCopyToClipboard = ({
 /**
  * Custom link component that uses React Router for internal links.
  */
-const MarkdownLink: FC<React.AnchorHTMLAttributes<HTMLAnchorElement>> = ({
+export const MarkdownLink: FC<React.AnchorHTMLAttributes<HTMLAnchorElement>> = ({
   href,
   children,
   className,
@@ -102,6 +102,20 @@ const MarkdownLink: FC<React.AnchorHTMLAttributes<HTMLAnchorElement>> = ({
 };
 
 /**
+ * Class strings shared with the artifact panel's markdown renderer
+ * (`artifacts/artifact-markdown.tsx`) so chat and panel stay in visual sync.
+ */
+export const markdownClasses = {
+  pre: "not-prose overflow-x-auto rounded-b-lg rounded-t-none bg-black p-4 text-sm text-white",
+  inlineCode:
+    "bg-muted rounded border px-1.5 py-0.5 font-mono text-sm font-medium before:content-none after:content-none",
+  table: "not-prose my-3 w-full border-separate border-spacing-0 text-sm",
+  th: "bg-muted whitespace-nowrap px-3 py-2 text-left text-xs font-semibold first:rounded-tl-lg last:rounded-tr-lg",
+  td: "whitespace-nowrap border-b border-l px-3 py-2 text-left text-sm last:border-r",
+  tr: "m-0 border-b p-0 first:border-t [&:last-child>td:first-child]:rounded-bl-lg [&:last-child>td:last-child]:rounded-br-lg",
+} as const;
+
+/**
  * Custom components for elements that need special handling beyond prose defaults.
  * Most elements use Tailwind Typography prose-sm defaults automatically.
  */
@@ -110,13 +124,7 @@ const customComponents = memoizeMarkdownComponents({
   a: MarkdownLink,
   // Custom code block styling with dark background
   pre: ({ className, ...props }) => (
-    <pre
-      className={cn(
-        "aui-md-pre not-prose overflow-x-auto rounded-b-lg rounded-t-none bg-black p-4 text-sm text-white",
-        className,
-      )}
-      {...props}
-    />
+    <pre className={cn("aui-md-pre", markdownClasses.pre, className)} {...props} />
   ),
   // Inline code styling
   code: function Code({ className, ...props }) {
@@ -124,8 +132,7 @@ const customComponents = memoizeMarkdownComponents({
     return (
       <code
         className={cn(
-          !isCodeBlock &&
-            "aui-md-inline-code bg-muted rounded border px-1.5 py-0.5 font-mono text-sm font-medium before:content-none after:content-none",
+          !isCodeBlock && cn("aui-md-inline-code", markdownClasses.inlineCode),
           className,
         )}
         {...props}
@@ -137,40 +144,16 @@ const customComponents = memoizeMarkdownComponents({
   // Tables with horizontal scroll for overflow content
   table: ({ className, ...props }) => (
     <div className="overflow-x-auto">
-      <table
-        className={cn(
-          "aui-md-table not-prose my-3 w-full border-separate border-spacing-0 text-sm",
-          className,
-        )}
-        {...props}
-      />
+      <table className={cn("aui-md-table", markdownClasses.table, className)} {...props} />
     </div>
   ),
   th: ({ className, ...props }) => (
-    <th
-      className={cn(
-        "aui-md-th bg-muted whitespace-nowrap px-3 py-2 text-left text-xs font-semibold first:rounded-tl-lg last:rounded-tr-lg",
-        className,
-      )}
-      {...props}
-    />
+    <th className={cn("aui-md-th", markdownClasses.th, className)} {...props} />
   ),
   td: ({ className, ...props }) => (
-    <td
-      className={cn(
-        "aui-md-td whitespace-nowrap border-b border-l px-3 py-2 text-left text-sm last:border-r",
-        className,
-      )}
-      {...props}
-    />
+    <td className={cn("aui-md-td", markdownClasses.td, className)} {...props} />
   ),
   tr: ({ className, ...props }) => (
-    <tr
-      className={cn(
-        "aui-md-tr m-0 border-b p-0 first:border-t [&:last-child>td:first-child]:rounded-bl-lg [&:last-child>td:last-child]:rounded-br-lg",
-        className,
-      )}
-      {...props}
-    />
+    <tr className={cn("aui-md-tr", markdownClasses.tr, className)} {...props} />
   ),
 });

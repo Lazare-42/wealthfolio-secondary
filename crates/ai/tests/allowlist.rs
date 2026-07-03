@@ -135,6 +135,15 @@ fn normalize_expands_accounts_group_to_cash_balances() {
 }
 
 #[test]
+fn normalize_preserves_artifact_tool_for_restricted_providers() {
+    let tools = normalize_tools_allowlist(Some(vec!["get_holdings".to_string()])).unwrap();
+    assert!(
+        tools.contains(&"create_artifact".to_string()),
+        "restricted provider allowlists must keep side-panel artifact authoring available",
+    );
+}
+
+#[test]
 fn normalize_expands_full_data_set_to_health_status() {
     let tools = normalize_tools_allowlist(Some(vec![
         "get_accounts".to_string(),

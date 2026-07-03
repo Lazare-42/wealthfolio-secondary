@@ -32,6 +32,7 @@ impl AgentToolCatalog {
     pub fn assistant_catalog() -> Self {
         let mut tools = crate::tools::v1_read_tools();
         tools.extend(crate::tools::draft_suggest_tools());
+        tools.extend(crate::tools::assistant_only_tools());
         Self::new(tools)
     }
 

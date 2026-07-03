@@ -14,6 +14,7 @@ pub mod cash_balances;
 pub mod categorization_context;
 pub mod commit_activity;
 pub mod contribution_limits;
+pub mod create_artifact;
 pub mod create_categorization_rule;
 pub mod goals;
 pub mod health;
@@ -83,6 +84,9 @@ pub use asset_classification::{
     AssignmentPreviewDto, CandidateAssignmentPreviewDto, ClassificationChangesDto,
     PrepareAssetClassification, PrepareAssetClassificationArgs, PrepareAssetClassificationOutput,
     PreparedAssignmentInput, PreparedTaxonomyDto,
+};
+pub use create_artifact::{
+    ArtifactColumn, ArtifactTable, CreateArtifact, CreateArtifactArgs, CreateArtifactOutput,
 };
 pub use create_categorization_rule::{
     CreateCategorizationRule, CreateCategorizationRuleArgs, CreateCategorizationRuleOutput,
@@ -168,6 +172,13 @@ pub fn draft_suggest_tools() -> Vec<Arc<dyn AgentTool>> {
         Arc::new(CreatePortfolioScenario),
         Arc::new(DeletePortfolioScenario),
     ]
+}
+
+/// Tools exposed only to the in-app assistant (never the scope-gated MCP
+/// catalog). `create_artifact` authors a side-panel document and touches no
+/// services, so it has no place in a token-scoped surface.
+pub fn assistant_only_tools() -> Vec<Arc<dyn AgentTool>> {
+    vec![Arc::new(CreateArtifact)]
 }
 
 /// The MCP-only commit tools that persist reviewed drafts. Never exposed to the

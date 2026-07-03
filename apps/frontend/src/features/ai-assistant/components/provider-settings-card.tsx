@@ -129,7 +129,7 @@ const DATA_ACCESS_OPTIONS = [
   },
 ];
 
-const HIDDEN_DEFAULT_TOOL_IDS = ["get_health_status"];
+const HIDDEN_DEFAULT_TOOL_IDS = ["get_health_status", "create_artifact"];
 const ALL_DATA_ACCESS_TOOL_IDS = [
   ...DATA_ACCESS_OPTIONS.flatMap((option) => option.toolIds),
   ...HIDDEN_DEFAULT_TOOL_IDS,

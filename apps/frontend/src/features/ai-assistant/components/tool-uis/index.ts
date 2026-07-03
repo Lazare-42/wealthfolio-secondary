@@ -14,6 +14,7 @@ import {
   ListAssetTaxonomiesToolUI,
 } from "./asset-taxonomy-read-tool-uis";
 import { CategorizationProposalsToolUI } from "./categorization-proposals-tool-ui";
+import { CreateArtifactToolUI } from "./create-artifact-tool-ui";
 import { CreateCategorizationRuleToolUI } from "./create-categorization-rule-tool-ui";
 import { GoalsToolUI } from "./goals-tool-ui";
 import { HoldingsToolUI } from "./holdings-tool-ui";
@@ -40,6 +41,7 @@ export const toolUIs = {
   get_performance: PerformanceToolUI,
   get_valuation_history: ValuationToolUI,
   import_csv: ImportCsvToolUI,
+  create_artifact: CreateArtifactToolUI,
   create_categorization_rule: CreateCategorizationRuleToolUI,
   list_asset_taxonomies: ListAssetTaxonomiesToolUI,
   list_categorization_context: ListCategorizationContextToolUI,
@@ -58,6 +60,7 @@ export {
   AllocationToolUI,
   AssetClassificationToolUI,
   CategorizationProposalsToolUI,
+  CreateArtifactToolUI,
   CreateCategorizationRuleToolUI,
   GetAssetTaxonomyAssignmentsToolUI,
   GoalsToolUI,

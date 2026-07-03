@@ -888,3 +888,55 @@ export interface CreateCategorizationRuleOutput {
   pattern?: string;
   matchType?: string;
 }
+
+// ============================================================================
+// Create Artifact tool (side-panel documents)
+// ============================================================================
+
+export type ArtifactKind = "report" | "table";
+
+export interface ArtifactColumn {
+  key: string;
+  label: string;
+  align?: "left" | "right" | "center";
+  format?: "currency" | "percent" | "number" | "text";
+  /** ISO currency code for `format: "currency"` cells (e.g. "USD"). */
+  currency?: string;
+}
+
+export interface ArtifactTableData {
+  columns: ArtifactColumn[];
+  rows: Array<Record<string, string | number | null>>;
+}
+
+/** Args the model sends; the document content lives here (read by the panel). */
+export interface CreateArtifactArgs {
+  title: string;
+  kind: ArtifactKind;
+  artifactId?: string;
+  summary?: string;
+  markdown?: string;
+  table?: ArtifactTableData;
+}
+
+/** Minimal confirmation returned by the backend tool. */
+export interface CreateArtifactOutput {
+  artifactId?: string;
+  kind?: ArtifactKind;
+  title?: string;
+  status?: string;
+  message?: string;
+}
+
+/** Normalized artifact held in the panel store. */
+export interface Artifact {
+  /** Stable key: args.artifactId slug, else the tool call id. */
+  id: string;
+  toolCallId: string;
+  threadId: string;
+  kind: ArtifactKind;
+  title: string;
+  summary?: string;
+  markdown?: string;
+  table?: ArtifactTableData;
+}
