@@ -72,12 +72,14 @@ impl HoldingsCalculator {
         )?;
 
         // Add lot: quantity = principal, unit_price = face value (typically 1.0),
-        // fee = origination fees.
+        // fee = origination fees, tax = origination taxes.
+        let charges = activity.fee_amt() + activity.tax_amt();
         let _cost_basis = position.add_lot_values(
             activity.id.clone(),
             lot_quantity,
             lot_unit_price,
             activity.fee_amt(),
+            activity.tax_amt(),
             activity.activity_date,
             None,
             Some(activity.id.clone()),
@@ -85,11 +87,11 @@ impl HoldingsCalculator {
         )?;
 
         if is_liability {
-            // Borrowing: receive net proceeds = principal - origination fees.
-            add_cash(state, activity_currency, principal - activity.fee_amt());
+            // Borrowing: receive net proceeds = principal - origination charges.
+            add_cash(state, activity_currency, principal - charges);
         } else {
-            // Lending out (credit I issue): disburse principal plus any fee I pay.
-            add_cash(state, activity_currency, -(principal + activity.fee_amt()));
+            // Lending out (credit I issue): disburse principal plus any charges I pay.
+            add_cash(state, activity_currency, -(principal + charges));
         }
 
         Ok(())
@@ -132,8 +134,8 @@ impl HoldingsCalculator {
             (qty_price, activity.qty())
         };
 
-        // Total payment = principal portion + interest (fee).
-        let total_payment = principal + activity.fee_amt();
+        // Total payment = principal portion + interest (fee) + taxes.
+        let total_payment = principal + activity.fee_amt() + activity.tax_amt();
         if is_liability {
             // Repaying my debt: cash outflow.
             add_cash(state, activity_currency, -total_payment);
