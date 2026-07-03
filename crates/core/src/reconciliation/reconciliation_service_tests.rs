@@ -26,6 +26,7 @@ fn make_activity(id: &str, date: &str, amount: Decimal, currency: &str) -> Activ
         unit_price: None,
         amount: Some(amount),
         fee: None,
+        tax: None,
         currency: currency.to_string(),
         fx_rate: None,
         notes: None,
