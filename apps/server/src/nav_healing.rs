@@ -38,12 +38,10 @@ use serde::Deserialize;
 use tracing::{error, info, warn};
 
 use wealthfolio_core::portfolio::{snapshot::SnapshotRecalcMode, valuation::ValuationRecalcMode};
-use wealthfolio_core::quotes::{MarketSyncMode, Quote};
+use wealthfolio_core::quotes::{MarketSyncMode, Quote, DATA_SOURCE_MANUAL};
 
 use crate::api::shared::{enqueue_portfolio_job, PortfolioJobConfig};
 use crate::main_lib::AppState;
-
-const MANUAL_SOURCE: &str = "MANUAL";
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -258,7 +256,7 @@ async fn process_file(state: &AppState, path: &Path) -> Result<usize, String> {
             adjclose: price.nav,
             volume: Decimal::ZERO,
             currency,
-            data_source: MANUAL_SOURCE.to_string(),
+            data_source: DATA_SOURCE_MANUAL.to_string(),
             created_at: Utc::now(),
             notes: Some(format!("NAV healing from {source}")),
         };
