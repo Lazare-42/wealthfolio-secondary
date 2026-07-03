@@ -20,8 +20,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const SCENARIO_ADDON_ROUTE = "/addon/scenario-addon";
-
 // Predefined benchmarks with canonical asset IDs
 // exchangeMic is undefined for indices (will use "INDEX" as pseudo-MIC)
 // exchangeMic is set for ETFs that trade on real exchanges
@@ -363,7 +361,7 @@ export function BenchmarkSymbolSelector({
             type="button"
             onClick={() => {
               setOpen(false);
-              navigate(SCENARIO_ADDON_ROUTE);
+              navigate("/settings/scenarios");
             }}
             className="text-muted-foreground hover:text-foreground border-border/40 flex w-full items-center gap-1.5 border-t px-3 py-2 text-left text-xs"
           >
