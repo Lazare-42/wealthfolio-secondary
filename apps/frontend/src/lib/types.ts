@@ -40,6 +40,7 @@ export {
   ImportFormat,
   isLiabilityAccountType,
   isReportAccountType,
+  LOAN_ACTIVITY_TYPES,
   PricingMode,
   QuoteMode,
   REPORT_ACCOUNT_TYPES,

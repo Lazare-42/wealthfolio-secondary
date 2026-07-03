@@ -96,6 +96,7 @@ impl HoldingsCalculator {
                 let is_alternative = asset.is_alternative();
                 let contract_multiplier = asset.contract_multiplier();
                 let is_bond = asset.is_bond();
+                let is_liability = asset.is_liability();
                 let allows_negative_lots = ShortabilityPolicy::allows_negative_lots(&asset);
                 let requires_explicit_short_intent =
                     ShortabilityPolicy::requires_explicit_short_intent(&asset);
@@ -105,6 +106,7 @@ impl HoldingsCalculator {
                     is_alternative,
                     contract_multiplier,
                     is_bond,
+                    is_liability,
                     allows_negative_lots,
                     requires_explicit_short_intent,
                 })

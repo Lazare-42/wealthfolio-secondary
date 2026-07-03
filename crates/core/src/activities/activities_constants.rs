@@ -50,6 +50,12 @@ pub const ACTIVITY_TYPE_CREDIT: &str = "CREDIT";
 /// Examples: option expire worthless, RoC basis adjustment, merger/spinoff compiler input.
 pub const ACTIVITY_TYPE_ADJUSTMENT: &str = "ADJUSTMENT";
 
+/// Loan origination: creates a liability position. Loan proceeds go to cash, origination fees deducted.
+pub const ACTIVITY_TYPE_LOAN_ORIGINATION: &str = "LOAN_ORIGINATION";
+
+/// Loan payment: reduces a liability. Principal reduces the liability balance, interest recorded as fee.
+pub const ACTIVITY_TYPE_LOAN_PAYMENT: &str = "LOAN_PAYMENT";
+
 /// Unknown or unmapped activity type. Requires user review.
 pub const ACTIVITY_TYPE_UNKNOWN: &str = "UNKNOWN";
 
@@ -70,12 +76,14 @@ pub const PRICE_BEARING_ACTIVITY_TYPES: [&str; 2] = [ACTIVITY_TYPE_BUY, ACTIVITY
 /// Activity types that always require a symbol/asset.
 /// Everything else: symbol is optional (cash-only or dual-use like TRANSFER_IN).
 /// Note: DIVIDEND and ADJUSTMENT are handled separately in classify_import_activity (symbol optional during import).
-pub const SYMBOL_REQUIRED_TYPES: [&str; 5] = [
+pub const SYMBOL_REQUIRED_TYPES: [&str; 7] = [
     ACTIVITY_TYPE_BUY,
     ACTIVITY_TYPE_SELL,
     ACTIVITY_TYPE_SPLIT,
     ACTIVITY_TYPE_DIVIDEND,
     ACTIVITY_TYPE_ADJUSTMENT,
+    ACTIVITY_TYPE_LOAN_ORIGINATION,
+    ACTIVITY_TYPE_LOAN_PAYMENT,
 ];
 
 /// Returns true when the activity type always requires a symbol/asset.
@@ -300,6 +308,8 @@ mod tests {
         assert!(requires_symbol(ACTIVITY_TYPE_SPLIT));
         assert!(requires_symbol(ACTIVITY_TYPE_DIVIDEND));
         assert!(requires_symbol(ACTIVITY_TYPE_ADJUSTMENT));
+        assert!(requires_symbol(ACTIVITY_TYPE_LOAN_ORIGINATION));
+        assert!(requires_symbol(ACTIVITY_TYPE_LOAN_PAYMENT));
     }
 
     #[test]
@@ -414,6 +424,26 @@ mod tests {
     fn test_classify_split_always_resolve() {
         assert!(is_resolve(&classify("SPLIT", "AAPL", None, None)));
         assert!(is_resolve(&classify("SPLIT", "", None, None)));
+    }
+
+    #[test]
+    fn test_classify_loan_types_always_resolve() {
+        // Loan activities always need their LIAB: asset; a blank symbol must be
+        // flagged as "Symbol is required" during import validation.
+        assert!(is_resolve(&classify(
+            "LOAN_ORIGINATION",
+            "LIAB:Mortgage",
+            None,
+            None
+        )));
+        assert!(is_resolve(&classify("LOAN_ORIGINATION", "", None, None)));
+        assert!(is_resolve(&classify(
+            "LOAN_PAYMENT",
+            "LIAB:Mortgage",
+            None,
+            None
+        )));
+        assert!(is_resolve(&classify("LOAN_PAYMENT", "", None, None)));
     }
 
     #[test]

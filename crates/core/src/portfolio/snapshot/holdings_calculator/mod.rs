@@ -478,6 +478,12 @@ impl HoldingsCalculator {
             ActivityType::Adjustment => {
                 self.handle_adjustment(activity, state, asset_cache, run, buffer)
             }
+            ActivityType::LoanOrigination => {
+                self.handle_loan_origination(activity, state, account_currency, asset_cache)
+            }
+            ActivityType::LoanPayment => {
+                self.handle_loan_payment(activity, state, account_currency, asset_cache)
+            }
             ActivityType::Unknown => {
                 warn!(
                     "Unknown activity type for activity {}. Skipping.",

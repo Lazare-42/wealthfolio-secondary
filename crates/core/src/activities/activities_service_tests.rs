@@ -11002,6 +11002,32 @@ mod tests {
         );
     }
 
+    /// Test: `LIAB:` symbol prefix infers Liability kind so auto-created loan
+    /// assets (LOAN_ORIGINATION / LOAN_PAYMENT imports) are not booked as equities.
+    #[test]
+    fn test_infer_asset_kind_liab_prefix() {
+        let activity_service = ActivityService::new(
+            Arc::new(MockActivityRepository::new()),
+            Arc::new(MockAccountService::new()),
+            Arc::new(MockAssetService::new()),
+            Arc::new(MockFxService::new()),
+            Arc::new(MockQuoteService),
+        );
+
+        let (kind, instrument_type) =
+            activity_service.infer_asset_kind("LIAB:Mortgage", None, None);
+        assert_eq!(kind, AssetKind::Liability);
+        assert!(instrument_type.is_none());
+
+        // Case-insensitive prefix; wins over the exchange-MIC equity heuristic
+        let (kind, _) = activity_service.infer_asset_kind("liab:CarLoan", Some("XNAS"), None);
+        assert_eq!(kind, AssetKind::Liability);
+
+        // Non-LIAB symbols keep the default inference
+        let (kind, _) = activity_service.infer_asset_kind("AAPL", None, None);
+        assert_eq!(kind, AssetKind::Investment);
+    }
+
     // ── Transfer pair sync ──────────────────────────────────────────────────────
 
     #[tokio::test]

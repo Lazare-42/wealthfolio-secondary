@@ -107,6 +107,23 @@ mod tests {
             };
             self.assets.insert(symbol.to_string(), asset);
         }
+
+        /// Add a liability asset (kind = Liability, Manual quotes), mirroring
+        /// the asset auto-created for a `LIAB:` symbol during import.
+        fn add_liability_asset(&mut self, asset_id: &str, currency: &str) {
+            let asset = Asset {
+                id: asset_id.to_string(),
+                display_code: Some(asset_id.to_string()),
+                quote_ccy: currency.to_string(),
+                name: Some(format!("Mock Liability {}", asset_id)),
+                kind: AssetKind::Liability,
+                quote_mode: QuoteMode::Manual,
+                created_at: Utc::now().naive_utc(),
+                updated_at: Utc::now().naive_utc(),
+                ..Default::default()
+            };
+            self.assets.insert(asset_id.to_string(), asset);
+        }
     }
 
     #[async_trait::async_trait]
@@ -8741,5 +8758,141 @@ mod tests {
             !result.snapshot.positions.contains_key("AAPL"),
             "no position should be created"
         );
+    }
+
+    // ── Loan handlers (LOAN_ORIGINATION / LOAN_PAYMENT) ─────────────────────
+
+    fn create_loan_calculator(account_currency: &str) -> CalcHarness {
+        let mut repo = MockAssetRepository::new();
+        repo.add_liability_asset("LIAB:Mortgage:USD", account_currency);
+        CalcHarness::new(HoldingsCalculator::new(
+            Arc::new(MockFxService::new()),
+            Arc::new(RwLock::new(account_currency.to_string())),
+            Arc::new(repo),
+        ))
+    }
+
+    /// Borrower direction: LOAN_ORIGINATION against a liability asset (the kind
+    /// auto-created for a `LIAB:` symbol) must ADD the loan proceeds to cash.
+    #[test]
+    fn test_loan_origination_liability_adds_cash() {
+        let mut calculator = create_loan_calculator("USD");
+        let target_date = NaiveDate::from_str("2024-01-10").unwrap();
+        let previous_snapshot = create_initial_snapshot("acc_1", "USD", "2024-01-09");
+
+        // principal = 1000 * 1.0, origination fee = 10
+        let origination = create_default_activity(
+            "act_loan_orig_1",
+            ActivityType::LoanOrigination,
+            "LIAB:Mortgage:USD",
+            dec!(1000),
+            dec!(1),
+            dec!(10),
+            "USD",
+            "2024-01-10",
+        );
+
+        let result = calculator
+            .calculate_next_holdings(&previous_snapshot, &[origination], target_date)
+            .expect("loan origination should succeed");
+        let next_state = result.snapshot;
+
+        // Borrower receives net proceeds: principal - fee
+        assert_eq!(next_state.cash_balances.get("USD"), Some(&dec!(990)));
+        // Outstanding balance position is created
+        let position = next_state.positions.get("LIAB:Mortgage:USD").unwrap();
+        assert_eq!(position.quantity, dec!(1000));
+        // Borrowing is not a capital contribution
+        assert_eq!(next_state.net_contribution, dec!(0));
+    }
+
+    /// Amount-only imported rows (no quantity/unit price) must fall back to the
+    /// activity amount for the principal instead of booking a zero-value lot.
+    #[test]
+    fn test_loan_origination_amount_only_uses_activity_amount() {
+        let mut calculator = create_loan_calculator("USD");
+        let target_date = NaiveDate::from_str("2024-01-10").unwrap();
+        let previous_snapshot = create_initial_snapshot("acc_1", "USD", "2024-01-09");
+
+        let mut origination = create_default_activity(
+            "act_loan_orig_amount_only",
+            ActivityType::LoanOrigination,
+            "LIAB:Mortgage:USD",
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Decimal::ZERO,
+            "USD",
+            "2024-01-10",
+        );
+        origination.quantity = None;
+        origination.unit_price = None;
+        origination.amount = Some(dec!(250000));
+
+        let result = calculator
+            .calculate_next_holdings(&previous_snapshot, &[origination], target_date)
+            .expect("amount-only loan origination should succeed");
+        let next_state = result.snapshot;
+
+        assert_eq!(next_state.cash_balances.get("USD"), Some(&dec!(250000)));
+        let position = next_state.positions.get("LIAB:Mortgage:USD").unwrap();
+        assert_eq!(position.quantity, dec!(250000));
+        assert_eq!(next_state.net_contribution, dec!(0));
+    }
+
+    /// Amount-only LOAN_PAYMENT reduces the outstanding balance by the amount
+    /// (principal portion) and books principal + interest (fee) out of cash.
+    #[test]
+    fn test_loan_payment_amount_only_reduces_position_and_cash() {
+        let mut calculator = create_loan_calculator("USD");
+        let previous_snapshot = create_initial_snapshot("acc_1", "USD", "2024-01-09");
+
+        let origination = create_default_activity(
+            "act_loan_orig_2",
+            ActivityType::LoanOrigination,
+            "LIAB:Mortgage:USD",
+            dec!(1000),
+            dec!(1),
+            Decimal::ZERO,
+            "USD",
+            "2024-01-10",
+        );
+        let after_origination = calculator
+            .calculate_next_holdings(
+                &previous_snapshot,
+                &[origination],
+                NaiveDate::from_str("2024-01-10").unwrap(),
+            )
+            .expect("loan origination should succeed")
+            .snapshot;
+
+        // Payment: 200 principal (amount-only) + 50 interest (fee)
+        let mut payment = create_default_activity(
+            "act_loan_payment_amount_only",
+            ActivityType::LoanPayment,
+            "LIAB:Mortgage:USD",
+            Decimal::ZERO,
+            Decimal::ZERO,
+            dec!(50),
+            "USD",
+            "2024-02-10",
+        );
+        payment.quantity = None;
+        payment.unit_price = None;
+        payment.amount = Some(dec!(200));
+
+        let result = calculator
+            .calculate_next_holdings(
+                &after_origination,
+                &[payment],
+                NaiveDate::from_str("2024-02-10").unwrap(),
+            )
+            .expect("amount-only loan payment should succeed")
+            .snapshot;
+
+        // 1000 proceeds - (200 principal + 50 interest)
+        assert_eq!(result.cash_balances.get("USD"), Some(&dec!(750)));
+        let position = result.positions.get("LIAB:Mortgage:USD").unwrap();
+        assert_eq!(position.quantity, dec!(800));
+        assert_eq!(result.net_contribution, dec!(0));
     }
 }

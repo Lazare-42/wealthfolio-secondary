@@ -1560,7 +1560,7 @@ impl ActivityService {
 
     /// Infers the asset kind and instrument type from symbol, exchange, and input values.
     /// Returns (AssetKind, Option<InstrumentType>).
-    fn infer_asset_kind(
+    pub(super) fn infer_asset_kind(
         &self,
         symbol: &str,
         exchange_mic: Option<&str>,
@@ -1590,9 +1590,16 @@ impl ActivityService {
             }
         }
 
+        // 1b. `LIAB:` symbol prefix marks a loan/liability asset (e.g. "LIAB:Mortgage")
+        //     so LOAN_ORIGINATION / LOAN_PAYMENT auto-created assets get
+        //     AssetKind::Liability instead of defaulting to an equity.
+        let upper_symbol = symbol.to_uppercase();
+        if upper_symbol.starts_with("LIAB:") {
+            return (AssetKind::Liability, None);
+        }
+
         // 2. Crypto pair pattern (e.g., BTC-USD, ETH-CAD) — checked before
         //    exchange_mic because brokers may attach their MIC to crypto pairs
-        let upper_symbol = symbol.to_uppercase();
         if let Some((_base, quote)) = upper_symbol.rsplit_once('-') {
             let quote = quote.trim();
             let crypto_quotes = [

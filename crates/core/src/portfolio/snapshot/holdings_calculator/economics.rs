@@ -27,6 +27,7 @@ pub(crate) struct AssetPositionInfo {
     pub(crate) is_alternative: bool,
     pub(crate) contract_multiplier: Decimal,
     pub(crate) is_bond: bool,
+    pub(crate) is_liability: bool,
     pub(crate) allows_negative_lots: bool,
     pub(crate) requires_explicit_short_intent: bool,
 }
@@ -40,6 +41,7 @@ impl AssetPositionInfo {
             is_alternative: false,
             contract_multiplier: Decimal::ONE,
             is_bond: false,
+            is_liability: false,
             allows_negative_lots: false,
             requires_explicit_short_intent: false,
         }
