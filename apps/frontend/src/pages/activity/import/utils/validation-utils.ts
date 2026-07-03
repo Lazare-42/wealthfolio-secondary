@@ -212,6 +212,26 @@ interface ActivityLogicConfig {
   calculateFee: FeeCalculator;
 }
 
+// Shared logic for LOAN_ORIGINATION / LOAN_PAYMENT:
+// amount = principal (|quantity| * |unitPrice|), fallback to |amount|;
+// fee = origination fees (origination) / interest portion (payment).
+const loanActivityLogic: ActivityLogicConfig = {
+  calculateSymbol: (activity) => activity.symbol, // Keep LIAB:xxx symbol
+  calculateAmount: (activity) => {
+    const qty = toNum(activity.quantity);
+    const price = toNum(activity.unitPrice);
+    if (qty && Math.abs(qty) > 0 && price && Math.abs(price) > 0) {
+      return Math.abs(qty) * Math.abs(price);
+    }
+    const amt = toNum(activity.amount);
+    return amt ? Math.abs(amt) : amt;
+  },
+  calculateFee: (activity) => {
+    const f = toNum(activity.fee);
+    return f ? Math.abs(f) : 0;
+  },
+};
+
 // Create the configuration map
 const activityLogicMap: Partial<Record<ActivityType, ActivityLogicConfig>> = {
   [ActivityType.BUY]: {
@@ -386,40 +406,8 @@ const activityLogicMap: Partial<Record<ActivityType, ActivityLogicConfig>> = {
       return f ? Math.abs(f) : 0;
     },
   },
-  [ActivityType.LOAN_ORIGINATION]: {
-    calculateSymbol: (activity) => activity.symbol, // Keep LIAB:xxx symbol
-    calculateAmount: (activity) => {
-      // Amount = principal (|quantity| * |unitPrice|), fallback to |amount|
-      const qty = toNum(activity.quantity);
-      const price = toNum(activity.unitPrice);
-      if (qty && Math.abs(qty) > 0 && price && Math.abs(price) > 0) {
-        return Math.abs(qty) * Math.abs(price);
-      }
-      const amt = toNum(activity.amount);
-      return amt ? Math.abs(amt) : amt;
-    },
-    calculateFee: (activity) => {
-      const f = toNum(activity.fee); // Origination fees
-      return f ? Math.abs(f) : 0;
-    },
-  },
-  [ActivityType.LOAN_PAYMENT]: {
-    calculateSymbol: (activity) => activity.symbol, // Keep LIAB:xxx symbol
-    calculateAmount: (activity) => {
-      // Amount = principal portion (|quantity| * |unitPrice|), fallback to |amount|
-      const qty = toNum(activity.quantity);
-      const price = toNum(activity.unitPrice);
-      if (qty && Math.abs(qty) > 0 && price && Math.abs(price) > 0) {
-        return Math.abs(qty) * Math.abs(price);
-      }
-      const amt = toNum(activity.amount);
-      return amt ? Math.abs(amt) : amt;
-    },
-    calculateFee: (activity) => {
-      const f = toNum(activity.fee); // Interest portion
-      return f ? Math.abs(f) : 0;
-    },
-  },
+  [ActivityType.LOAN_ORIGINATION]: loanActivityLogic,
+  [ActivityType.LOAN_PAYMENT]: loanActivityLogic,
 };
 
 // Default logic if type-specific logic isn't found
