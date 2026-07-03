@@ -7,9 +7,11 @@ mod email_order_import;
 mod error;
 mod events;
 mod features;
+mod inbox_fs;
 mod main_lib;
 mod mcp;
 mod models;
+mod nav_healing;
 mod oidc;
 mod pdf_import;
 mod scheduler;
@@ -136,6 +138,10 @@ async fn main() -> anyhow::Result<()> {
         state.data_root.clone(),
         state.activity_service.clone(),
     );
+
+    // Start NAV healing watcher (polls nav-inbox/ every 30s) — refreshes
+    // manually-priced holdings from bank-statement NAVs.
+    nav_healing::start_nav_healing_watcher(state.clone());
 
     let static_dir = std::path::PathBuf::from(&config.static_dir);
     let index_file = static_dir.join("index.html");

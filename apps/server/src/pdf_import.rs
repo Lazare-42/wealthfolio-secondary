@@ -10,6 +10,8 @@ use tracing::{error, info, warn};
 use wealthfolio_ai::pdf_parser::{PdfTransaction, PdfTransactionParserTrait};
 use wealthfolio_ai::provider_service::AiProviderServiceTrait;
 
+use crate::inbox_fs::move_file;
+
 // ============================================================================
 // Models
 // ============================================================================
@@ -59,6 +61,7 @@ struct StagingEntry {
 
 const STAGING_EXPIRY: Duration = Duration::from_secs(3600); // 1 hour
 
+#[derive(Default)]
 pub struct StagingStore {
     entries: RwLock<HashMap<String, StagingEntry>>,
 }
@@ -325,12 +328,6 @@ fn is_pdf(path: &Path) -> bool {
     path.extension()
         .map(|ext| ext.eq_ignore_ascii_case("pdf"))
         .unwrap_or(false)
-}
-
-async fn move_file(from: &Path, to: &Path) {
-    if let Err(e) = tokio::fs::rename(from, to).await {
-        warn!("Failed to move {:?} -> {:?}: {}", from, to, e);
-    }
 }
 
 fn sidecar_path_for_pdf(path: &Path) -> PathBuf {
