@@ -10,6 +10,7 @@ use serde::Deserialize;
 use wealthfolio_core::provenance::ChatSourceEmail;
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct EmailQuery {
     #[serde(default)]
     thread_id: Option<String>,

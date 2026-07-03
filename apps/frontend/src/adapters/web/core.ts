@@ -527,7 +527,7 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
     case "list_source_emails": {
       const { threadId, limit } = (payload ?? {}) as { threadId?: string; limit?: number };
       const params = new URLSearchParams();
-      if (threadId) params.set("thread_id", threadId);
+      if (threadId) params.set("threadId", threadId);
       if (limit != null) params.set("limit", String(limit));
       const qs = params.toString();
       if (qs) url += `?${qs}`;
