@@ -1408,7 +1408,8 @@ export default function PerformancePage() {
                         isPlotted={plotState.isPlotted}
                         plotReason={plotState.reason}
                         contextLabel={
-                          selectedChartMetric === "valueReturn" && item.type === "symbol"
+                          selectedChartMetric === "valueReturn" &&
+                          (item.type === "symbol" || item.type === "scenario")
                             ? "Reference"
                             : undefined
                         }
@@ -1474,7 +1475,8 @@ export default function PerformancePage() {
                           isPlotted={plotState.isPlotted}
                           plotReason={plotState.reason}
                           contextLabel={
-                            selectedChartMetric === "valueReturn" && item.type === "symbol"
+                            selectedChartMetric === "valueReturn" &&
+                            (item.type === "symbol" || item.type === "scenario")
                               ? "Reference"
                               : undefined
                           }
