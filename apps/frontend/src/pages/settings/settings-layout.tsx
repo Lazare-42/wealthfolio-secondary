@@ -73,6 +73,12 @@ const settingsSections = [
         icon: <Icons.Blocks className="size-5" />,
       },
       {
+        title: "Import Sources",
+        href: "import-sources",
+        subtitle: "Source emails saved by AI imports",
+        icon: <Icons.Mail className="size-5" />,
+      },
+      {
         title: "Backup & Export",
         href: "exports",
         subtitle: "Backups and data exports",
