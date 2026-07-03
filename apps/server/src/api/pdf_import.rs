@@ -108,6 +108,7 @@ async fn check_staged(
             fee: t
                 .fee
                 .map(|f| rust_decimal::Decimal::from_f64_retain(f).unwrap_or_default()),
+            tax: None,
             amount: Some(rust_decimal::Decimal::from_f64_retain(t.amount).unwrap_or_default()),
             comment: Some(t.description.clone()),
             provider_id: None,
