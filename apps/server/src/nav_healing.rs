@@ -258,7 +258,8 @@ async fn process_file(state: &AppState, index: &AssetIndex, path: &Path) -> Resu
             .unwrap_or(asset_ccy);
 
         // `update_quote` regenerates the deterministic MANUAL id ({asset_id}-{day})
-        // and deletes any provider row for that day, so re-healing is idempotent.
+        // and upserts that row, so re-healing the same day is idempotent.
+        // Provider rows for the same day are left untouched.
         let quote = Quote {
             id: String::new(),
             asset_id: asset_id.clone(),

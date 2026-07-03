@@ -61,8 +61,9 @@ asset's `quote_ccy`. Unmatched / non-positive / bad-date prices are skipped with
 a warning; a file with zero applied NAVs goes to `nav-failed/`.
 
 Quotes are written with `data_source = MANUAL`; `update_quote` regenerates the
-deterministic id `{asset_id}-{YYYY-MM-DD}` and deletes any provider row for that
-day, so re-dropping the same statement is a no-op.
+deterministic id `{asset_id}-{YYYY-MM-DD}` and upserts that row, so re-dropping
+the same statement is a no-op. Provider rows for the same day are left
+untouched.
 
 ## Producer
 
