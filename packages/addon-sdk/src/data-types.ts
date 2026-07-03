@@ -3,7 +3,7 @@
  * These types mirror the main application types to ensure compatibility
  */
 
-// Canonical activity types (closed set of 14)
+// Canonical activity types (closed set of 16)
 export const ActivityType = {
   BUY: 'BUY',
   SELL: 'SELL',
@@ -18,6 +18,8 @@ export const ActivityType = {
   TAX: 'TAX',
   CREDIT: 'CREDIT',
   ADJUSTMENT: 'ADJUSTMENT',
+  LOAN_ORIGINATION: 'LOAN_ORIGINATION',
+  LOAN_PAYMENT: 'LOAN_PAYMENT',
   UNKNOWN: 'UNKNOWN',
 } as const;
 
@@ -38,6 +40,8 @@ export const ACTIVITY_TYPES = [
   'TAX',
   'CREDIT',
   'ADJUSTMENT',
+  'LOAN_ORIGINATION',
+  'LOAN_PAYMENT',
   'UNKNOWN',
 ] as const;
 
