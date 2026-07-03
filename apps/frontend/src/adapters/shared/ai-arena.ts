@@ -32,41 +32,11 @@ export const createArenaAgent = async (agent: CreateArenaAgentRequest): Promise<
   }
 };
 
-export const updateArenaAgent = async (
-  agentId: string,
-  agent: CreateArenaAgentRequest,
-): Promise<ArenaAgent> => {
-  try {
-    return await invoke<ArenaAgent>("update_arena_agent", { agentId, agent });
-  } catch (error) {
-    logger.error("Error updating arena agent.");
-    throw error;
-  }
-};
-
-export const deleteArenaAgent = async (agentId: string): Promise<void> => {
-  try {
-    await invoke<void>("delete_arena_agent", { agentId });
-  } catch (error) {
-    logger.error("Error deleting arena agent.");
-    throw error;
-  }
-};
-
 export const getArenaChallenges = async (): Promise<ArenaChallenge[]> => {
   try {
     return await invoke<ArenaChallenge[]>("get_arena_challenges");
   } catch (error) {
     logger.error("Error fetching arena challenges.");
-    throw error;
-  }
-};
-
-export const getArenaChallenge = async (challengeId: string): Promise<ArenaChallenge> => {
-  try {
-    return await invoke<ArenaChallenge>("get_arena_challenge", { challengeId });
-  } catch (error) {
-    logger.error("Error fetching arena challenge.");
     throw error;
   }
 };

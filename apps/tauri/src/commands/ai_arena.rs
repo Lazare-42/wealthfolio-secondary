@@ -32,31 +32,6 @@ pub async fn create_arena_agent(
 }
 
 #[tauri::command]
-pub async fn update_arena_agent(
-    agent_id: String,
-    agent: CreateArenaAgentRequest,
-    state: State<'_, Arc<ServiceContext>>,
-) -> Result<ArenaAgent, String> {
-    state
-        .ai_arena_service()
-        .update_agent(&agent_id, agent)
-        .await
-        .map_err(|e| format!("Failed to update arena agent: {}", e))
-}
-
-#[tauri::command]
-pub async fn delete_arena_agent(
-    agent_id: String,
-    state: State<'_, Arc<ServiceContext>>,
-) -> Result<(), String> {
-    state
-        .ai_arena_service()
-        .delete_agent(&agent_id)
-        .await
-        .map_err(|e| format!("Failed to delete arena agent: {}", e))
-}
-
-#[tauri::command]
 pub async fn get_arena_challenges(
     state: State<'_, Arc<ServiceContext>>,
 ) -> Result<Vec<ArenaChallenge>, String> {
@@ -64,17 +39,6 @@ pub async fn get_arena_challenges(
         .ai_arena_service()
         .list_challenges()
         .map_err(|e| format!("Failed to load arena challenges: {}", e))
-}
-
-#[tauri::command]
-pub async fn get_arena_challenge(
-    challenge_id: String,
-    state: State<'_, Arc<ServiceContext>>,
-) -> Result<ArenaChallenge, String> {
-    state
-        .ai_arena_service()
-        .get_challenge(&challenge_id)
-        .map_err(|e| format!("Failed to load arena challenge: {}", e))
 }
 
 #[tauri::command]

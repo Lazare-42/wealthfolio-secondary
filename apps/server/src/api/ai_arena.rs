@@ -3,7 +3,6 @@ use std::sync::Arc;
 use crate::{error::ApiResult, main_lib::AppState};
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
     routing::get,
     Json, Router,
 };
@@ -33,35 +32,10 @@ async fn create_agent(
     Ok(Json(state.ai_arena_service.create_agent(payload).await?))
 }
 
-async fn update_agent(
-    Path(id): Path<String>,
-    State(state): State<Arc<AppState>>,
-    Json(payload): Json<CreateArenaAgentRequest>,
-) -> ApiResult<Json<ArenaAgent>> {
-    Ok(Json(
-        state.ai_arena_service.update_agent(&id, payload).await?,
-    ))
-}
-
-async fn delete_agent(
-    Path(id): Path<String>,
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<StatusCode> {
-    state.ai_arena_service.delete_agent(&id).await?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
 async fn list_challenges(
     State(state): State<Arc<AppState>>,
 ) -> ApiResult<Json<Vec<ArenaChallenge>>> {
     Ok(Json(state.ai_arena_service.list_challenges()?))
-}
-
-async fn get_challenge(
-    Path(id): Path<String>,
-    State(state): State<Arc<AppState>>,
-) -> ApiResult<Json<ArenaChallenge>> {
-    Ok(Json(state.ai_arena_service.get_challenge(&id)?))
 }
 
 async fn create_challenge(
@@ -178,14 +152,9 @@ pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/ai-arena/agents", get(list_agents).post(create_agent))
         .route(
-            "/ai-arena/agents/{id}",
-            axum::routing::put(update_agent).delete(delete_agent),
-        )
-        .route(
             "/ai-arena/challenges",
             get(list_challenges).post(create_challenge),
         )
-        .route("/ai-arena/challenges/{id}", get(get_challenge))
         .route(
             "/ai-arena/challenges/{challenge_id}/participants",
             get(list_participants),

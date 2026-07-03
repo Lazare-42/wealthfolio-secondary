@@ -42,10 +42,7 @@ export const COMMANDS: CommandMap = {
   delete_scenario_entry: { method: "DELETE", path: "/scenarios" },
   get_arena_agents: { method: "GET", path: "/ai-arena/agents" },
   create_arena_agent: { method: "POST", path: "/ai-arena/agents" },
-  update_arena_agent: { method: "PUT", path: "/ai-arena/agents" },
-  delete_arena_agent: { method: "DELETE", path: "/ai-arena/agents" },
   get_arena_challenges: { method: "GET", path: "/ai-arena/challenges" },
-  get_arena_challenge: { method: "GET", path: "/ai-arena/challenges" },
   create_arena_challenge: { method: "POST", path: "/ai-arena/challenges" },
   join_arena_challenge: { method: "POST", path: "/ai-arena/challenges" },
   get_arena_participants: { method: "GET", path: "/ai-arena/challenges" },
@@ -548,25 +545,6 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
     case "create_arena_agent": {
       const { agent } = payload as { agent: Record<string, unknown> };
       body = JSON.stringify(agent);
-      break;
-    }
-    case "update_arena_agent": {
-      const { agentId, agent } = payload as {
-        agentId: string;
-        agent: Record<string, unknown>;
-      };
-      url += `/${encodeURIComponent(agentId)}`;
-      body = JSON.stringify(agent);
-      break;
-    }
-    case "delete_arena_agent": {
-      const { agentId } = payload as { agentId: string };
-      url += `/${encodeURIComponent(agentId)}`;
-      break;
-    }
-    case "get_arena_challenge": {
-      const { challengeId } = payload as { challengeId: string };
-      url += `/${encodeURIComponent(challengeId)}`;
       break;
     }
     case "create_arena_challenge": {

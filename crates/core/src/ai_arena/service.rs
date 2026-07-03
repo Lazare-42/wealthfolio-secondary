@@ -645,21 +645,6 @@ impl AiArenaServiceTrait for AiArenaService {
         self.repository.create_agent(ArenaAgent::new(input)).await
     }
 
-    async fn update_agent(&self, id: &str, input: CreateArenaAgentRequest) -> Result<ArenaAgent> {
-        Self::validate_agent_input(&input)?;
-        let existing = self.repository.get_agent(id)?;
-        let mut updated = ArenaAgent::new(input);
-        updated.id = existing.id;
-        updated.created_at = existing.created_at;
-        updated.updated_at = now_string();
-        self.repository.update_agent(updated).await
-    }
-
-    async fn delete_agent(&self, id: &str) -> Result<()> {
-        self.repository.delete_agent(id).await?;
-        Ok(())
-    }
-
     fn get_agent(&self, id: &str) -> Result<ArenaAgent> {
         self.repository.get_agent(id)
     }
@@ -673,10 +658,6 @@ impl AiArenaServiceTrait for AiArenaService {
         self.repository
             .create_challenge(ArenaChallenge::new(input))
             .await
-    }
-
-    fn get_challenge(&self, id: &str) -> Result<ArenaChallenge> {
-        self.repository.get_challenge(id)
     }
 
     fn list_challenges(&self) -> Result<Vec<ArenaChallenge>> {

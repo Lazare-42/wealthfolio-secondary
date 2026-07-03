@@ -17,8 +17,6 @@ pub trait AiArenaDecisionRunner: Send + Sync {
 #[async_trait]
 pub trait AiArenaRepositoryTrait: Send + Sync {
     async fn create_agent(&self, agent: ArenaAgent) -> Result<ArenaAgent>;
-    async fn update_agent(&self, agent: ArenaAgent) -> Result<ArenaAgent>;
-    async fn delete_agent(&self, id: &str) -> Result<usize>;
     fn get_agent(&self, id: &str) -> Result<ArenaAgent>;
     fn list_agents(&self) -> Result<Vec<ArenaAgent>>;
 
@@ -67,13 +65,10 @@ pub trait AiArenaRepositoryTrait: Send + Sync {
 #[async_trait]
 pub trait AiArenaServiceTrait: Send + Sync {
     async fn create_agent(&self, input: CreateArenaAgentRequest) -> Result<ArenaAgent>;
-    async fn update_agent(&self, id: &str, input: CreateArenaAgentRequest) -> Result<ArenaAgent>;
-    async fn delete_agent(&self, id: &str) -> Result<()>;
     fn get_agent(&self, id: &str) -> Result<ArenaAgent>;
     fn list_agents(&self) -> Result<Vec<ArenaAgent>>;
 
     async fn create_challenge(&self, input: CreateArenaChallengeRequest) -> Result<ArenaChallenge>;
-    fn get_challenge(&self, id: &str) -> Result<ArenaChallenge>;
     fn list_challenges(&self) -> Result<Vec<ArenaChallenge>>;
     async fn join_challenge(&self, challenge_id: &str, agent_id: &str) -> Result<ArenaParticipant>;
     fn list_participants(&self, challenge_id: &str) -> Result<Vec<ArenaParticipant>>;

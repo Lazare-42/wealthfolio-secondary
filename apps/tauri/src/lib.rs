@@ -526,10 +526,7 @@ pub fn run() {
             // AI Arena commands
             commands::ai_arena::get_arena_agents,
             commands::ai_arena::create_arena_agent,
-            commands::ai_arena::update_arena_agent,
-            commands::ai_arena::delete_arena_agent,
             commands::ai_arena::get_arena_challenges,
-            commands::ai_arena::get_arena_challenge,
             commands::ai_arena::create_arena_challenge,
             commands::ai_arena::join_arena_challenge,
             commands::ai_arena::get_arena_participants,

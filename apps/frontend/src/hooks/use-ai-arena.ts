@@ -2,7 +2,6 @@ import {
   createArenaAgent,
   createArenaChallenge,
   createCompanyThesis,
-  deleteArenaAgent,
   getArenaAgents,
   getArenaChallenges,
   getArenaLeaderboard,
@@ -15,7 +14,6 @@ import {
   runArenaAgent,
   runDueArenaAgents,
   settleArenaChallenge,
-  updateArenaAgent,
 } from "@/adapters";
 import { QueryKeys } from "@/lib/query-keys";
 import type {
@@ -115,26 +113,6 @@ export function useAiArenaMutations() {
     onError: () => toast.error("Failed to create agent."),
   });
 
-  const updateAgentMutation = useMutation({
-    mutationFn: (input: { agentId: string; agent: CreateArenaAgentRequest }) =>
-      updateArenaAgent(input.agentId, input.agent),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.AI_ARENA_AGENTS] });
-      toast.success("Agent updated.");
-    },
-    onError: () => toast.error("Failed to update agent."),
-  });
-
-  const deleteAgentMutation = useMutation({
-    mutationFn: (agentId: string) => deleteArenaAgent(agentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.AI_ARENA_AGENTS] });
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.AI_ARENA_PARTICIPANTS] });
-      toast.success("Agent deleted.");
-    },
-    onError: () => toast.error("Failed to delete agent."),
-  });
-
   const createChallengeMutation = useMutation({
     mutationFn: (challenge: CreateArenaChallengeRequest) => createArenaChallenge(challenge),
     onSuccess: () => {
@@ -194,8 +172,6 @@ export function useAiArenaMutations() {
 
   return {
     createAgentMutation,
-    updateAgentMutation,
-    deleteAgentMutation,
     createChallengeMutation,
     joinChallengeMutation,
     runAgentMutation,

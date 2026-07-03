@@ -50,32 +50,6 @@ impl AiArenaRepositoryTrait for AiArenaRepository {
             .await
     }
 
-    async fn update_agent(&self, agent: ArenaAgent) -> Result<ArenaAgent> {
-        let db = ArenaAgentDB::from(agent);
-        let id = db.id.clone();
-        self.writer
-            .exec_tx(move |tx| {
-                diesel::update(arena_agents::table.find(&id))
-                    .set(&db)
-                    .execute(tx.conn())
-                    .map_err(StorageError::from)?;
-                Ok(ArenaAgent::from(db))
-            })
-            .await
-    }
-
-    async fn delete_agent(&self, id: &str) -> Result<usize> {
-        let id = id.to_string();
-        self.writer
-            .exec_tx(move |tx| {
-                diesel::delete(arena_agents::table.find(id))
-                    .execute(tx.conn())
-                    .map_err(StorageError::from)
-                    .map_err(Into::into)
-            })
-            .await
-    }
-
     fn get_agent(&self, id: &str) -> Result<ArenaAgent> {
         let mut conn = get_connection(&self.pool)?;
         let db = arena_agents::table
