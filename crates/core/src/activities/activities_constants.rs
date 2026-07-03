@@ -59,10 +59,6 @@ pub const ACTIVITY_TYPE_LOAN_PAYMENT: &str = "LOAN_PAYMENT";
 /// Unknown or unmapped activity type. Requires user review.
 pub const ACTIVITY_TYPE_UNKNOWN: &str = "UNKNOWN";
 
-/// Loan activity types
-pub const LOAN_ACTIVITY_TYPES: [&str; 2] =
-    [ACTIVITY_TYPE_LOAN_ORIGINATION, ACTIVITY_TYPE_LOAN_PAYMENT];
-
 /// Trading activity types
 pub const TRADING_ACTIVITY_TYPES: [&str; 3] =
     [ACTIVITY_TYPE_BUY, ACTIVITY_TYPE_SELL, ACTIVITY_TYPE_SPLIT];
