@@ -1,11 +1,13 @@
 use chrono::Utc;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
-pub const DEFAULT_ARENA_INITIAL_CASH: f64 = 100_000.0;
-pub const DEFAULT_ARENA_MAX_POSITION_PCT: f64 = 50.0;
-pub const DEFAULT_ARENA_MAX_DRAWDOWN_PCT: f64 = 25.0;
+pub const DEFAULT_ARENA_INITIAL_CASH: Decimal = dec!(100_000);
+pub const DEFAULT_ARENA_MAX_POSITION_PCT: Decimal = dec!(50);
+pub const DEFAULT_ARENA_MAX_DRAWDOWN_PCT: Decimal = dec!(25);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -198,9 +200,9 @@ pub struct ArenaChallenge {
     pub status: ArenaChallengeStatus,
     pub market: String,
     pub scoring_method: ArenaScoringMethod,
-    pub initial_cash: f64,
-    pub max_position_pct: f64,
-    pub max_drawdown_pct: f64,
+    pub initial_cash: Decimal,
+    pub max_position_pct: Decimal,
+    pub max_drawdown_pct: Decimal,
     pub run_cadence: String,
     pub scheduled_time_local: Option<String>,
     pub universe: Vec<String>,
@@ -222,11 +224,11 @@ pub struct CreateArenaChallengeRequest {
     #[serde(default = "default_scoring_method")]
     pub scoring_method: ArenaScoringMethod,
     #[serde(default = "default_initial_cash")]
-    pub initial_cash: f64,
+    pub initial_cash: Decimal,
     #[serde(default = "default_max_position_pct")]
-    pub max_position_pct: f64,
+    pub max_position_pct: Decimal,
     #[serde(default = "default_max_drawdown_pct")]
-    pub max_drawdown_pct: f64,
+    pub max_drawdown_pct: Decimal,
     #[serde(default = "default_run_cadence")]
     pub run_cadence: String,
     #[serde(default)]
@@ -247,7 +249,7 @@ pub struct ArenaParticipant {
     pub agent_id: String,
     pub status: String,
     pub joined_at: String,
-    pub starting_cash: f64,
+    pub starting_cash: Decimal,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -290,9 +292,9 @@ pub struct ArenaTrade {
     pub run_id: Option<String>,
     pub symbol: String,
     pub side: ArenaTradeSide,
-    pub quantity: f64,
-    pub price: f64,
-    pub notional: f64,
+    pub quantity: Decimal,
+    pub price: Decimal,
+    pub notional: Decimal,
     pub status: ArenaTradeStatus,
     pub rationale: Option<String>,
     pub rejection_reason: Option<String>,
@@ -304,18 +306,18 @@ pub struct ArenaTrade {
 #[serde(rename_all = "camelCase")]
 pub struct ArenaPosition {
     pub symbol: String,
-    pub quantity: f64,
-    pub avg_entry_price: f64,
-    pub current_price: f64,
-    pub market_value: f64,
-    pub unrealized_pnl_pct: f64,
+    pub quantity: Decimal,
+    pub avg_entry_price: Decimal,
+    pub current_price: Decimal,
+    pub market_value: Decimal,
+    pub unrealized_pnl_pct: Decimal,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ArenaEquityPoint {
     pub date: String,
-    pub value: f64,
+    pub value: Decimal,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -324,10 +326,10 @@ pub struct ArenaPortfolio {
     pub participant: ArenaParticipant,
     pub agent: ArenaAgent,
     pub challenge: ArenaChallenge,
-    pub cash: f64,
-    pub total_value: f64,
-    pub return_pct: f64,
-    pub max_drawdown_pct: f64,
+    pub cash: Decimal,
+    pub total_value: Decimal,
+    pub return_pct: Decimal,
+    pub max_drawdown_pct: Decimal,
     pub trade_count: usize,
     pub positions: Vec<ArenaPosition>,
     pub equity_curve: Vec<ArenaEquityPoint>,
@@ -341,10 +343,10 @@ pub struct ArenaSnapshot {
     pub challenge_id: String,
     pub participant_id: String,
     pub snapshot_date: String,
-    pub total_value: f64,
-    pub cash: f64,
-    pub return_pct: f64,
-    pub max_drawdown_pct: f64,
+    pub total_value: Decimal,
+    pub cash: Decimal,
+    pub return_pct: Decimal,
+    pub max_drawdown_pct: Decimal,
     pub positions: Vec<ArenaPosition>,
     pub equity_curve: Vec<ArenaEquityPoint>,
     pub created_at: String,
@@ -357,12 +359,12 @@ pub struct ArenaLeaderboardEntry {
     pub participant_id: String,
     pub agent_id: String,
     pub agent_name: String,
-    pub total_value: f64,
-    pub cash: f64,
-    pub return_pct: f64,
-    pub max_drawdown_pct: f64,
-    pub risk_adjusted_score: f64,
-    pub final_score: Option<f64>,
+    pub total_value: Decimal,
+    pub cash: Decimal,
+    pub return_pct: Decimal,
+    pub max_drawdown_pct: Decimal,
+    pub risk_adjusted_score: Decimal,
+    pub final_score: Option<Decimal>,
     pub trade_count: usize,
     pub disqualified_reason: Option<String>,
 }
@@ -380,10 +382,10 @@ pub struct ArenaResult {
     pub id: String,
     pub challenge_id: String,
     pub participant_id: String,
-    pub return_pct: f64,
-    pub max_drawdown_pct: f64,
-    pub risk_adjusted_score: f64,
-    pub final_score: Option<f64>,
+    pub return_pct: Decimal,
+    pub max_drawdown_pct: Decimal,
+    pub risk_adjusted_score: Decimal,
+    pub final_score: Option<Decimal>,
     pub rank: Option<i32>,
     pub trade_count: i32,
     pub disqualified_reason: Option<String>,
@@ -584,9 +586,9 @@ impl ArenaTrade {
         run_id: Option<String>,
         symbol: String,
         side: ArenaTradeSide,
-        quantity: f64,
-        price: f64,
-        notional: f64,
+        quantity: Decimal,
+        price: Decimal,
+        notional: Decimal,
         status: ArenaTradeStatus,
         rationale: Option<String>,
         rejection_reason: Option<String>,
@@ -696,15 +698,15 @@ fn default_scoring_method() -> ArenaScoringMethod {
     ArenaScoringMethod::RiskAdjusted
 }
 
-fn default_initial_cash() -> f64 {
+fn default_initial_cash() -> Decimal {
     DEFAULT_ARENA_INITIAL_CASH
 }
 
-fn default_max_position_pct() -> f64 {
+fn default_max_position_pct() -> Decimal {
     DEFAULT_ARENA_MAX_POSITION_PCT
 }
 
-fn default_max_drawdown_pct() -> f64 {
+fn default_max_drawdown_pct() -> Decimal {
     DEFAULT_ARENA_MAX_DRAWDOWN_PCT
 }
 

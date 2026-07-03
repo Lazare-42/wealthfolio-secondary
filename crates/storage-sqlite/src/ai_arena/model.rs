@@ -1,4 +1,5 @@
 use diesel::prelude::*;
+use rust_decimal::Decimal;
 use serde_json::Value;
 
 use crate::errors::StorageError;
@@ -112,9 +113,9 @@ impl TryFrom<ArenaChallengeDB> for ArenaChallenge {
             status: ArenaChallengeStatus::parse(&value.status),
             market: value.market,
             scoring_method: ArenaScoringMethod::parse(&value.scoring_method),
-            initial_cash: parse_f64(&value.initial_cash)?,
-            max_position_pct: parse_f64(&value.max_position_pct)?,
-            max_drawdown_pct: parse_f64(&value.max_drawdown_pct)?,
+            initial_cash: parse_decimal(&value.initial_cash)?,
+            max_position_pct: parse_decimal(&value.max_position_pct)?,
+            max_drawdown_pct: parse_decimal(&value.max_drawdown_pct)?,
             run_cadence: value.run_cadence,
             scheduled_time_local: value.scheduled_time_local,
             universe: from_json(&value.universe_json)?,
@@ -166,7 +167,7 @@ impl TryFrom<ArenaParticipantDB> for ArenaParticipant {
             agent_id: value.agent_id,
             status: value.status,
             joined_at: value.joined_at,
-            starting_cash: parse_f64(&value.starting_cash)?,
+            starting_cash: parse_decimal(&value.starting_cash)?,
             created_at: value.created_at,
             updated_at: value.updated_at,
         })
@@ -288,9 +289,9 @@ impl TryFrom<ArenaTradeDB> for ArenaTrade {
             run_id: value.run_id,
             symbol: value.symbol,
             side: ArenaTradeSide::parse(&value.side).unwrap_or(ArenaTradeSide::Buy),
-            quantity: parse_f64(&value.quantity)?,
-            price: parse_f64(&value.price)?,
-            notional: parse_f64(&value.notional)?,
+            quantity: parse_decimal(&value.quantity)?,
+            price: parse_decimal(&value.price)?,
+            notional: parse_decimal(&value.notional)?,
             status: ArenaTradeStatus::parse(&value.status),
             rationale: value.rationale,
             rejection_reason: value.rejection_reason,
@@ -346,10 +347,10 @@ impl TryFrom<ArenaSnapshotDB> for ArenaSnapshot {
             challenge_id: value.challenge_id,
             participant_id: value.participant_id,
             snapshot_date: value.snapshot_date,
-            total_value: parse_f64(&value.total_value)?,
-            cash: parse_f64(&value.cash)?,
-            return_pct: parse_f64(&value.return_pct)?,
-            max_drawdown_pct: parse_f64(&value.max_drawdown_pct)?,
+            total_value: parse_decimal(&value.total_value)?,
+            cash: parse_decimal(&value.cash)?,
+            return_pct: parse_decimal(&value.return_pct)?,
+            max_drawdown_pct: parse_decimal(&value.max_drawdown_pct)?,
             positions: from_json(&value.positions_json)?,
             equity_curve: from_json(&value.equity_curve_json)?,
             created_at: value.created_at,
@@ -404,10 +405,10 @@ impl TryFrom<ArenaResultDB> for ArenaResult {
             id: value.id,
             challenge_id: value.challenge_id,
             participant_id: value.participant_id,
-            return_pct: parse_f64(&value.return_pct)?,
-            max_drawdown_pct: parse_f64(&value.max_drawdown_pct)?,
-            risk_adjusted_score: parse_f64(&value.risk_adjusted_score)?,
-            final_score: value.final_score.as_deref().map(parse_f64).transpose()?,
+            return_pct: parse_decimal(&value.return_pct)?,
+            max_drawdown_pct: parse_decimal(&value.max_drawdown_pct)?,
+            risk_adjusted_score: parse_decimal(&value.risk_adjusted_score)?,
+            final_score: value.final_score.as_deref().map(parse_decimal).transpose()?,
             rank: value.rank,
             trade_count: value.trade_count,
             disqualified_reason: value.disqualified_reason,
@@ -486,6 +487,12 @@ fn bool_to_i32(value: bool) -> i32 {
     } else {
         0
     }
+}
+
+fn parse_decimal(value: &str) -> Result<Decimal> {
+    value
+        .parse::<Decimal>()
+        .map_err(|e| Error::from(StorageError::SerializationError(e.to_string())))
 }
 
 fn parse_f64(value: &str) -> Result<f64> {

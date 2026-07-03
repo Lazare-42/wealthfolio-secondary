@@ -3,7 +3,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Local, NaiveDate, NaiveTime, Utc};
-use num_traits::ToPrimitive;
+use rust_decimal::prelude::FromPrimitive;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use serde_json::Value;
 
 use crate::assets::{Asset, AssetServiceTrait, InstrumentType};
@@ -201,17 +203,20 @@ Use at most 5 orders. It is valid to return an empty orders array.",
     ) -> Result<ArenaTrade> {
         let symbol = normalize_symbol(&order.symbol);
         let side = ArenaTradeSide::parse(&order.side);
-        let requested_notional = order.notional.unwrap_or(0.0);
-        let rejected = |reason: String, price: f64| {
+        let raw_notional = order.notional.unwrap_or(0.0);
+        // Decimal cannot represent NaN/inf, so clamp bad model output to zero
+        // for the rejected-trade record.
+        let requested_notional = Decimal::from_f64(raw_notional.max(0.0)).unwrap_or(Decimal::ZERO);
+        let rejected = |reason: String, price: Decimal| {
             Ok(ArenaTrade::new(
                 challenge.id.clone(),
                 participant.id.clone(),
                 Some(run.id.clone()),
                 symbol.clone(),
                 side.unwrap_or(ArenaTradeSide::Buy),
-                0.0,
+                Decimal::ZERO,
                 price,
-                requested_notional.max(0.0),
+                requested_notional,
                 ArenaTradeStatus::Rejected,
                 order.rationale.clone(),
                 Some(reason),
@@ -219,30 +224,36 @@ Use at most 5 orders. It is valid to return an empty orders array.",
         };
 
         if symbol.is_empty() {
-            return rejected("symbol is required".to_string(), 0.0);
+            return rejected("symbol is required".to_string(), Decimal::ZERO);
         }
         let Some(side) = side else {
-            return rejected("side must be buy or sell".to_string(), 0.0);
+            return rejected("side must be buy or sell".to_string(), Decimal::ZERO);
         };
-        if !requested_notional.is_finite() || requested_notional <= 0.0 {
-            return rejected("notional must be a positive number".to_string(), 0.0);
+        if !raw_notional.is_finite() || requested_notional <= Decimal::ZERO {
+            return rejected(
+                "notional must be a positive number".to_string(),
+                Decimal::ZERO,
+            );
         }
         if !challenge.universe.is_empty() && !challenge.universe.iter().any(|s| s == &symbol) {
-            return rejected(format!("{symbol} is outside the challenge universe"), 0.0);
+            return rejected(
+                format!("{symbol} is outside the challenge universe"),
+                Decimal::ZERO,
+            );
         }
 
         let (resolved_symbol, price) = match self.resolve_allowed_price(&symbol).await {
             Ok(value) => value,
-            Err(err) => return rejected(err.to_string(), 0.0),
+            Err(err) => return rejected(err.to_string(), Decimal::ZERO),
         };
-        if price <= 0.0 || !price.is_finite() {
+        if price <= Decimal::ZERO {
             return rejected(format!("No usable price for {resolved_symbol}"), price);
         }
 
         let portfolio = self.build_portfolio(participant).await?;
         match side {
             ArenaTradeSide::Buy => {
-                if requested_notional > portfolio.cash + 0.0001 {
+                if requested_notional > portfolio.cash {
                     return rejected("insufficient cash".to_string(), price);
                 }
                 let existing_value = portfolio
@@ -250,11 +261,11 @@ Use at most 5 orders. It is valid to return an empty orders array.",
                     .iter()
                     .find(|p| p.symbol == resolved_symbol)
                     .map(|p| p.market_value)
-                    .unwrap_or(0.0);
+                    .unwrap_or(Decimal::ZERO);
                 let post_position_pct = ((existing_value + requested_notional)
-                    / portfolio.total_value.max(0.0001))
-                    * 100.0;
-                if post_position_pct > challenge.max_position_pct + 0.0001 {
+                    / portfolio.total_value.max(dec!(0.0001)))
+                    * dec!(100);
+                if post_position_pct > challenge.max_position_pct {
                     return rejected(
                         format!(
                             "position would exceed {:.2}% max position limit",
@@ -287,7 +298,7 @@ Use at most 5 orders. It is valid to return an empty orders array.",
                     return rejected("cannot sell a symbol with no position".to_string(), price);
                 };
                 let holding_value = position.quantity * price;
-                if requested_notional > holding_value + 0.0001 {
+                if requested_notional > holding_value {
                     return rejected(
                         "sell notional exceeds current position value".to_string(),
                         price,
@@ -311,7 +322,7 @@ Use at most 5 orders. It is valid to return an empty orders array.",
         }
     }
 
-    async fn resolve_allowed_price(&self, symbol: &str) -> Result<(String, f64)> {
+    async fn resolve_allowed_price(&self, symbol: &str) -> Result<(String, Decimal)> {
         if let Some(asset) = self.find_local_asset(symbol)? {
             self.validate_asset_allowed(&asset)?;
             let quote = self
@@ -321,8 +332,7 @@ Use at most 5 orders. It is valid to return an empty orders array.",
                     self.quote_service
                         .get_latest_quote(asset.instrument_symbol.as_deref().unwrap_or(symbol))
                 })?;
-            let price = quote.close.to_f64().unwrap_or(0.0);
-            return Ok((display_symbol_for_asset(&asset, symbol), price));
+            return Ok((display_symbol_for_asset(&asset, symbol), quote.close));
         }
 
         let results = self
@@ -360,14 +370,11 @@ Use at most 5 orders. It is valid to return an empty orders array.",
                 candidate.provider_id.as_deref(),
             )
             .await?;
-        let price = resolved
-            .price
-            .and_then(|price| price.to_f64())
-            .ok_or_else(|| {
-                Error::Validation(ValidationError::InvalidInput(format!(
-                    "No usable provider price for {symbol}"
-                )))
-            })?;
+        let price = resolved.price.ok_or_else(|| {
+            Error::Validation(ValidationError::InvalidInput(format!(
+                "No usable provider price for {symbol}"
+            )))
+        })?;
         Ok((
             normalize_symbol(
                 candidate
@@ -443,7 +450,7 @@ Use at most 5 orders. It is valid to return an empty orders array.",
                     let entry = positions.entry(trade.symbol.clone()).or_default();
                     let previous_cost = entry.quantity * entry.avg_entry_price;
                     entry.quantity += trade.quantity;
-                    if entry.quantity > 0.0 {
+                    if entry.quantity > Decimal::ZERO {
                         entry.avg_entry_price = (previous_cost + trade.notional) / entry.quantity;
                     }
                     entry.last_price = trade.price;
@@ -453,7 +460,7 @@ Use at most 5 orders. It is valid to return an empty orders array.",
                     if let Some(entry) = positions.get_mut(&trade.symbol) {
                         entry.quantity -= trade.quantity;
                         entry.last_price = trade.price;
-                        if entry.quantity <= 0.00000001 {
+                        if entry.quantity <= dec!(0.00000001) {
                             positions.remove(&trade.symbol);
                         }
                     }
@@ -473,13 +480,13 @@ Use at most 5 orders. It is valid to return an empty orders array.",
         for (symbol, position) in positions {
             let current_price = latest_quotes
                 .get(&symbol)
-                .and_then(|quote| quote.close.to_f64())
-                .unwrap_or(position.last_price.max(position.avg_entry_price));
+                .map(|quote| quote.close)
+                .unwrap_or_else(|| position.last_price.max(position.avg_entry_price));
             let market_value = position.quantity * current_price;
-            let unrealized_pnl_pct = if position.avg_entry_price > 0.0 {
-                ((current_price - position.avg_entry_price) / position.avg_entry_price) * 100.0
+            let unrealized_pnl_pct = if position.avg_entry_price > Decimal::ZERO {
+                ((current_price - position.avg_entry_price) / position.avg_entry_price) * dec!(100)
             } else {
-                0.0
+                Decimal::ZERO
             };
             output_positions.push(ArenaPosition {
                 symbol,
@@ -492,12 +499,12 @@ Use at most 5 orders. It is valid to return an empty orders array.",
         }
         output_positions.sort_by(|a, b| a.symbol.cmp(&b.symbol));
 
-        let positions_value: f64 = output_positions.iter().map(|p| p.market_value).sum();
+        let positions_value: Decimal = output_positions.iter().map(|p| p.market_value).sum();
         let total_value = cash + positions_value;
-        let return_pct = if participant.starting_cash > 0.0 {
-            ((total_value - participant.starting_cash) / participant.starting_cash) * 100.0
+        let return_pct = if participant.starting_cash > Decimal::ZERO {
+            ((total_value - participant.starting_cash) / participant.starting_cash) * dec!(100)
         } else {
-            0.0
+            Decimal::ZERO
         };
         let mut equity_curve: Vec<ArenaEquityPoint> = snapshots
             .iter()
@@ -556,8 +563,8 @@ Use at most 5 orders. It is valid to return an empty orders array.",
                             agent_id: agent.id.clone(),
                             agent_name: agent.name.clone(),
                             total_value: participant.starting_cash
-                                * (1.0 + result.return_pct / 100.0),
-                            cash: 0.0,
+                                * (Decimal::ONE + result.return_pct / dec!(100)),
+                            cash: Decimal::ZERO,
                             return_pct: result.return_pct,
                             max_drawdown_pct: result.max_drawdown_pct,
                             risk_adjusted_score: result.risk_adjusted_score,
@@ -576,15 +583,14 @@ Use at most 5 orders. It is valid to return an empty orders array.",
             let portfolio = self
                 .build_portfolio_with_marks(&participant, mark_open_positions)
                 .await?;
-            let disqualified_reason =
-                if portfolio.max_drawdown_pct > challenge.max_drawdown_pct + 0.0001 {
-                    Some(format!(
-                        "max drawdown {:.2}% exceeded {:.2}%",
-                        portfolio.max_drawdown_pct, challenge.max_drawdown_pct
-                    ))
-                } else {
-                    None
-                };
+            let disqualified_reason = if portfolio.max_drawdown_pct > challenge.max_drawdown_pct {
+                Some(format!(
+                    "max drawdown {:.2}% exceeded {:.2}%",
+                    portfolio.max_drawdown_pct, challenge.max_drawdown_pct
+                ))
+            } else {
+                None
+            };
             let risk_adjusted_score = risk_adjusted_score(
                 portfolio.return_pct,
                 portfolio.max_drawdown_pct,
@@ -618,12 +624,7 @@ Use at most 5 orders. It is valid to return an empty orders array.",
             .filter(|(_, entry)| entry.final_score.is_some())
             .map(|(idx, _)| idx)
             .collect();
-        rankable.sort_by(|a, b| {
-            entries[*b]
-                .final_score
-                .partial_cmp(&entries[*a].final_score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        rankable.sort_by(|a, b| entries[*b].final_score.cmp(&entries[*a].final_score));
         for (rank, idx) in rankable.into_iter().enumerate() {
             entries[idx].rank = Some((rank + 1) as i32);
         }
@@ -631,10 +632,7 @@ Use at most 5 orders. It is valid to return an empty orders array.",
             (Some(a), Some(b)) => a.cmp(&b),
             (Some(_), None) => std::cmp::Ordering::Less,
             (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => b
-                .final_score
-                .partial_cmp(&a.final_score)
-                .unwrap_or(std::cmp::Ordering::Equal),
+            (None, None) => b.final_score.cmp(&a.final_score),
         });
         Ok(entries)
     }
@@ -894,9 +892,9 @@ impl AiArenaServiceTrait for AiArenaService {
 
 #[derive(Default)]
 struct ReplayPosition {
-    quantity: f64,
-    avg_entry_price: f64,
-    last_price: f64,
+    quantity: Decimal,
+    avg_entry_price: Decimal,
+    last_price: Decimal,
 }
 
 fn require_non_empty(value: &str, message: &str) -> Result<()> {
@@ -906,15 +904,15 @@ fn require_non_empty(value: &str, message: &str) -> Result<()> {
     Ok(())
 }
 
-fn require_positive(value: f64, field: &str) -> Result<()> {
-    if !value.is_finite() || value <= 0.0 {
+fn require_positive(value: Decimal, field: &str) -> Result<()> {
+    if value <= Decimal::ZERO {
         return invalid(field);
     }
     Ok(())
 }
 
-fn require_pct(value: f64, field: &str) -> Result<()> {
-    if !value.is_finite() || value <= 0.0 || value > 100.0 {
+fn require_pct(value: Decimal, field: &str) -> Result<()> {
+    if value <= Decimal::ZERO || value > dec!(100) {
         return invalid(&format!("{field} must be between 0 and 100"));
     }
     Ok(())
@@ -1009,9 +1007,9 @@ fn ensure_challenge_tradeable(challenge: &ArenaChallenge) -> Result<()> {
 fn rankable_final_score(
     trade_count: usize,
     disqualified_reason: &Option<String>,
-    score: f64,
-) -> Option<f64> {
-    if trade_count > 0 && disqualified_reason.is_none() && score.is_finite() {
+    score: Decimal,
+) -> Option<Decimal> {
+    if trade_count > 0 && disqualified_reason.is_none() {
         Some(score)
     } else {
         None
@@ -1084,19 +1082,23 @@ fn looks_like_bond_fund(label: &str) -> bool {
     .any(|needle| upper.contains(needle))
 }
 
-fn risk_adjusted_score(return_pct: f64, max_drawdown_pct: f64, allowed_drawdown_pct: f64) -> f64 {
-    return_pct - (max_drawdown_pct - allowed_drawdown_pct).max(0.0)
+fn risk_adjusted_score(
+    return_pct: Decimal,
+    max_drawdown_pct: Decimal,
+    allowed_drawdown_pct: Decimal,
+) -> Decimal {
+    return_pct - (max_drawdown_pct - allowed_drawdown_pct).max(Decimal::ZERO)
 }
 
-fn max_drawdown_pct(points: &[ArenaEquityPoint]) -> f64 {
-    let mut peak = 0.0_f64;
-    let mut max_drawdown = 0.0_f64;
+fn max_drawdown_pct(points: &[ArenaEquityPoint]) -> Decimal {
+    let mut peak = Decimal::ZERO;
+    let mut max_drawdown = Decimal::ZERO;
     for point in points {
         if point.value > peak {
             peak = point.value;
         }
-        if peak > 0.0 {
-            let drawdown = ((peak - point.value) / peak) * 100.0;
+        if peak > Decimal::ZERO {
+            let drawdown = ((peak - point.value) / peak) * dec!(100);
             if drawdown > max_drawdown {
                 max_drawdown = drawdown;
             }
@@ -1120,23 +1122,26 @@ mod tests {
         let points = vec![
             ArenaEquityPoint {
                 date: "a".into(),
-                value: 100.0,
+                value: dec!(100),
             },
             ArenaEquityPoint {
                 date: "b".into(),
-                value: 120.0,
+                value: dec!(120),
             },
             ArenaEquityPoint {
                 date: "c".into(),
-                value: 90.0,
+                value: dec!(90),
             },
         ];
-        assert!((max_drawdown_pct(&points) - 25.0).abs() < 0.0001);
+        assert_eq!(max_drawdown_pct(&points), dec!(25));
     }
 
     #[test]
     fn risk_adjusted_penalizes_drawdown_above_limit() {
-        assert!((risk_adjusted_score(10.0, 30.0, 20.0) - 0.0).abs() < 0.0001);
+        assert_eq!(
+            risk_adjusted_score(dec!(10), dec!(30), dec!(20)),
+            Decimal::ZERO
+        );
     }
 
     #[test]
@@ -1156,9 +1161,9 @@ mod tests {
             description: None,
             market: "us-stock".to_string(),
             scoring_method: ArenaScoringMethod::RiskAdjusted,
-            initial_cash: 100_000.0,
-            max_position_pct: 50.0,
-            max_drawdown_pct: 25.0,
+            initial_cash: dec!(100_000),
+            max_position_pct: dec!(50),
+            max_drawdown_pct: dec!(25),
             run_cadence: "daily".to_string(),
             scheduled_time_local: Some("09:30".to_string()),
             universe: vec![],
@@ -1182,11 +1187,14 @@ mod tests {
 
     #[test]
     fn final_score_is_null_for_unrankable_rows() {
-        assert_eq!(rankable_final_score(0, &None, 0.0), None);
+        assert_eq!(rankable_final_score(0, &None, Decimal::ZERO), None);
         assert_eq!(
-            rankable_final_score(1, &Some("max_drawdown_pct_exceeded".to_string()), 10.0),
+            rankable_final_score(1, &Some("max_drawdown_pct_exceeded".to_string()), dec!(10)),
             None
         );
-        assert_eq!(rankable_final_score(1, &None, 0.0), Some(0.0));
+        assert_eq!(
+            rankable_final_score(1, &None, Decimal::ZERO),
+            Some(Decimal::ZERO)
+        );
     }
 }
