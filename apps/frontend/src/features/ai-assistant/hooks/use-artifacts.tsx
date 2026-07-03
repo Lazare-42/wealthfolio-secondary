@@ -20,6 +20,7 @@ interface ThreadArtifacts {
 
 interface ArtifactStore {
   upsertArtifact: (artifact: Artifact) => void;
+  renameArtifact: (threadId: string, oldId: string, newId: string) => void;
   openArtifact: (threadId: string, id: string) => void;
   closeArtifact: (threadId: string) => void;
   setActiveArtifact: (threadId: string, id: string) => void;
@@ -57,6 +58,29 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
     setActiveByThread((prev) => (prev[threadId] ? prev : { ...prev, [threadId]: id }));
   }, []);
 
+  // Re-key an artifact whose resolved id changed mid-stream (the tool UI keys
+  // by toolCallId until the model/backend supplies the canonical artifactId).
+  // Keeps the tab position and active pointer so exactly one entry survives.
+  const renameArtifact = useCallback((threadId: string, oldId: string, newId: string) => {
+    if (oldId === newId) return;
+    setByThread((prev) => {
+      const current = prev[threadId];
+      const artifact = current?.items[oldId];
+      if (!current || artifact === undefined) return prev;
+      const items = { ...current.items };
+      delete items[oldId];
+      items[newId] = { ...artifact, id: newId };
+      // If the new id already exists (e.g. revising a persisted document),
+      // drop the stale slot instead of duplicating the tab.
+      const order =
+        current.items[newId] !== undefined
+          ? current.order.filter((id) => id !== oldId)
+          : current.order.map((id) => (id === oldId ? newId : id));
+      return { ...prev, [threadId]: { order, items } };
+    });
+    setActiveByThread((prev) => (prev[threadId] === oldId ? { ...prev, [threadId]: newId } : prev));
+  }, []);
+
   const openArtifact = useCallback((threadId: string, id: string) => {
     setActiveByThread((prev) => ({ ...prev, [threadId]: id }));
     setOpenByThread((prev) => ({ ...prev, [threadId]: true }));
@@ -83,8 +107,22 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<ArtifactStore>(
-    () => ({ upsertArtifact, openArtifact, closeArtifact, setActiveArtifact, getThreadState }),
-    [upsertArtifact, openArtifact, closeArtifact, setActiveArtifact, getThreadState],
+    () => ({
+      upsertArtifact,
+      renameArtifact,
+      openArtifact,
+      closeArtifact,
+      setActiveArtifact,
+      getThreadState,
+    }),
+    [
+      upsertArtifact,
+      renameArtifact,
+      openArtifact,
+      closeArtifact,
+      setActiveArtifact,
+      getThreadState,
+    ],
   );
 
   return <ArtifactContext.Provider value={value}>{children}</ArtifactContext.Provider>;

@@ -37,7 +37,7 @@ export function CreateArtifactToolUIContentImpl({
   const runtime = useRuntimeContext();
   const threadId = runtime.currentThreadId;
   const isLiveRun = runtime.isRunning;
-  const { upsertArtifact, openArtifact } = useArtifactStore();
+  const { upsertArtifact, renameArtifact, openArtifact } = useArtifactStore();
 
   const wasRunning = useRef(false);
   const autoOpened = useRef(false);
@@ -51,8 +51,18 @@ export function CreateArtifactToolUIContentImpl({
   const hasArtifactContent = Boolean(args?.markdown?.trim() || args?.table);
 
   // Register the artifact in the panel store whenever its content changes.
+  // While streaming, the resolved id may be the toolCallId; once the model's
+  // late-streamed `artifactId` or the backend-generated id arrives, re-key the
+  // store entry so exactly one tab survives per artifact.
+  const lastUpsertedId = useRef<string | null>(null);
   useEffect(() => {
-    if (artifact) upsertArtifact(artifact);
+    if (!artifact) return;
+    const previousId = lastUpsertedId.current;
+    if (previousId && previousId !== artifact.id) {
+      renameArtifact(artifact.threadId, previousId, artifact.id);
+    }
+    lastUpsertedId.current = artifact.id;
+    upsertArtifact(artifact);
     // artifactKey captures id + content; rebuilding on every keystroke of a
     // streamed arg is intended (live updates into the panel).
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -11,6 +11,7 @@ const runtimeState = vi.hoisted(() => ({
 
 const artifactMocks = vi.hoisted(() => ({
   upsertArtifact: vi.fn(),
+  renameArtifact: vi.fn(),
   openArtifact: vi.fn(),
   closeArtifact: vi.fn(),
   setActiveArtifact: vi.fn(),
@@ -64,6 +65,54 @@ describe("CreateArtifactToolUIContentImpl", () => {
       expect(artifactMocks.openArtifact).toHaveBeenCalledWith("thread-1", "allocation-review");
     });
     expect(artifactMocks.upsertArtifact).toHaveBeenCalled();
+  });
+
+  it("re-keys the store entry when the resolved id changes after streaming", async () => {
+    // While streaming, args carry no artifactId yet -> id falls back to the
+    // toolCallId.
+    const { rerender } = render(
+      <CreateArtifactToolUIContentImpl
+        {...artifactProps({
+          args: { title: "Allocation Review", kind: "report", markdown: "# Partial" },
+          result: undefined,
+          status: { type: "running" },
+        })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(artifactMocks.upsertArtifact).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "tool-call-1" }),
+      );
+    });
+    expect(artifactMocks.renameArtifact).not.toHaveBeenCalled();
+
+    // On completion the backend-generated artifactId takes over.
+    rerender(
+      <CreateArtifactToolUIContentImpl
+        {...artifactProps({
+          args: { title: "Allocation Review", kind: "report", markdown: "# Allocation Review" },
+          result: {
+            artifactId: "generated-id",
+            kind: "report",
+            title: "Allocation Review",
+            status: "ready",
+            message: "Opened",
+          },
+        })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(artifactMocks.renameArtifact).toHaveBeenCalledWith(
+        "thread-1",
+        "tool-call-1",
+        "generated-id",
+      );
+    });
+    expect(artifactMocks.upsertArtifact).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: "generated-id" }),
+    );
   });
 
   it("does not auto-open completed artifacts when reloading an old thread", async () => {
