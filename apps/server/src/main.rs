@@ -7,6 +7,7 @@ mod email_order_import;
 mod error;
 mod events;
 mod features;
+mod inbox_fs;
 mod main_lib;
 mod mcp;
 mod models;

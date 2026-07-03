@@ -40,6 +40,7 @@ use tracing::{error, info, warn};
 use wealthfolio_core::quotes::{Quote, DATA_SOURCE_MANUAL};
 
 use crate::api::shared::trigger_full_portfolio_recalc;
+use crate::inbox_fs::{is_json, move_file};
 use crate::main_lib::AppState;
 
 #[derive(Debug, Deserialize)]
@@ -286,24 +287,6 @@ async fn process_file(state: &AppState, index: &AssetIndex, path: &Path) -> Resu
     }
 
     Ok(applied)
-}
-
-fn is_json(path: &Path) -> bool {
-    path.extension()
-        .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
-}
-
-async fn move_file(from: &Path, to: &Path) {
-    if let Some(parent) = to.parent() {
-        let _ = tokio::fs::create_dir_all(parent).await;
-    }
-    if let Err(err) = tokio::fs::rename(from, to).await {
-        warn!(
-            "NAV healing: failed to move {:?} -> {:?}: {}",
-            from, to, err
-        );
-    }
 }
 
 #[cfg(test)]

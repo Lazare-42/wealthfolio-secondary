@@ -1,13 +1,15 @@
 //! Email order import pipeline: watches JSON envelopes extracted from email and
 //! imports executed activities via the existing ActivityImport flow.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use serde::Deserialize;
 use tracing::{error, info, warn};
 use wealthfolio_core::activities::{ActivityImport, ActivityServiceTrait};
+
+use crate::inbox_fs::{is_json, move_file};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -183,19 +185,4 @@ fn has_validation_errors(activities: &[ActivityImport]) -> bool {
                 .as_ref()
                 .is_some_and(|errors| !errors.is_empty())
     })
-}
-
-fn is_json(path: &Path) -> bool {
-    path.extension()
-        .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
-}
-
-async fn move_file(from: &Path, to: &Path) {
-    if let Some(parent) = to.parent() {
-        let _ = tokio::fs::create_dir_all(parent).await;
-    }
-    if let Err(err) = tokio::fs::rename(from, to).await {
-        warn!("Failed to move {:?} -> {:?}: {}", from, to, err);
-    }
 }

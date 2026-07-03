@@ -7,6 +7,7 @@ pub mod email_order_import;
 pub mod error;
 pub mod events;
 pub mod features;
+pub mod inbox_fs;
 mod main_lib;
 pub mod mcp;
 pub mod models;
