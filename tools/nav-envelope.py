@@ -69,7 +69,7 @@ def adapter_hsbc(path, as_of):
     isin_i = idx["ISIN/Ref"]
     nav_i = idx["Market price"]
     ccy_i = idx.get("Holding currency")
-    name_i = idx.get("Name", 0)
+    name_i = idx["Name"]
     prices = []
     for r in rows[1:]:
         if len(r) <= nav_i:
