@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::str::FromStr;
 use uuid::Uuid;
 
 /// Where an imported activity originated.
@@ -25,15 +26,20 @@ impl SourceKind {
             SourceKind::Chat => "chat",
         }
     }
+}
 
-    pub fn parse(s: &str) -> Self {
+impl FromStr for SourceKind {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
-            "email" => SourceKind::Email,
-            "pdf" => SourceKind::Pdf,
-            "csv" => SourceKind::Csv,
-            "bank" => SourceKind::Bank,
-            "chat" => SourceKind::Chat,
-            _ => SourceKind::Manual,
+            "email" => Ok(SourceKind::Email),
+            "pdf" => Ok(SourceKind::Pdf),
+            "csv" => Ok(SourceKind::Csv),
+            "bank" => Ok(SourceKind::Bank),
+            "manual" => Ok(SourceKind::Manual),
+            "chat" => Ok(SourceKind::Chat),
+            _ => Err(format!("Unknown source kind: {}", s)),
         }
     }
 }

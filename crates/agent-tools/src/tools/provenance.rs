@@ -150,10 +150,12 @@ impl AgentTool for LinkActivitySource {
         args: serde_json::Value,
     ) -> Result<AgentToolResult, AgentToolError> {
         let args: LinkActivitySourceArgs = serde_json::from_value(args)?;
-        let source_kind = args
-            .source_kind
-            .map(|s| SourceKind::parse(&s))
-            .unwrap_or(SourceKind::Chat);
+        let source_kind = match args.source_kind {
+            Some(s) => s
+                .parse::<SourceKind>()
+                .map_err(AgentToolError::InvalidInput)?,
+            None => SourceKind::Chat,
+        };
         let created = env
             .provenance_service()
             .record_source(NewActivitySource {

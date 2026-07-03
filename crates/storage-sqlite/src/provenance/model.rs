@@ -43,10 +43,18 @@ impl ActivitySourceDB {
     }
 
     pub fn into_domain(self) -> Result<ActivitySource> {
+        let source_kind = self.source_kind.parse().unwrap_or_else(|e| {
+            log::warn!(
+                "Invalid stored source_kind for activity source {}: {}; defaulting to manual",
+                self.id,
+                e
+            );
+            SourceKind::Manual
+        });
         Ok(ActivitySource {
             id: self.id,
             activity_id: self.activity_id,
-            source_kind: SourceKind::parse(&self.source_kind),
+            source_kind,
             source_ref: self.source_ref,
             funding_activity_id: self.funding_activity_id,
             thread_id: self.thread_id,
