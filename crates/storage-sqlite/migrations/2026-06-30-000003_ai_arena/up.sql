@@ -1,4 +1,7 @@
-CREATE TABLE arena_agents (
+-- Idempotent: this migration's version changed (it was previously applied in
+-- prod under an older version string); deployments that already created these
+-- tables under the old version must not fail re-applying it.
+CREATE TABLE IF NOT EXISTS arena_agents (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     provider_id TEXT NOT NULL,
@@ -10,7 +13,7 @@ CREATE TABLE arena_agents (
     updated_at TEXT NOT NULL
 );
 
-CREATE TABLE arena_challenges (
+CREATE TABLE IF NOT EXISTS arena_challenges (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
@@ -30,7 +33,7 @@ CREATE TABLE arena_challenges (
     updated_at TEXT NOT NULL
 );
 
-CREATE TABLE arena_participants (
+CREATE TABLE IF NOT EXISTS arena_participants (
     id TEXT PRIMARY KEY NOT NULL,
     challenge_id TEXT NOT NULL,
     agent_id TEXT NOT NULL,
@@ -44,7 +47,7 @@ CREATE TABLE arena_participants (
     UNIQUE(challenge_id, agent_id)
 );
 
-CREATE TABLE arena_runs (
+CREATE TABLE IF NOT EXISTS arena_runs (
     id TEXT PRIMARY KEY NOT NULL,
     challenge_id TEXT NOT NULL,
     agent_id TEXT NOT NULL,
@@ -64,7 +67,7 @@ CREATE TABLE arena_runs (
     UNIQUE(idempotency_key)
 );
 
-CREATE TABLE arena_trades (
+CREATE TABLE IF NOT EXISTS arena_trades (
     id TEXT PRIMARY KEY NOT NULL,
     challenge_id TEXT NOT NULL,
     participant_id TEXT NOT NULL,
@@ -84,7 +87,7 @@ CREATE TABLE arena_trades (
     FOREIGN KEY(run_id) REFERENCES arena_runs(id) ON DELETE SET NULL
 );
 
-CREATE TABLE arena_snapshots (
+CREATE TABLE IF NOT EXISTS arena_snapshots (
     id TEXT PRIMARY KEY NOT NULL,
     challenge_id TEXT NOT NULL,
     participant_id TEXT NOT NULL,
@@ -101,7 +104,7 @@ CREATE TABLE arena_snapshots (
     UNIQUE(participant_id, snapshot_date)
 );
 
-CREATE TABLE arena_results (
+CREATE TABLE IF NOT EXISTS arena_results (
     id TEXT PRIMARY KEY NOT NULL,
     challenge_id TEXT NOT NULL,
     participant_id TEXT NOT NULL,
@@ -119,7 +122,7 @@ CREATE TABLE arena_results (
     UNIQUE(challenge_id, participant_id)
 );
 
-CREATE TABLE company_theses (
+CREATE TABLE IF NOT EXISTS company_theses (
     id TEXT PRIMARY KEY NOT NULL,
     symbol TEXT NOT NULL,
     agent_id TEXT,
@@ -138,11 +141,11 @@ CREATE TABLE company_theses (
     FOREIGN KEY(run_id) REFERENCES arena_runs(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_arena_agents_updated_at ON arena_agents(updated_at DESC);
-CREATE INDEX idx_arena_challenges_status ON arena_challenges(status);
-CREATE INDEX idx_arena_participants_challenge ON arena_participants(challenge_id);
-CREATE INDEX idx_arena_runs_challenge_started ON arena_runs(challenge_id, started_at DESC);
-CREATE INDEX idx_arena_trades_participant_executed ON arena_trades(participant_id, executed_at, id);
-CREATE INDEX idx_arena_snapshots_participant_date ON arena_snapshots(participant_id, snapshot_date);
-CREATE INDEX idx_arena_results_challenge_rank ON arena_results(challenge_id, rank);
-CREATE INDEX idx_company_theses_symbol_created ON company_theses(symbol, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_arena_agents_updated_at ON arena_agents(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_arena_challenges_status ON arena_challenges(status);
+CREATE INDEX IF NOT EXISTS idx_arena_participants_challenge ON arena_participants(challenge_id);
+CREATE INDEX IF NOT EXISTS idx_arena_runs_challenge_started ON arena_runs(challenge_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_arena_trades_participant_executed ON arena_trades(participant_id, executed_at, id);
+CREATE INDEX IF NOT EXISTS idx_arena_snapshots_participant_date ON arena_snapshots(participant_id, snapshot_date);
+CREATE INDEX IF NOT EXISTS idx_arena_results_challenge_rank ON arena_results(challenge_id, rank);
+CREATE INDEX IF NOT EXISTS idx_company_theses_symbol_created ON company_theses(symbol, created_at DESC);
