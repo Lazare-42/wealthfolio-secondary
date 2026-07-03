@@ -16,6 +16,7 @@ use crate::activities::Activity;
 use crate::errors::{CalculatorError, Result};
 use crate::portfolio::snapshot::AccountStateSnapshot;
 use log::warn;
+use rust_decimal::Decimal;
 
 impl HoldingsCalculator {
     /// Handle LOAN_ORIGINATION activity.
@@ -35,7 +36,8 @@ impl HoldingsCalculator {
             return Err(CalculatorError::InvalidActivity(format!(
                 "LOAN_ORIGINATION activity {} requires an asset_id (loan asset)",
                 activity.id
-            )));
+            ))
+            .into());
         }
 
         // Resolve direction from the asset kind before the mutable position borrow.
@@ -50,6 +52,16 @@ impl HoldingsCalculator {
         let book_basis =
             self.lot_book_basis_for_activity(activity, activity_currency, account_currency);
 
+        // Principal = qty * price; amount-only imported rows (qty/price absent)
+        // fall back to the activity amount at face value 1.0, matching the
+        // amount fallback in the deposit/transfer handlers.
+        let qty_price = activity.qty() * activity.price();
+        let (principal, lot_quantity, lot_unit_price) = if qty_price.is_zero() {
+            (activity.amt(), activity.amt(), Decimal::ONE)
+        } else {
+            (qty_price, activity.qty(), activity.price())
+        };
+
         // Create/get position for the loan asset (positive quantity = outstanding balance)
         let position = self.get_or_create_position_mut_cached(
             state,
@@ -63,8 +75,8 @@ impl HoldingsCalculator {
         // fee = origination fees.
         let _cost_basis = position.add_lot_values(
             activity.id.clone(),
-            activity.qty(),
-            activity.price(),
+            lot_quantity,
+            lot_unit_price,
             activity.fee_amt(),
             activity.activity_date,
             None,
@@ -72,7 +84,6 @@ impl HoldingsCalculator {
             book_basis,
         )?;
 
-        let principal = activity.qty() * activity.price();
         if is_liability {
             // Borrowing: receive net proceeds = principal - origination fees.
             add_cash(state, activity_currency, principal - activity.fee_amt());
@@ -101,7 +112,8 @@ impl HoldingsCalculator {
             return Err(CalculatorError::InvalidActivity(format!(
                 "LOAN_PAYMENT activity {} requires an asset_id (loan asset)",
                 activity.id
-            )));
+            ))
+            .into());
         }
 
         // Resolve direction from the asset kind. Default to liability (repaying debt).
@@ -111,8 +123,17 @@ impl HoldingsCalculator {
             .map(|info| info.is_liability)
             .unwrap_or(true);
 
-        // Total payment = (principal * unit_price) + interest (fee).
-        let total_payment = (activity.qty() * activity.price()) + activity.fee_amt();
+        // Principal portion = qty * price; amount-only imported rows fall back
+        // to the activity amount at face value 1.0 (see handle_loan_origination).
+        let qty_price = activity.qty() * activity.price();
+        let (principal, reduce_quantity) = if qty_price.is_zero() {
+            (activity.amt(), activity.amt())
+        } else {
+            (qty_price, activity.qty())
+        };
+
+        // Total payment = principal portion + interest (fee).
+        let total_payment = principal + activity.fee_amt();
         if is_liability {
             // Repaying my debt: cash outflow.
             add_cash(state, activity_currency, -total_payment);
@@ -123,7 +144,7 @@ impl HoldingsCalculator {
 
         // Reduce the outstanding position by the principal portion.
         if let Some(position) = state.positions.get_mut(asset_id) {
-            let _reduction = position.reduce_lots_fifo(activity.qty())?;
+            let _reduction = position.reduce_lots_fifo(reduce_quantity)?;
         } else {
             warn!(
                 "LOAN_PAYMENT activity {} references non-existent loan position {}. Cash effect applied only.",
