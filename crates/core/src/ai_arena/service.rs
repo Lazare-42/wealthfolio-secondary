@@ -742,13 +742,16 @@ impl AiArenaServiceTrait for AiArenaService {
 
         match self.run_decision(&agent, prompt).await {
             Ok((raw, parsed, decision)) => {
-                let rejected = self
+                // Any failure while applying the decision must still complete the
+                // run row; otherwise it stays "running" forever and its idempotency
+                // key blocks scheduled retries.
+                let (status, error) = match self
                     .apply_decision(&run, &challenge, &participant, decision)
-                    .await?;
-                let status = if rejected > 0 {
-                    ArenaRunStatus::CompletedWithRejections
-                } else {
-                    ArenaRunStatus::Completed
+                    .await
+                {
+                    Ok(rejected) if rejected > 0 => (ArenaRunStatus::CompletedWithRejections, None),
+                    Ok(_) => (ArenaRunStatus::Completed, None),
+                    Err(err) => (ArenaRunStatus::Failed, Some(err.to_string())),
                 };
                 run = self
                     .repository
@@ -757,14 +760,18 @@ impl AiArenaServiceTrait for AiArenaService {
                         status,
                         raw_response: Some(raw),
                         parsed_json: Some(parsed),
-                        error: None,
+                        error,
                         completed_at: Some(now_string()),
                     })
                     .await?;
-                let portfolio = self.build_portfolio(&participant).await?;
-                let snapshot =
-                    ArenaSnapshot::from_portfolio(&portfolio, Utc::now().date_naive().to_string());
-                let _ = self.repository.upsert_snapshot(snapshot).await?;
+                if run.status != ArenaRunStatus::Failed {
+                    let portfolio = self.build_portfolio(&participant).await?;
+                    let snapshot = ArenaSnapshot::from_portfolio(
+                        &portfolio,
+                        Utc::now().date_naive().to_string(),
+                    );
+                    let _ = self.repository.upsert_snapshot(snapshot).await?;
+                }
                 Ok(run)
             }
             Err(err) => {
