@@ -997,7 +997,9 @@ fn rankable_final_score(
     }
 }
 
-fn parse_model_json(raw: &str) -> Result<Value> {
+/// Parse a model response into JSON, tolerating markdown fences and prose
+/// around the object. Shared with `wealthfolio-ai` (arena spec generation).
+pub fn parse_model_json(raw: &str) -> Result<Value> {
     if let Ok(value) = serde_json::from_str::<Value>(raw) {
         return Ok(value);
     }

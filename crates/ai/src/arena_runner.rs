@@ -24,7 +24,7 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
         Self { env }
     }
 
-    async fn complete(&self, request: ArenaDecisionRequest) -> Result<String, AiError> {
+    pub(crate) async fn complete(&self, request: ArenaDecisionRequest) -> Result<String, AiError> {
         let provider_service = ProviderService::new(self.env.clone());
         let api_key = provider_service.get_api_key(&request.provider_id)?;
         let provider_url = provider_service.get_provider_url(&request.provider_id);
