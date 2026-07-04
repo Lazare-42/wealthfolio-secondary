@@ -188,7 +188,7 @@ export default function AiArenaPage() {
         setSelectedParticipantId("");
       }}
     >
-      <SelectTrigger className="h-8 w-48 text-sm">
+      <SelectTrigger className="h-8 w-40 text-sm sm:w-48">
         <SelectValue placeholder="No challenges" />
       </SelectTrigger>
       <SelectContent>
@@ -203,7 +203,7 @@ export default function AiArenaPage() {
 
   const participantSelect = (
     <Select value={selectedParticipantId} onValueChange={setSelectedParticipantId}>
-      <SelectTrigger className="h-8 w-48 text-sm">
+      <SelectTrigger className="h-8 w-40 text-sm sm:w-48">
         <SelectValue placeholder="No participants" />
       </SelectTrigger>
       <SelectContent>
@@ -285,14 +285,14 @@ export default function AiArenaPage() {
         />
       ),
       actions: (
-        <>
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           {challengeSelect}
           <ArenaActions
             selectedChallengeId={selectedChallengeId}
             runDueMutation={mutations.runDueMutation}
             settleChallengeMutation={mutations.settleChallengeMutation}
           />
-        </>
+        </div>
       ),
     },
     {
@@ -310,10 +310,10 @@ export default function AiArenaPage() {
         />
       ),
       actions: (
-        <>
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           {challengeSelect}
           {participantSelect}
-        </>
+        </div>
       ),
     },
   ];
