@@ -97,3 +97,6 @@ pub use provider_settings::{
 
 // Re-export error types
 pub use errors::MarketDataError;
+
+// Re-export screener types from the market-data crate
+pub use wealthfolio_market_data::{ScreenerHit, ScreenerQuery};

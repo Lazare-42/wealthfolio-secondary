@@ -40,10 +40,10 @@ use wealthfolio_market_data::{
     mic_to_currency, mic_to_exchange_name, yahoo_equity_provider_symbol_to_canonical,
     yahoo_exchange_to_mic, yahoo_suffix_to_mic, AlphaVantageProvider,
     AssetProfile as MarketAssetProfile, BoerseFrankfurtProvider, BondQuoteMetadata, DividendEvent,
-    ExchangeMap, FinnhubProvider, FixtureProvider, MarketDataAppProvider, MetalPriceApiProvider,
-    OpenFigiProvider, ProviderId, ProviderRegistry, Quote as MarketQuote, QuoteContext,
-    QuoteIdentifiers, ResolverChain, SearchResult as MarketSearchResult, SplitEvent,
-    UsTreasuryCalcProvider, YahooProvider,
+    ExchangeMap, FinnhubProvider, FixtureProvider, FmpProvider, MarketDataAppProvider,
+    MetalPriceApiProvider, OpenFigiProvider, ProviderId, ProviderRegistry, Quote as MarketQuote,
+    QuoteContext, QuoteIdentifiers, ResolverChain, ScreenerHit, ScreenerQuery,
+    SearchResult as MarketSearchResult, SplitEvent, UsTreasuryCalcProvider, YahooProvider,
 };
 
 /// Market data error types.
@@ -216,6 +216,7 @@ impl MarketDataClient {
             | DATA_SOURCE_ALPHA_VANTAGE
             | DATA_SOURCE_METAL_PRICE_API
             | DATA_SOURCE_FINNHUB
+            | DATA_SOURCE_FMP
             | DATA_SOURCE_OPENFIGI
             | DATA_SOURCE_US_TREASURY_CALC
             | DATA_SOURCE_CUSTOM_SCRAPER => {
@@ -281,6 +282,15 @@ impl MarketDataClient {
                 if let Ok(Some(key)) = secret_store.get_secret(provider_id) {
                     if !key.is_empty() {
                         let provider = FinnhubProvider::new(key);
+                        return Ok(Some(Arc::new(provider)));
+                    }
+                }
+                Ok(None)
+            }
+            DATA_SOURCE_FMP => {
+                if let Ok(Some(key)) = secret_store.get_secret(provider_id) {
+                    if !key.is_empty() {
+                        let provider = FmpProvider::new(key);
                         return Ok(Some(Arc::new(provider)));
                     }
                 }
@@ -616,6 +626,18 @@ impl MarketDataClient {
             .collect();
 
         Ok(summaries)
+    }
+
+    /// Screen stocks using a provider-backed stock screener.
+    ///
+    /// Routes to the highest-priority enabled provider that supports screening.
+    pub async fn screen(&self, query: &ScreenerQuery) -> Result<Vec<ScreenerHit>> {
+        let hits = self
+            .registry
+            .screen(query)
+            .await
+            .map_err(MarketDataClientError::from)?;
+        Ok(hits)
     }
 
     /// Get asset profile for an asset.

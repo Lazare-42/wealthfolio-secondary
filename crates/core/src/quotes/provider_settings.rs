@@ -94,6 +94,18 @@ impl ProviderCapabilities {
                     "Dividends".to_string(),
                 ],
             }),
+            "FMP" => Some(Self {
+                instruments: "Stocks • ETFs".to_string(),
+                coverage: "Global".to_string(),
+                features: vec![
+                    "Real-time".to_string(),
+                    "Historical".to_string(),
+                    "Search".to_string(),
+                    "Profiles".to_string(),
+                    "Dividends".to_string(),
+                    "Screener".to_string(),
+                ],
+            }),
             "BOERSE_FRANKFURT" => Some(Self {
                 instruments: "Stocks • ETFs • Bonds".to_string(),
                 coverage: "XETR • XFRA".to_string(),

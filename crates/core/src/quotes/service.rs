@@ -37,7 +37,8 @@ use crate::secrets::SecretStore;
 
 use wealthfolio_market_data::{
     exchanges_for_currency, mic_to_currency, mic_to_exchange_name,
-    yahoo_equity_provider_symbol_to_canonical, DividendEvent, ExchangeMap,
+    yahoo_equity_provider_symbol_to_canonical, DividendEvent, ExchangeMap, ScreenerHit,
+    ScreenerQuery,
 };
 
 /// Provider information combining static info with settings.
@@ -457,6 +458,14 @@ pub trait QuoteServiceTrait: Send + Sync {
     /// Fetch cash dividends for a single symbol.
     async fn fetch_dividends(&self, _params: FetchDividendsParams) -> Result<Vec<DividendEvent>> {
         unimplemented!("fetch_dividends is not implemented for this quote service")
+    }
+
+    /// Screen stocks using a provider-backed stock screener.
+    ///
+    /// Routes to the highest-priority enabled provider that supports screening
+    /// (e.g., FMP).
+    async fn screen_stocks(&self, _query: &ScreenerQuery) -> Result<Vec<ScreenerHit>> {
+        unimplemented!("screen_stocks is not implemented for this quote service")
     }
 
     // =========================================================================
@@ -1233,6 +1242,10 @@ where
         self.search_symbol_with_currency(query, None).await
     }
 
+    async fn screen_stocks(&self, query: &ScreenerQuery) -> Result<Vec<ScreenerHit>> {
+        self.client.read().await.screen(query).await
+    }
+
     async fn search_symbol_with_currency(
         &self,
         query: &str,
@@ -1965,6 +1978,7 @@ where
                     | DATA_SOURCE_MARKET_DATA_APP
                     | DATA_SOURCE_METAL_PRICE_API
                     | DATA_SOURCE_FINNHUB
+                    | DATA_SOURCE_FMP
             );
             // Check if API key is set (skip for disabled providers to avoid keychain prompts)
             let has_key = if requires_key && setting.enabled {
