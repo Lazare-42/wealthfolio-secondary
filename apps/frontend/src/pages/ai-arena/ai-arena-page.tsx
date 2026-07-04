@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+
+import type { ArenaParticipant } from "@/lib/types";
 
 import { SwipablePage, type SwipablePageView } from "@/components/page";
 import { useAiProviders } from "@/features/ai-assistant/hooks/use-ai-providers";
@@ -36,13 +38,23 @@ const TAB_PERSIST_KEY = "ai-arena-page-tab";
 export default function AiArenaPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { data: providersResponse } = useAiProviders();
+  const { data: providersResponse, isLoading: providersLoading } = useAiProviders();
   const { data: agents = [], isLoading: agentsLoading } = useArenaAgents();
   const { data: challenges = [], isLoading: challengesLoading } = useArenaChallenges();
   const mutations = useAiArenaMutations();
 
   const [selectedChallengeId, setSelectedChallengeId] = useState<string>("");
   const [selectedParticipantId, setSelectedParticipantId] = useState<string>("");
+  // `challengeId:agentId` keys with a manual run in flight. Tracked per
+  // participant (not via the mutation's single `variables`) so concurrent
+  // runs each keep their own button disabled.
+  const [runningParticipantKeys, setRunningParticipantKeys] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  // Frozen on the first render where all prerequisite queries have settled,
+  // so the fallback tab can't yank the user off Setup mid-session when the
+  // last prerequisite appears.
+  const defaultTabRef = useRef<"setup" | "arena" | null>(null);
 
   const enabledProviders = useMemo(
     () => (providersResponse?.providers ?? []).filter((provider) => provider.enabled),
@@ -160,6 +172,36 @@ export default function AiArenaPage() {
     [setSearchParams],
   );
 
+  const runAgentMutateAsync = mutations.runAgentMutation.mutateAsync;
+  const runParticipant = useCallback(
+    (participant: ArenaParticipant) => {
+      const key = `${participant.challengeId}:${participant.agentId}`;
+      setRunningParticipantKeys((prev) => new Set(prev).add(key));
+      runAgentMutateAsync({
+        challengeId: participant.challengeId,
+        agentId: participant.agentId,
+        runType: "manual",
+      })
+        .catch(() => {
+          // Errors are surfaced by the mutation's onError toast.
+        })
+        .finally(() => {
+          setRunningParticipantKeys((prev) => {
+            const next = new Set(prev);
+            next.delete(key);
+            return next;
+          });
+        });
+    },
+    [runAgentMutateAsync],
+  );
+
+  const isRunningParticipant = useCallback(
+    (participant: ArenaParticipant) =>
+      runningParticipantKeys.has(`${participant.challengeId}:${participant.agentId}`),
+    [runningParticipantKeys],
+  );
+
   const hasProvider = enabledProviders.some(
     (provider) => provider.type === "local" || provider.hasApiKey,
   );
@@ -176,9 +218,15 @@ export default function AiArenaPage() {
   }
 
   // Computed fallback tab — the URL `?tab=` param and the persisted tab
-  // (handled inside SwipablePage) both take precedence over this.
-  const defaultTab =
+  // (handled inside SwipablePage) both take precedence over this. Frozen once
+  // the providers query settles (agents/challenges already have, via the
+  // isLoading gate above) so live data can't flip it mid-session.
+  const computedDefaultTab =
     !hasProvider || agents.length === 0 || challenges.length === 0 ? "setup" : "arena";
+  if (defaultTabRef.current === null && !providersLoading) {
+    defaultTabRef.current = computedDefaultTab;
+  }
+  const defaultTab = defaultTabRef.current ?? computedDefaultTab;
 
   const challengeSelect = (
     <Select
@@ -269,18 +317,8 @@ export default function AiArenaPage() {
               agentId,
             })
           }
-          onRunParticipant={(participant) =>
-            mutations.runAgentMutation.mutate({
-              challengeId: participant.challengeId,
-              agentId: participant.agentId,
-              runType: "manual",
-            })
-          }
-          isRunningParticipant={(participant) =>
-            mutations.runAgentMutation.isPending &&
-            mutations.runAgentMutation.variables?.challengeId === participant.challengeId &&
-            mutations.runAgentMutation.variables?.agentId === participant.agentId
-          }
+          onRunParticipant={runParticipant}
+          isRunningParticipant={isRunningParticipant}
           onGoToSetup={() => goToTab("setup", "arena-agent-form")}
         />
       ),
