@@ -260,6 +260,7 @@ impl MarketDataProvider for OpenFigiProvider {
             supports_search: true,
             supports_profile: true,
             supports_dividends: false,
+            supports_screener: false,
         }
     }
 

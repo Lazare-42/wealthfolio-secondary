@@ -33,6 +33,9 @@ pub struct ProviderCapabilities {
 
     /// Whether the provider supports fetching cash dividend events.
     pub supports_dividends: bool,
+
+    /// Whether the provider supports stock screening.
+    pub supports_screener: bool,
 }
 
 impl ProviderCapabilities {
@@ -92,6 +95,7 @@ mod tests {
             supports_search: false,
             supports_profile: false,
             supports_dividends: false,
+            supports_screener: false,
         };
 
         let crypto = InstrumentId::Crypto {
@@ -111,6 +115,7 @@ mod tests {
             supports_search: false,
             supports_profile: false,
             supports_dividends: false,
+            supports_screener: false,
         };
 
         // US equity should be supported
@@ -139,6 +144,7 @@ mod tests {
             supports_search: false,
             supports_profile: false,
             supports_dividends: false,
+            supports_screener: false,
         };
 
         let unknown_mic = InstrumentId::Equity {
@@ -156,6 +162,7 @@ mod tests {
             supports_search: false,
             supports_profile: false,
             supports_dividends: false,
+            supports_screener: false,
         };
         assert!(best_effort_caps.supports_instrument(&unknown_mic));
     }

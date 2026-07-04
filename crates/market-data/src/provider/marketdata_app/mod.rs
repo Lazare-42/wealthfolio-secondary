@@ -174,6 +174,7 @@ impl MarketDataProvider for MarketDataAppProvider {
             supports_search: false,
             supports_profile: false,
             supports_dividends: false,
+            supports_screener: false,
         }
     }
 

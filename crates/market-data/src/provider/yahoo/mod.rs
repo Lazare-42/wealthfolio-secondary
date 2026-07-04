@@ -912,6 +912,7 @@ impl MarketDataProvider for YahooProvider {
             supports_search: true,
             supports_profile: true,
             supports_dividends: true,
+            supports_screener: false,
         }
     }
 
@@ -1398,6 +1399,7 @@ mod tests {
             supports_search: true,
             supports_profile: true,
             supports_dividends: true,
+            supports_screener: false,
         };
 
         assert!(capabilities

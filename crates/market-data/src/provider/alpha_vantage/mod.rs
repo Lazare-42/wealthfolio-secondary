@@ -1108,6 +1108,7 @@ impl MarketDataProvider for AlphaVantageProvider {
             supports_search: true,  // Via SYMBOL_SEARCH endpoint
             supports_profile: true, // Via OVERVIEW endpoint for equities
             supports_dividends: true,
+            supports_screener: false,
         }
     }
 

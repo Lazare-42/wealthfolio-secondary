@@ -520,6 +520,7 @@ impl MarketDataProvider for FixtureProvider {
                 supports_search: false,
                 supports_profile: true,
                 supports_dividends: false,
+                supports_screener: false,
             };
         }
 
@@ -537,6 +538,7 @@ impl MarketDataProvider for FixtureProvider {
             supports_search: true,
             supports_profile: true,
             supports_dividends: false,
+            supports_screener: false,
         }
     }
 

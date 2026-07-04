@@ -16,6 +16,7 @@ mod instrument;
 mod profile;
 mod provider_params;
 mod quote;
+mod screener;
 mod search;
 mod types;
 
@@ -25,6 +26,7 @@ pub use instrument::{AssetKind, InstrumentId, InstrumentKind};
 pub use profile::AssetProfile;
 pub use provider_params::{ProviderInstrument, ProviderOverrides};
 pub use quote::{BondQuoteMetadata, Quote, QuoteContext, QuoteIdentifiers};
+pub use screener::{ScreenerHit, ScreenerQuery};
 pub use search::SearchResult;
 pub use types::{Currency, Mic, ProviderId, ProviderSymbol};
 

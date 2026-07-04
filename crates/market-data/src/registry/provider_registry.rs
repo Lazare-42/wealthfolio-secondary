@@ -19,8 +19,8 @@ use super::{
 };
 use crate::errors::{MarketDataError, RetryClass};
 use crate::models::{
-    AssetProfile, DividendEvent, InstrumentId, ProviderId, Quote, QuoteContext, SearchResult,
-    SplitEvent,
+    AssetProfile, DividendEvent, InstrumentId, ProviderId, Quote, QuoteContext, ScreenerHit,
+    ScreenerQuery, SearchResult, SplitEvent,
 };
 use crate::provider::MarketDataProvider;
 use crate::resolver::SymbolResolver;
@@ -692,6 +692,67 @@ impl ProviderRegistry {
         Err(last_error.unwrap_or(MarketDataError::AllProvidersFailed))
     }
 
+    /// Screen stocks matching the given filter criteria.
+    ///
+    /// Routes to the highest-priority provider that supports screening,
+    /// falling back to the next one on failure.
+    pub async fn screen(&self, query: &ScreenerQuery) -> Result<Vec<ScreenerHit>, MarketDataError> {
+        let mut providers: Vec<_> = self
+            .providers
+            .iter()
+            .filter(|p| p.capabilities().supports_screener)
+            .collect();
+        providers.sort_by_key(|p| {
+            self.custom_priorities
+                .get(p.id())
+                .copied()
+                .unwrap_or_else(|| p.priority() as i32)
+        });
+
+        if providers.is_empty() {
+            return Err(MarketDataError::NotSupported {
+                operation: "screener".to_string(),
+                provider: "all".to_string(),
+            });
+        }
+
+        let mut last_error: Option<MarketDataError> = None;
+
+        for provider in providers {
+            let provider_id: ProviderId = Cow::Borrowed(provider.id());
+
+            if !self.circuit_breaker.is_allowed(&provider_id) {
+                warn!("Screen: skipping '{}' — circuit breaker open", provider_id);
+                continue;
+            }
+
+            self.rate_limiter.acquire(&provider_id).await;
+
+            match provider.screen(query).await {
+                Ok(hits) => {
+                    self.circuit_breaker.record_success(&provider_id);
+                    return Ok(hits);
+                }
+                Err(MarketDataError::NotSupported { .. }) => {
+                    continue;
+                }
+                Err(e) => {
+                    warn!("Screen: provider '{}' failed: {}", provider_id, e);
+                    let retry_class = e.retry_class();
+                    if matches!(
+                        retry_class,
+                        RetryClass::FailoverWithPenalty | RetryClass::CircuitOpen
+                    ) {
+                        self.circuit_breaker.record_failure(&provider_id);
+                    }
+                    last_error = Some(e);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or(MarketDataError::AllProvidersFailed))
+    }
+
     /// Get asset profile for an instrument.
     ///
     /// Uses the same resolver as quote fetching to build provider-specific symbols
@@ -999,6 +1060,7 @@ mod tests {
                 supports_search: false,
                 supports_profile: false,
                 supports_dividends: false,
+                supports_screener: false,
             }
         }
 
@@ -1172,6 +1234,7 @@ mod tests {
                     supports_search: false,
                     supports_profile: false,
                     supports_dividends: false,
+                    supports_screener: false,
                 }
             }
             fn rate_limit(&self) -> RateLimit {
@@ -1262,6 +1325,7 @@ mod tests {
                     supports_search: false,
                     supports_profile: false,
                     supports_dividends: false,
+                    supports_screener: false,
                 }
             }
             fn rate_limit(&self) -> RateLimit {
@@ -1440,6 +1504,7 @@ mod tests {
                     supports_search: false,
                     supports_profile: true,
                     supports_dividends: false,
+                    supports_screener: false,
                 }
             }
 
@@ -1536,6 +1601,7 @@ mod tests {
                     supports_search: false,
                     supports_profile: false,
                     supports_dividends: true,
+                    supports_screener: false,
                 }
             }
 
@@ -1633,5 +1699,224 @@ mod tests {
             dividends.iter().map(|d| d.date).collect::<Vec<_>>(),
             vec![1, 2]
         );
+    }
+
+    // =========================================================================
+    // Screener routing tests
+    // =========================================================================
+
+    struct ScreenerProvider {
+        id: &'static str,
+        priority: u8,
+        supports_screener: bool,
+        should_fail: bool,
+        call_count: Arc<AtomicUsize>,
+    }
+
+    #[async_trait::async_trait]
+    impl MarketDataProvider for ScreenerProvider {
+        fn id(&self) -> &'static str {
+            self.id
+        }
+
+        fn priority(&self) -> u8 {
+            self.priority
+        }
+
+        fn capabilities(&self) -> ProviderCapabilities {
+            ProviderCapabilities {
+                instrument_kinds: &[InstrumentKind::Equity],
+                coverage: Coverage::global_best_effort(),
+                supports_latest: true,
+                supports_historical: true,
+                supports_search: false,
+                supports_profile: false,
+                supports_dividends: false,
+                supports_screener: self.supports_screener,
+            }
+        }
+
+        fn rate_limit(&self) -> RateLimit {
+            RateLimit {
+                requests_per_minute: 100,
+                max_concurrency: 10,
+                min_delay: Duration::ZERO,
+            }
+        }
+
+        async fn get_latest_quote(
+            &self,
+            _context: &QuoteContext,
+            _instrument: ProviderInstrument,
+        ) -> Result<Quote, MarketDataError> {
+            unreachable!("not used in screener tests")
+        }
+
+        async fn get_historical_quotes(
+            &self,
+            _context: &QuoteContext,
+            _instrument: ProviderInstrument,
+            _start: DateTime<Utc>,
+            _end: DateTime<Utc>,
+        ) -> Result<Vec<Quote>, MarketDataError> {
+            unreachable!("not used in screener tests")
+        }
+
+        async fn screen(
+            &self,
+            _query: &crate::models::ScreenerQuery,
+        ) -> Result<Vec<crate::models::ScreenerHit>, MarketDataError> {
+            self.call_count.fetch_add(1, Ordering::SeqCst);
+
+            if self.should_fail {
+                return Err(MarketDataError::ProviderError {
+                    provider: self.id.to_string(),
+                    message: "Mock failure".to_string(),
+                });
+            }
+
+            Ok(vec![crate::models::ScreenerHit {
+                symbol: format!("{}_HIT", self.id),
+                name: Some("Test Co".to_string()),
+                market_cap: Some(1_000_000_000.0),
+                sector: Some("Technology".to_string()),
+                industry: None,
+                price: Some(100.0),
+                exchange: Some("NASDAQ".to_string()),
+                country: Some("US".to_string()),
+            }])
+        }
+    }
+
+    #[tokio::test]
+    async fn test_screen_routes_to_highest_priority_capable_provider() {
+        let low_calls = Arc::new(AtomicUsize::new(0));
+        let high_calls = Arc::new(AtomicUsize::new(0));
+        let incapable_calls = Arc::new(AtomicUsize::new(0));
+
+        let providers: Vec<Arc<dyn MarketDataProvider>> = vec![
+            Arc::new(ScreenerProvider {
+                id: "LOW_PRIORITY_SCREENER",
+                priority: 10,
+                supports_screener: true,
+                should_fail: false,
+                call_count: low_calls.clone(),
+            }),
+            Arc::new(ScreenerProvider {
+                id: "NO_SCREENER",
+                priority: 1,
+                supports_screener: false,
+                should_fail: false,
+                call_count: incapable_calls.clone(),
+            }),
+            Arc::new(ScreenerProvider {
+                id: "HIGH_PRIORITY_SCREENER",
+                priority: 3,
+                supports_screener: true,
+                should_fail: false,
+                call_count: high_calls.clone(),
+            }),
+        ];
+
+        let registry = ProviderRegistry::new(providers, Arc::new(MockResolver));
+
+        let hits = registry
+            .screen(&crate::models::ScreenerQuery::default())
+            .await
+            .unwrap();
+
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].symbol, "HIGH_PRIORITY_SCREENER_HIT");
+        assert_eq!(high_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(low_calls.load(Ordering::SeqCst), 0);
+        assert_eq!(incapable_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn test_screen_falls_back_on_provider_failure() {
+        let failing_calls = Arc::new(AtomicUsize::new(0));
+        let fallback_calls = Arc::new(AtomicUsize::new(0));
+
+        let providers: Vec<Arc<dyn MarketDataProvider>> = vec![
+            Arc::new(ScreenerProvider {
+                id: "FAILING_SCREENER",
+                priority: 1,
+                supports_screener: true,
+                should_fail: true,
+                call_count: failing_calls.clone(),
+            }),
+            Arc::new(ScreenerProvider {
+                id: "FALLBACK_SCREENER",
+                priority: 5,
+                supports_screener: true,
+                should_fail: false,
+                call_count: fallback_calls.clone(),
+            }),
+        ];
+
+        let registry = ProviderRegistry::new(providers, Arc::new(MockResolver));
+
+        let hits = registry
+            .screen(&crate::models::ScreenerQuery::default())
+            .await
+            .unwrap();
+
+        assert_eq!(hits[0].symbol, "FALLBACK_SCREENER_HIT");
+        assert_eq!(failing_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(fallback_calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn test_screen_custom_priorities_override_defaults() {
+        let a_calls = Arc::new(AtomicUsize::new(0));
+        let b_calls = Arc::new(AtomicUsize::new(0));
+
+        let providers: Vec<Arc<dyn MarketDataProvider>> = vec![
+            Arc::new(ScreenerProvider {
+                id: "SCREENER_A",
+                priority: 1,
+                supports_screener: true,
+                should_fail: false,
+                call_count: a_calls.clone(),
+            }),
+            Arc::new(ScreenerProvider {
+                id: "SCREENER_B",
+                priority: 5,
+                supports_screener: true,
+                should_fail: false,
+                call_count: b_calls.clone(),
+            }),
+        ];
+
+        // User priorities flip the default ordering.
+        let mut custom = HashMap::new();
+        custom.insert("SCREENER_A".to_string(), 10);
+        custom.insert("SCREENER_B".to_string(), 1);
+
+        let registry = ProviderRegistry::with_priorities(providers, Arc::new(MockResolver), custom);
+
+        let hits = registry
+            .screen(&crate::models::ScreenerQuery::default())
+            .await
+            .unwrap();
+
+        assert_eq!(hits[0].symbol, "SCREENER_B_HIT");
+        assert_eq!(b_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(a_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn test_screen_no_capable_providers_returns_not_supported() {
+        let providers: Vec<Arc<dyn MarketDataProvider>> =
+            vec![Arc::new(MockProvider::new("NO_SCREENER", 1, false))];
+
+        let registry = ProviderRegistry::new(providers, Arc::new(MockResolver));
+
+        let err = registry
+            .screen(&crate::models::ScreenerQuery::default())
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, MarketDataError::NotSupported { .. }));
     }
 }

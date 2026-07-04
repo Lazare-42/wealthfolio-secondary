@@ -453,6 +453,7 @@ impl MarketDataProvider for CustomScraperProvider {
             supports_search: false,
             supports_profile: false,
             supports_dividends: false,
+            supports_screener: false,
         }
     }
 

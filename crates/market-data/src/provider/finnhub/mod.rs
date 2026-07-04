@@ -614,6 +614,7 @@ impl MarketDataProvider for FinnhubProvider {
             supports_search: true,
             supports_profile: true,
             supports_dividends: true,
+            supports_screener: false,
         }
     }
 

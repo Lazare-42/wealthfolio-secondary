@@ -8,7 +8,8 @@ use chrono::{DateTime, Utc};
 
 use crate::errors::MarketDataError;
 use crate::models::{
-    AssetProfile, DividendEvent, ProviderInstrument, Quote, QuoteContext, SearchResult, SplitEvent,
+    AssetProfile, DividendEvent, ProviderInstrument, Quote, QuoteContext, ScreenerHit,
+    ScreenerQuery, SearchResult, SplitEvent,
 };
 
 use super::capabilities::{ProviderCapabilities, RateLimit};
@@ -186,6 +187,20 @@ pub trait MarketDataProvider: Send + Sync {
         let _ = (context, instrument, start, end);
         Err(MarketDataError::NotSupported {
             operation: "dividends".to_string(),
+            provider: self.id().to_string(),
+        })
+    }
+
+    /// Screen stocks matching the given filter criteria.
+    ///
+    /// # Returns
+    ///
+    /// A vector of screener hits, or `NotSupported` if the provider doesn't
+    /// support screening. Default implementation returns `NotSupported`.
+    async fn screen(&self, query: &ScreenerQuery) -> Result<Vec<ScreenerHit>, MarketDataError> {
+        let _ = query;
+        Err(MarketDataError::NotSupported {
+            operation: "screener".to_string(),
             provider: self.id().to_string(),
         })
     }
