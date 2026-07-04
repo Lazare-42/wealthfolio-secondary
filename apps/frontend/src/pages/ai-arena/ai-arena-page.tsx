@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAiProviders } from "@/features/ai-assistant/hooks/use-ai-providers";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 import {
   useAiArenaMutations,
   useArenaAgents,
@@ -94,6 +95,18 @@ export default function AiArenaPage() {
     }
   }, [challenges, selectedChallengeId]);
 
+  // Onboarding steps 4 (join) and 5 (run) derive from per-selected-challenge
+  // queries and would revert when switching to an empty challenge — latch
+  // them once observed done.
+  const [hasJoinedOnce, setHasJoinedOnce] = usePersistentState("ai-arena-onboarding-joined", false);
+  const [hasRunOnce, setHasRunOnce] = usePersistentState("ai-arena-onboarding-run", false);
+  useEffect(() => {
+    if (participants.length > 0) setHasJoinedOnce(true);
+  }, [participants.length, setHasJoinedOnce]);
+  useEffect(() => {
+    if (runs.length > 0) setHasRunOnce(true);
+  }, [runs.length, setHasRunOnce]);
+
   useEffect(() => {
     if (!selectedParticipantId && participants.length > 0) {
       setSelectedParticipantId(participants[0].id);
@@ -165,11 +178,13 @@ export default function AiArenaPage() {
       </header>
 
       <OnboardingChecklist
-        hasProvider={enabledProviders.some((provider) => provider.hasApiKey)}
+        hasProvider={enabledProviders.some(
+          (provider) => provider.type === "local" || provider.hasApiKey,
+        )}
         hasAgent={agents.length > 0}
         hasChallenge={challenges.length > 0}
-        hasParticipant={participants.length > 0}
-        hasRun={runs.length > 0}
+        hasParticipant={hasJoinedOnce || participants.length > 0}
+        hasRun={hasRunOnce || runs.length > 0}
       />
 
       <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[360px_minmax(0,1fr)_420px]">

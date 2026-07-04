@@ -1,11 +1,9 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { usePersistentState } from "@/hooks/use-persistent-state";
 import { Icons } from "@wealthfolio/ui";
 import { Button } from "@wealthfolio/ui/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@wealthfolio/ui/components/ui/card";
-
-const STORAGE_KEY = "wealthfolio.aiArena.onboardingDismissed";
 
 function scrollTo(elementId: string) {
   document.getElementById(elementId)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -29,7 +27,7 @@ export function OnboardingChecklist({
   hasRun: boolean;
 }) {
   const navigate = useNavigate();
-  const [dismissed, setDismissed] = useState(() => localStorage.getItem(STORAGE_KEY) === "1");
+  const [dismissed, setDismissed] = usePersistentState("ai-arena-onboarding-dismissed", false);
 
   const steps = [
     {
@@ -72,10 +70,7 @@ export function OnboardingChecklist({
   const allDone = steps.every((step) => step.done);
   if (dismissed || allDone) return null;
 
-  const dismiss = () => {
-    localStorage.setItem(STORAGE_KEY, "1");
-    setDismissed(true);
-  };
+  const dismiss = () => setDismissed(true);
 
   const doneCount = steps.filter((step) => step.done).length;
 
