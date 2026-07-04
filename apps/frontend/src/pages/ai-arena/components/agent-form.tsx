@@ -128,7 +128,7 @@ export function AgentForm({
 
       <div className="space-y-3">
         <h4 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Model</h4>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <Field label="Provider">
             <Select
               value={agentForm.providerId}

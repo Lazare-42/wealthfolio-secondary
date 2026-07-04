@@ -141,7 +141,7 @@ export function ChallengeFields({
               onChange={(event) => onChange({ ...form, initialCash: event.target.value })}
             />
           </Field>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Field label="Max position size (%)" help="Largest single position as % of portfolio.">
               <Input
                 type="number"
@@ -160,7 +160,7 @@ export function ChallengeFields({
           <h4 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
             Schedule
           </h4>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Field label="Cadence" help="Scheduled auto-runs currently fire on daily cadence only.">
               <Select
                 value={form.runCadence}

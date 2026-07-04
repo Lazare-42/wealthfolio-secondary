@@ -114,7 +114,7 @@ export function ThesisForm({
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-3 pt-2">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Field label="Rating">
               <Select
                 value={thesisForm.rating}
@@ -149,7 +149,7 @@ export function ThesisForm({
               onChange={(event) => setThesisForm({ ...thesisForm, horizon: event.target.value })}
             />
           </Field>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Field label="Risks">
               <Textarea
                 value={thesisForm.risks}
