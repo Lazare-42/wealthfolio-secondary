@@ -295,8 +295,22 @@ const ActivityPage = () => {
     }
   }, [urlTab, isSpendingSettingsLoading, isSpendingEnabled, searchParams, setSearchParams]);
 
+  // Coerce the tab to match an `?account=` deep-link — one-shot per param
+  // arrival. Tab switches keep unrelated params (SwipablePage merges), so the
+  // account param survives manual pill clicks; without the ref guard this
+  // effect would snap the tab right back after every pill click.
+  const coercedAccountRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isSpendingEnabled || isSpendingSettingsLoading) return;
+
+    const urlAccount = searchParams.get("account");
+    if (!urlAccount || !urlTab) {
+      // Param cleared, or a fresh deep-link (deep-links carry no tab):
+      // the next `?account=` arrival should coerce again.
+      coercedAccountRef.current = null;
+    }
+    if (!urlAccount || coercedAccountRef.current === urlAccount) return;
+    coercedAccountRef.current = urlAccount;
 
     const targetTab = resolveActivityTabFromUrlFilters(searchParams, spendingAccountIds);
     if (!targetTab || urlTab === targetTab) return;
