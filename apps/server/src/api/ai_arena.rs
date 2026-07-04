@@ -1,17 +1,27 @@
 use std::sync::Arc;
 
-use crate::{error::ApiResult, main_lib::AppState};
+use crate::{
+    error::{ApiError, ApiResult},
+    main_lib::AppState,
+};
 use axum::{
     extract::{Path, Query, State},
     routing::get,
     Json, Router,
 };
 use serde::Deserialize;
+use wealthfolio_ai::{AiError, GeneratedArenaChallengeSpec};
 use wealthfolio_core::ai_arena::{
     ArenaAgent, ArenaChallenge, ArenaLeaderboard, ArenaParticipant, ArenaPortfolio, ArenaRun,
     ArenaTrade, CompanyThesis, CreateArenaAgentRequest, CreateArenaChallengeRequest,
     CreateCompanyThesisRequest, RunArenaAgentRequest,
 };
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GenerateChallengeSpecRequest {
+    theme: String,
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -45,6 +55,22 @@ async fn create_challenge(
     Ok(Json(
         state.ai_arena_service.create_challenge(payload).await?,
     ))
+}
+
+async fn generate_challenge_spec(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<GenerateChallengeSpecRequest>,
+) -> ApiResult<Json<GeneratedArenaChallengeSpec>> {
+    let env = state.ai_chat_service.env().clone();
+    let spec = wealthfolio_ai::generate_challenge_spec(env, &payload.theme)
+        .await
+        .map_err(|e| match e {
+            AiError::InvalidInput(_) | AiError::MissingApiKey(_) => {
+                ApiError::BadRequest(e.to_string())
+            }
+            other => ApiError::Internal(other.to_string()),
+        })?;
+    Ok(Json(spec))
 }
 
 async fn join_challenge(
@@ -154,6 +180,10 @@ pub fn router() -> Router<Arc<AppState>> {
         .route(
             "/ai-arena/challenges",
             get(list_challenges).post(create_challenge),
+        )
+        .route(
+            "/ai-arena/challenges/generate",
+            axum::routing::post(generate_challenge_spec),
         )
         .route(
             "/ai-arena/challenges/{challenge_id}/participants",

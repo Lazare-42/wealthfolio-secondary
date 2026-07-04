@@ -530,6 +530,7 @@ pub fn run() {
             commands::ai_arena::create_arena_agent,
             commands::ai_arena::get_arena_challenges,
             commands::ai_arena::create_arena_challenge,
+            commands::ai_arena::generate_arena_challenge_spec,
             commands::ai_arena::join_arena_challenge,
             commands::ai_arena::get_arena_participants,
             commands::ai_arena::run_arena_agent,
