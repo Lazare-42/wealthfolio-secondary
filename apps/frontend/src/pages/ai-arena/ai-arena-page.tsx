@@ -36,12 +36,16 @@ import { Icons, Skeleton } from "@wealthfolio/ui";
 
 import { AgentForm } from "./components/agent-form";
 import { EmptyRow } from "./components/empty-row";
+import { JoinAgentPanel } from "./components/join-agent-panel";
 import { OnboardingChecklist } from "./components/onboarding-checklist";
-import { decimal, formatMoney, formatPct, statusVariant } from "./components/formatters";
+import { decimal, formatMoney, formatPct } from "./components/formatters";
 import { LeaderboardTable } from "./components/leaderboard-table";
 import { Metric } from "./components/metric";
 import { ParticipantButton } from "./components/participant-button";
+import { RunsTable } from "./components/runs-table";
+import { ThesesList } from "./components/theses-list";
 import { ThesisForm } from "./components/thesis-form";
+import { TradesTable } from "./components/trades-table";
 
 export default function AiArenaPage() {
   const navigate = useNavigate();
@@ -294,28 +298,15 @@ export default function AiArenaPage() {
               </div>
 
               {selectedChallengeId && availableAgents.length > 0 && (
-                <div className="border-border mt-4 border-t pt-4">
-                  <h3 className="mb-2 text-sm font-medium">Join</h3>
-                  <div className="space-y-2">
-                    {availableAgents.map((agent) => (
-                      <Button
-                        key={agent.id}
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-start"
-                        onClick={() =>
-                          mutations.joinChallengeMutation.mutate({
-                            challengeId: selectedChallengeId,
-                            agentId: agent.id,
-                          })
-                        }
-                      >
-                        <Icons.Plus className="mr-2 h-4 w-4" />
-                        {agent.name}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
+                <JoinAgentPanel
+                  availableAgents={availableAgents}
+                  onJoin={(agentId) =>
+                    mutations.joinChallengeMutation.mutate({
+                      challengeId: selectedChallengeId,
+                      agentId,
+                    })
+                  }
+                />
               )}
             </aside>
 
@@ -334,80 +325,10 @@ export default function AiArenaPage() {
                 />
               </TabsContent>
               <TabsContent value="trades" className="m-0">
-                <div className="max-h-[560px] overflow-auto rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Symbol</TableHead>
-                        <TableHead>Side</TableHead>
-                        <TableHead className="text-right">Notional</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Reason</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {trades.map((trade) => (
-                        <TableRow key={trade.id}>
-                          <TableCell className="font-medium">{trade.symbol}</TableCell>
-                          <TableCell>{trade.side.toUpperCase()}</TableCell>
-                          <TableCell className="text-right">
-                            {formatMoney(trade.notional)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={statusVariant(trade.status)}>{trade.status}</Badge>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground max-w-80 truncate">
-                            {trade.rejectionReason ?? trade.rationale ?? ""}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {trades.length === 0 && (
-                        <EmptyRow
-                          colSpan={5}
-                          label="Paper trades appear after an agent runs. Pick a participant and Run, or use Run due."
-                        />
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                <TradesTable trades={trades} />
               </TabsContent>
               <TabsContent value="runs" className="m-0">
-                <div className="max-h-[560px] overflow-auto rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Agent</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Started</TableHead>
-                        <TableHead>Error</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {runs.map((run) => (
-                        <TableRow key={run.id}>
-                          <TableCell>{agentsById.get(run.agentId)?.name ?? run.agentId}</TableCell>
-                          <TableCell>{run.runType}</TableCell>
-                          <TableCell>
-                            <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {new Date(run.startedAt).toLocaleString()}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground max-w-80 truncate">
-                            {run.error ?? ""}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {runs.length === 0 && (
-                        <EmptyRow
-                          colSpan={5}
-                          label="Each agent decision is logged here. Click Run on a participant to start one."
-                        />
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                <RunsTable runs={runs} agentsById={agentsById} />
               </TabsContent>
             </Tabs>
           </div>
@@ -477,30 +398,7 @@ export default function AiArenaPage() {
 
             <div className="border-border border-t pt-5">
               <h3 className="mb-3 text-sm font-medium">Recent theses</h3>
-              <div className="space-y-2">
-                {theses.map((thesis) => (
-                  <div key={thesis.id} className="rounded-md border p-3">
-                    <div className="mb-1 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{thesis.symbol}</span>
-                        {thesis.rating && <Badge variant="outline">{thesis.rating}</Badge>}
-                      </div>
-                      {thesis.confidence !== null && thesis.confidence !== undefined && (
-                        <span className="text-muted-foreground text-xs">
-                          {decimal.format(thesis.confidence)}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-muted-foreground line-clamp-3 text-sm">{thesis.thesis}</p>
-                  </div>
-                ))}
-                {theses.length === 0 && (
-                  <div className="text-muted-foreground rounded-md border border-dashed p-3 text-sm">
-                    Save a thesis above, or run an agent — model decisions are stored here with
-                    rating and confidence.
-                  </div>
-                )}
-              </div>
+              <ThesesList theses={theses} />
             </div>
           </div>
         </section>
