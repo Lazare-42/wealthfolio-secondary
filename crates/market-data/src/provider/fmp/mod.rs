@@ -266,6 +266,17 @@ impl FmpProvider {
         Self { client, api_key }
     }
 
+    /// Redact the API key from error/log text. reqwest errors include the
+    /// request URL (which carries `?apikey=KEY`), and these messages flow
+    /// into user- and model-visible tool output, so every error built from a
+    /// reqwest error or a URL must pass through here.
+    fn redact_key(&self, message: &str) -> String {
+        if self.api_key.is_empty() {
+            return message.to_string();
+        }
+        message.replace(&self.api_key, "***")
+    }
+
     /// Make a request to the FMP API and return the response body.
     async fn fetch(&self, path: &str, params: &[(&str, &str)]) -> Result<String, MarketDataError> {
         let mut all_params: Vec<(&str, &str)> = params.to_vec();
@@ -274,13 +285,10 @@ impl FmpProvider {
         let url = reqwest::Url::parse_with_params(&format!("{}/{}", BASE_URL, path), &all_params)
             .map_err(|e| MarketDataError::ProviderError {
             provider: PROVIDER_ID.to_string(),
-            message: format!("Failed to build URL: {}", e),
+            message: self.redact_key(&format!("Failed to build URL: {}", e)),
         })?;
 
-        debug!(
-            "FMP request: {}",
-            url.as_str().replace(&self.api_key, "***")
-        );
+        debug!("FMP request: {}", self.redact_key(url.as_str()));
 
         let response = self.client.get(url).send().await.map_err(|e| {
             if e.is_timeout() {
@@ -290,7 +298,7 @@ impl FmpProvider {
             } else {
                 MarketDataError::ProviderError {
                     provider: PROVIDER_ID.to_string(),
-                    message: e.to_string(),
+                    message: self.redact_key(&e.to_string()),
                 }
             }
         })?;
@@ -314,7 +322,7 @@ impl FmpProvider {
             .await
             .map_err(|e| MarketDataError::ProviderError {
                 provider: PROVIDER_ID.to_string(),
-                message: e.to_string(),
+                message: self.redact_key(&e.to_string()),
             })?;
 
         Self::check_error_body(&text)?;
@@ -1112,6 +1120,36 @@ mod tests {
     fn test_check_error_body_ok_for_data() {
         let body = r#"[{"symbol": "AAPL", "price": 232.8}]"#;
         assert!(FmpProvider::check_error_body(body).is_ok());
+    }
+
+    #[test]
+    fn test_redact_key_scrubs_api_key_from_error_text() {
+        let provider = FmpProvider::new("SECRET_KEY_123".to_string());
+        // Shape of a reqwest error Display: includes the full request URL.
+        let message = "error sending request for url \
+                       (https://financialmodelingprep.com/stable/quote?symbol=AAPL&apikey=SECRET_KEY_123): \
+                       connection closed";
+        let redacted = provider.redact_key(message);
+        assert!(!redacted.contains("SECRET_KEY_123"));
+        assert!(redacted.contains("apikey=***"));
+        // Everything else is preserved.
+        assert!(redacted.contains("error sending request"));
+        assert!(redacted.contains("symbol=AAPL"));
+    }
+
+    #[test]
+    fn test_redact_key_handles_multiple_occurrences() {
+        let provider = FmpProvider::new("KEY".to_string());
+        assert_eq!(
+            provider.redact_key("KEY and KEY again"),
+            "*** and *** again"
+        );
+    }
+
+    #[test]
+    fn test_redact_key_with_empty_key_is_noop() {
+        let provider = FmpProvider::new(String::new());
+        assert_eq!(provider.redact_key("some error text"), "some error text");
     }
 
     #[test]
