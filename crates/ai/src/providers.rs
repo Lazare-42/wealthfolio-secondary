@@ -377,6 +377,11 @@ impl<E: AiEnvironment> ProviderService<E> {
             .and_then(|p| normalize_tools_allowlist(p.tools_allowlist.clone()))
     }
 
+    /// Whether a provider id exists in the shipped catalog.
+    pub fn is_catalog_provider(&self, provider_id: &str) -> bool {
+        PROVIDER_CATALOG.providers.contains_key(provider_id)
+    }
+
     /// Resolve effective provider tuning: catalog defaults merged with any
     /// user overrides persisted under `ai_provider_settings`. Returns an empty
     /// (all-`None`) `ProviderTuning` when neither the catalog nor the user has

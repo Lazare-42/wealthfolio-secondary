@@ -32,9 +32,25 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
         // uses (get_resolved_tuning). Temperature is applied only when the
         // resolved tuning provides it — the Anthropic catalog omits it, so newer
         // Claude models (e.g. claude-opus-4-7, which 400s on `temperature`) never
-        // receive it. Avoids hardcoding per-provider knowledge here.
-        let tuning = provider_service.get_resolved_tuning(&request.provider_id);
-        let temperature = tuning.temperature;
+        // receive it. The arena stores the alias "gemini" while the catalog key
+        // is "google", so normalize before the lookup. Provider ids absent from
+        // the catalog entirely (custom OpenAI-compatible endpoints) fall back to
+        // the arena's historical deterministic 0.2 — except "anthropic".
+        let tuning_provider_id = if request.provider_id == "gemini" {
+            "google"
+        } else {
+            request.provider_id.as_str()
+        };
+        let tuning = provider_service.get_resolved_tuning(tuning_provider_id);
+        let temperature = tuning.temperature.or({
+            if tuning_provider_id == "anthropic"
+                || provider_service.is_catalog_provider(tuning_provider_id)
+            {
+                None
+            } else {
+                Some(0.2)
+            }
+        });
         let prompt = request.prompt;
         let system_prompt = format!(
             "{}\n\nReturn only valid JSON. No markdown. No prose outside JSON.",
