@@ -3,7 +3,9 @@
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use wealthfolio_core::quotes::{ScreenerHit, ScreenerQuery};
+use wealthfolio_core::quotes::{
+    MarketDataError as CoreMarketDataError, ScreenerHit, ScreenerQuery,
+};
 
 use crate::env::AgentEnvironment;
 use crate::scope::AgentScope;
@@ -188,21 +190,7 @@ impl AgentTool for ScreenStocks {
             .quote_service()
             .screen_stocks(&query)
             .await
-            .map_err(|e| {
-                let message = e.to_string();
-                // No enabled provider supports screening: the registry returns
-                // NotSupported { operation: "screener", provider: "all" }.
-                if message.contains("screener") && message.contains("support") {
-                    AgentToolError::ExecutionFailed(
-                        "Stock screening is not available: the Financial Modeling Prep (FMP) \
-                         market-data provider is not configured. Ask the user to enable FMP and \
-                         add an API key in Settings -> Market Data, then try again."
-                            .to_string(),
-                    )
-                } else {
-                    AgentToolError::ExecutionFailed(message)
-                }
-            })?;
+            .map_err(screener_tool_error)?;
 
         let hits: Vec<ScreenerHitDto> = hits.into_iter().map(Into::into).collect();
         Ok(AgentToolResult {
@@ -211,6 +199,26 @@ impl AgentTool for ScreenStocks {
                 hits,
             })?,
         })
+    }
+}
+
+/// Map a quote-service screening failure to a tool error. When no enabled
+/// provider supports screening the registry returns
+/// `NotSupported { operation: "screener", provider: "all" }`; matching on the
+/// typed variant (rather than the message text) keeps the friendly guidance
+/// robust against error-message rewording.
+fn screener_tool_error(error: wealthfolio_core::Error) -> AgentToolError {
+    match &error {
+        wealthfolio_core::Error::MarketData(CoreMarketDataError::NotSupported {
+            operation,
+            ..
+        }) if operation == "screener" => AgentToolError::ExecutionFailed(
+            "Stock screening is not available: the Financial Modeling Prep (FMP) \
+             market-data provider is not configured. Ask the user to enable FMP and \
+             add an API key in Settings -> Market Data, then try again."
+                .to_string(),
+        ),
+        _ => AgentToolError::ExecutionFailed(error.to_string()),
     }
 }
 
@@ -267,6 +275,35 @@ mod tests {
         let args: ScreenStocksArgs =
             serde_json::from_value(serde_json::json!({ "limit": 5000 })).expect("args");
         assert_eq!(screener_query_from_args(args).limit, Some(MAX_SCREEN_LIMIT));
+    }
+
+    #[test]
+    fn not_supported_screener_error_maps_to_friendly_guidance() {
+        let error = wealthfolio_core::Error::MarketData(CoreMarketDataError::NotSupported {
+            operation: "screener".to_string(),
+            provider: "all".to_string(),
+        });
+        let message = screener_tool_error(error).to_string();
+        assert!(message.contains("Financial Modeling Prep"));
+        assert!(message.contains("Settings -> Market Data"));
+    }
+
+    #[test]
+    fn other_errors_pass_through_unchanged() {
+        // NotSupported for a different operation is not the screener case.
+        let error = wealthfolio_core::Error::MarketData(CoreMarketDataError::NotSupported {
+            operation: "profile".to_string(),
+            provider: "all".to_string(),
+        });
+        let message = screener_tool_error(error).to_string();
+        assert!(!message.contains("Financial Modeling Prep"));
+        assert!(message.contains("does not support 'profile'"));
+
+        let error = wealthfolio_core::Error::MarketData(CoreMarketDataError::ProviderError(
+            "FMP: HTTP 500".to_string(),
+        ));
+        let message = screener_tool_error(error).to_string();
+        assert!(message.contains("FMP: HTTP 500"));
     }
 
     #[test]

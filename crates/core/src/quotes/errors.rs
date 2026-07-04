@@ -51,6 +51,9 @@ pub enum MarketDataError {
     #[error("Unsupported asset type: {0}")]
     UnsupportedAssetType(String),
 
+    #[error("{provider} does not support '{operation}'")]
+    NotSupported { operation: String, provider: String },
+
     #[error("Circuit breaker open: {0}")]
     CircuitOpen(String),
 
@@ -138,10 +141,10 @@ impl From<ExternalMarketDataError> for MarketDataError {
             ExternalMarketDataError::NotSupported {
                 operation,
                 provider,
-            } => MarketDataError::ProviderError(format!(
-                "{} does not support '{}'",
-                provider, operation
-            )),
+            } => MarketDataError::NotSupported {
+                operation,
+                provider,
+            },
             ExternalMarketDataError::Network(e) => MarketDataError::Unknown(e.to_string()),
         }
     }
