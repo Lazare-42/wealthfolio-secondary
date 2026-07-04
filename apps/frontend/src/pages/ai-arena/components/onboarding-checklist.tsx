@@ -93,7 +93,7 @@ export function OnboardingChecklist({
           {steps.map((step, index) => (
             <li
               key={step.label}
-              className={`rounded-md border p-3 ${step.done ? "bg-muted/40" : ""}`}
+              className={`rounded-md border p-3 md:last:col-span-2 xl:last:col-span-1 ${step.done ? "bg-muted/40" : ""}`}
             >
               <div className="flex items-start gap-2">
                 {step.done ? (

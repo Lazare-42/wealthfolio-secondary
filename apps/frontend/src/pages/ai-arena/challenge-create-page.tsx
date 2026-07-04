@@ -133,14 +133,16 @@ export default function ChallengeCreatePage() {
 
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <div>
                   <CardTitle className="text-base">Challenge</CardTitle>
                   <CardDescription className="text-xs">
                     Everything stays editable — tweak the AI output or fill it in yourself.
                   </CardDescription>
                 </div>
-                <Badge variant="outline">Long only</Badge>
+                <Badge variant="outline" className="shrink-0">
+                  Long only
+                </Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">

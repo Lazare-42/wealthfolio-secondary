@@ -64,7 +64,12 @@ export function ArenaTab({
             <span>{challenge.market}</span>
             <span>{formatMoney(challenge.initialCash)}</span>
             <span>max {decimal.format(challenge.maxPositionPct)}%</span>
-            <span>{challenge.universe.join(", ") || "open universe"}</span>
+            <span
+              className="min-w-0 max-w-full truncate"
+              title={challenge.universe.length > 0 ? challenge.universe.join(", ") : undefined}
+            >
+              {challenge.universe.join(", ") || "open universe"}
+            </span>
           </div>
         ) : (
           <p className="text-muted-foreground mt-1 text-xs">
