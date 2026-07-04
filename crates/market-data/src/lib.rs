@@ -65,7 +65,7 @@ pub mod resolver;
 pub use models::{
     AssetKind, AssetProfile, BondQuoteMetadata, Coverage, Currency, DividendEvent, InstrumentId,
     InstrumentKind, Mic, ProviderId, ProviderInstrument, ProviderOverrides, ProviderSymbol, Quote,
-    QuoteContext, QuoteIdentifiers, SearchResult, SplitEvent,
+    QuoteContext, QuoteIdentifiers, ScreenerHit, ScreenerQuery, SearchResult, SplitEvent,
 };
 
 // Re-export resolver types
@@ -82,6 +82,7 @@ pub use provider::alpha_vantage::AlphaVantageProvider;
 pub use provider::boerse_frankfurt::BoerseFrankfurtProvider;
 pub use provider::finnhub::FinnhubProvider;
 pub use provider::fixture::FixtureProvider;
+pub use provider::fmp::FmpProvider;
 pub use provider::marketdata_app::MarketDataAppProvider;
 pub use provider::metal_price_api::MetalPriceApiProvider;
 pub use provider::openfigi::OpenFigiProvider;
