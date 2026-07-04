@@ -81,7 +81,7 @@ export default function ChallengeCreatePage() {
 
   const createChallenge = () => {
     createChallengeMutation.mutate(toCreateChallengeRequest(form), {
-      onSuccess: () => navigate("/ai-arena"),
+      onSuccess: (challenge) => navigate(`/ai-arena?tab=arena&challenge=${challenge.id}`),
     });
   };
 

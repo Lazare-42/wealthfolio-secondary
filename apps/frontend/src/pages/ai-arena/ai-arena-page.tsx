@@ -34,7 +34,7 @@ const TAB_PERSIST_KEY = "ai-arena-page-tab";
 
 export default function AiArenaPage() {
   const navigate = useNavigate();
-  const [, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: providersResponse } = useAiProviders();
   const { data: agents = [], isLoading: agentsLoading } = useArenaAgents();
   const { data: challenges = [], isLoading: challengesLoading } = useArenaChallenges();
@@ -84,6 +84,25 @@ export default function AiArenaPage() {
       setSelectedChallengeId(challenges[0]?.id ?? "");
     }
   }, [challenges, selectedChallengeId]);
+
+  // Deep-link (?challenge=<id>, e.g. from the create page): select it once
+  // loaded, then drop the param so later selection changes aren't pinned.
+  // Runs after the auto-select effect so the deep-link wins on mount.
+  const challengeParam = searchParams.get("challenge");
+  useEffect(() => {
+    if (!challengeParam) return;
+    if (!challenges.some((challenge) => challenge.id === challengeParam)) return;
+    setSelectedChallengeId(challengeParam);
+    setSelectedParticipantId("");
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("challenge");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [challengeParam, challenges, setSearchParams]);
 
   // Onboarding steps 4 (join) and 5 (run) derive from per-selected-challenge
   // queries and would revert when switching to an empty challenge — latch
@@ -326,6 +345,7 @@ export default function AiArenaPage() {
           hasChallenge={challenges.length > 0}
           hasParticipant={hasJoinedOnce || participants.length > 0}
           hasRun={hasRunOnce || runs.length > 0}
+          goTo={goToTab}
         />
       }
     />

@@ -5,10 +5,6 @@ import { Icons } from "@wealthfolio/ui";
 import { Button } from "@wealthfolio/ui/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@wealthfolio/ui/components/ui/card";
 
-function scrollTo(elementId: string) {
-  document.getElementById(elementId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
 /**
  * Onboarding plan for new arena users. Steps derive from data the arena page
  * already loads; shown while incomplete, dismissible via localStorage.
@@ -19,12 +15,15 @@ export function OnboardingChecklist({
   hasChallenge,
   hasParticipant,
   hasRun,
+  goTo,
 }: {
   hasProvider: boolean;
   hasAgent: boolean;
   hasChallenge: boolean;
   hasParticipant: boolean;
   hasRun: boolean;
+  /** Switch the page tab, then scroll to an anchor once the view renders. */
+  goTo: (tab: string, anchorId?: string) => void;
 }) {
   const navigate = useNavigate();
   const [dismissed, setDismissed] = usePersistentState("ai-arena-onboarding-dismissed", false);
@@ -42,7 +41,7 @@ export function OnboardingChecklist({
       description: "Pick a provider, model, and persona in Setup.",
       done: hasAgent,
       actionLabel: "Go to agent form",
-      onAction: () => scrollTo("arena-agent-form"),
+      onAction: () => goTo("setup", "arena-agent-form"),
     },
     {
       label: "Create a challenge",
@@ -56,14 +55,14 @@ export function OnboardingChecklist({
       description: "Enter agents into the match from the Participants panel.",
       done: hasParticipant,
       actionLabel: "Go to participants",
-      onAction: () => scrollTo("arena-participants"),
+      onAction: () => goTo("arena", "arena-participants"),
     },
     {
       label: "Run a round",
       description: "Click Run on a participant (or Run due in the header).",
       done: hasRun,
       actionLabel: "Go to participants",
-      onAction: () => scrollTo("arena-participants"),
+      onAction: () => goTo("arena", "arena-participants"),
     },
   ];
 
