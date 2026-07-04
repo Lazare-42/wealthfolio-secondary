@@ -118,12 +118,17 @@ export function ThesisForm({
             <Field label="Rating">
               <Select
                 value={thesisForm.rating}
-                onValueChange={(rating) => setThesisForm({ ...thesisForm, rating })}
+                onValueChange={(rating) =>
+                  // Radix Select items need a non-empty value; "none" is a
+                  // sentinel mapped back to the empty (unrated) state.
+                  setThesisForm({ ...thesisForm, rating: rating === "none" ? "" : rating })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="None" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
                   <SelectItem value="buy">Buy</SelectItem>
                   <SelectItem value="hold">Hold</SelectItem>
                   <SelectItem value="sell">Sell</SelectItem>
