@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { useAiProviders } from "@/features/ai-assistant/hooks/use-ai-providers";
 import {
@@ -33,7 +34,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@wealthfolio/ui/compon
 import { Icons, Skeleton } from "@wealthfolio/ui";
 
 import { AgentForm } from "./components/agent-form";
-import { ChallengeForm } from "./components/challenge-form";
 import { EmptyRow } from "./components/empty-row";
 import { decimal, formatMoney, formatPct, statusVariant } from "./components/formatters";
 import { LeaderboardTable } from "./components/leaderboard-table";
@@ -42,6 +42,7 @@ import { ParticipantButton } from "./components/participant-button";
 import { ThesisForm } from "./components/thesis-form";
 
 export default function AiArenaPage() {
+  const navigate = useNavigate();
   const { data: providersResponse } = useAiProviders();
   const { data: agents = [], isLoading: agentsLoading } = useArenaAgents();
   const { data: challenges = [], isLoading: challengesLoading } = useArenaChallenges();
@@ -131,6 +132,10 @@ export default function AiArenaPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => navigate("/ai-arena/challenges/new")}>
+            <Icons.PlusCircle className="mr-2 h-4 w-4" />
+            New challenge
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -168,11 +173,16 @@ export default function AiArenaPage() {
               enabledProviders={enabledProviders}
               createAgentMutation={mutations.createAgentMutation}
             />
-            <ChallengeForm
-              createChallengeMutation={mutations.createChallengeMutation}
-              generateChallengeSpecMutation={mutations.generateChallengeSpecMutation}
-              onCreated={setSelectedChallengeId}
-            />
+            <div className="border-border border-t pt-5">
+              <h3 className="mb-3 text-sm font-medium">Challenge</h3>
+              <Button className="w-full" onClick={() => navigate("/ai-arena/challenges/new")}>
+                <Icons.PlusCircle className="mr-2 h-4 w-4" />
+                New challenge
+              </Button>
+              <p className="text-muted-foreground mt-2 text-xs">
+                Design a challenge — with AI help — on its own page.
+              </p>
+            </div>
           </div>
         </section>
 

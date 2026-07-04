@@ -25,6 +25,7 @@ import ScenariosPage from "@/pages/settings/scenarios/scenarios-page";
 import ImportSourcesPage from "@/pages/settings/import-sources/import-sources-page";
 import AccountPage from "./pages/account/account-page";
 import AiArenaPage from "./pages/ai-arena/ai-arena-page";
+import AiArenaChallengeCreatePage from "./pages/ai-arena/challenge-create-page";
 import AiAssistantPage from "./pages/ai-assistant/ai-assistant-page";
 import AssetProfilePage from "./pages/asset/asset-profile-page";
 import HealthPage from "./pages/health/health-page";
@@ -110,6 +111,7 @@ export function AppRoutes() {
           <Route path="reconciliation/:runId" element={<ReconciliationDetailPage />} />
           <Route path="assistant" element={<AiAssistantPage />} />
           <Route path="ai-arena" element={<AiArenaPage />} />
+          <Route path="ai-arena/challenges/new" element={<AiArenaChallengeCreatePage />} />
           <Route path="connect" element={<ConnectPage />} />
           <Route
             path="allocation-targets"
