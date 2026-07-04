@@ -7,17 +7,30 @@
 //! When a draft challenge is provided instead (or as well), the model
 //! enhances the draft: it keeps the user's intent and tickers, sharpens the
 //! description, and adds complementary tickers.
+//!
+//! When the resolved model supports tool calling, the generation runs as a
+//! small rig tool loop: the model can discover candidates with the shared
+//! `screen_stocks` tool and verify tickers with a `search_symbol` tool
+//! before emitting its strict-JSON answer. Models without tool support keep
+//! the historical single-shot path. Either way, `validate_universe` remains
+//! the safety net for every ticker.
 
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use rig::completion::ToolDefinition;
+use rig::tool::{ToolDyn, ToolError};
+use rig::wasm_compat::WasmBoxedFuture;
 use serde::{Deserialize, Serialize};
+use wealthfolio_agent_tools::AgentEnvironment;
 use wealthfolio_core::ai_arena::{service::parse_model_json, ArenaDecisionRequest};
+use wealthfolio_core::quotes::QuoteServiceTrait;
 
 use crate::arena_runner::AiArenaLlmRunner;
 use crate::env::AiEnvironment;
 use crate::error::AiError;
 use crate::providers::ProviderService;
+use crate::tools::RigAgentTool;
 
 const GENERATE_SYSTEM_PROMPT: &str =
     "You design paper-trading stock challenges for an investment app. \
@@ -29,6 +42,7 @@ Rules: \
 stating what is in and out of scope. \
 - universe: 10-30 liquid, US-listed, USD-priced stock or equity-ETF tickers \
 that fit the theme, as plain US ticker symbols (e.g. \"AAPL\", \"NVDA\"). \
+Think in company names first, then map each company to its US ticker. \
 The arena supports US listings only — no foreign exchange suffixes.";
 
 const ENHANCE_SYSTEM_PROMPT: &str =
@@ -44,7 +58,29 @@ stating what is in and out of scope. \
 - universe: KEEP every user-provided ticker, then add complementary liquid, \
 US-listed, USD-priced stock or equity-ETF tickers up to about 30 total, \
 as plain US ticker symbols (e.g. \"AAPL\", \"NVDA\"). \
+Think in company names first, then map each company to its US ticker. \
 The arena supports US listings only — no foreign exchange suffixes.";
+
+/// Extra system-prompt guidance appended only on the tool-loop path, where
+/// the model actually has these tools. The single-shot path must never see
+/// it — mentioning unavailable tools invites fake tool-call prose that would
+/// break the strict-JSON parse.
+const TOOL_LOOP_GUIDANCE: &str = "\n\nYou have two tools: \
+- screen_stocks: discover candidate stocks by STRUCTURAL criteria (sector, industry, \
+market cap, price, beta, dividend, volume, exchange, ETF flag). Use it when the theme \
+implies such criteria (e.g. sector, company size, dividend payers). It has NO \
+fundamental filters (no P/E, revenue, growth). If it returns an error (e.g. the FMP \
+provider is not configured), do not retry it — fall back to companies you know. \
+- search_symbol: verify a candidate company's US ticker before putting it in the \
+universe. \
+Work in company names first, use screen_stocks to discover candidates, verify each \
+ticker with search_symbol, then answer. Your FINAL message must be ONLY the strict \
+JSON object — no prose, no tool commentary.";
+
+/// Maximum model-↔-tool round trips on the tool-loop path.
+const MAX_TOOL_TURNS: usize = 6;
+/// Symbol-search tool results shown to the model per query.
+const SYMBOL_TOOL_RESULTS: usize = 5;
 
 /// Maximum theme length accepted at the crates/ai boundary.
 const MAX_THEME_CHARS: usize = 2000;
@@ -170,10 +206,87 @@ fn build_prompts(
     }
 }
 
+/// The `search_symbol` tool for the universe-generation tool loop: verifies
+/// a candidate ticker (or finds one from a company name) through the same
+/// USD symbol search that `validate_universe` uses.
+struct UniverseSymbolSearch {
+    quote_service: Arc<dyn QuoteServiceTrait>,
+}
+
+#[derive(Debug, Deserialize)]
+struct UniverseSymbolSearchArgs {
+    query: String,
+}
+
+/// Compact search-result view for the model.
+fn symbol_search_output(
+    results: Vec<wealthfolio_core::quotes::SymbolSearchResult>,
+) -> serde_json::Value {
+    let results: Vec<serde_json::Value> = results
+        .into_iter()
+        .take(SYMBOL_TOOL_RESULTS)
+        .map(|r| {
+            serde_json::json!({
+                "symbol": r.canonical_symbol.unwrap_or(r.symbol),
+                "name": r.long_name,
+                "exchange": r.exchange,
+                "quoteType": r.quote_type,
+            })
+        })
+        .collect();
+    serde_json::json!({ "results": results })
+}
+
+impl ToolDyn for UniverseSymbolSearch {
+    fn name(&self) -> String {
+        "search_symbol".to_string()
+    }
+
+    fn definition<'a>(&'a self, _prompt: String) -> WasmBoxedFuture<'a, ToolDefinition> {
+        Box::pin(async move {
+            ToolDefinition {
+                name: "search_symbol".to_string(),
+                description: "Search US-listed, USD-priced market symbols by ticker or \
+                              company name. Use it to verify each candidate ticker before \
+                              including it in the universe."
+                    .to_string(),
+                parameters: serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Ticker or company name, e.g. NVDA or Nvidia."
+                        }
+                    },
+                    "required": ["query"]
+                }),
+            }
+        })
+    }
+
+    fn call<'a>(&'a self, args: String) -> WasmBoxedFuture<'a, Result<String, ToolError>> {
+        Box::pin(async move {
+            let args: UniverseSymbolSearchArgs =
+                serde_json::from_str(&args).map_err(ToolError::JsonError)?;
+            let output = match self
+                .quote_service
+                .search_symbol_with_currency(args.query.trim(), Some("USD"))
+                .await
+            {
+                Ok(results) => symbol_search_output(results),
+                // Feed lookup failures back to the model as data, not as a
+                // hard tool error, so it can continue from its own knowledge.
+                Err(e) => serde_json::json!({ "error": e.to_string() }),
+            };
+            serde_json::to_string(&output).map_err(ToolError::JsonError)
+        })
+    }
+}
+
 /// Generate or enhance an arena challenge spec using the AI Assistant's
 /// configured default provider and model. With only a theme, generates a
 /// fresh spec; with a draft, enhances it (keeping user tickers).
-pub async fn generate_challenge_spec<E: AiEnvironment>(
+pub async fn generate_challenge_spec<E: AiEnvironment + 'static>(
     env: Arc<E>,
     request: GenerateChallengeSpecRequest,
 ) -> Result<GeneratedArenaChallengeSpec, AiError> {
@@ -187,15 +300,43 @@ pub async fn generate_challenge_spec<E: AiEnvironment>(
 
     // Reuse the arena LLM runner: shared provider clients, resolved tuning
     // (temperature only when provided), and strict-JSON system suffix.
+    // Models with tool support get a small tool loop (screen_stocks +
+    // search_symbol); the rest keep the historical single-shot prompt.
     let runner = AiArenaLlmRunner::new(env.clone());
-    let raw = runner
-        .complete(ArenaDecisionRequest {
-            provider_id: provider_id.clone(),
-            model_id: model_id.clone(),
-            system_prompt: system_prompt.to_string(),
-            prompt,
-        })
-        .await?;
+    let capabilities = provider_service.get_model_capabilities(&provider_id, &model_id);
+    let raw = if capabilities.tools {
+        let agent_env: Arc<dyn AgentEnvironment> = env.clone();
+        let tools: Vec<Box<dyn ToolDyn>> = vec![
+            Box::new(RigAgentTool::new(
+                Arc::new(wealthfolio_agent_tools::tools::ScreenStocks),
+                agent_env,
+            )),
+            Box::new(UniverseSymbolSearch {
+                quote_service: env.quote_service(),
+            }),
+        ];
+        runner
+            .complete_with_tools(
+                ArenaDecisionRequest {
+                    provider_id: provider_id.clone(),
+                    model_id: model_id.clone(),
+                    system_prompt: format!("{system_prompt}{TOOL_LOOP_GUIDANCE}"),
+                    prompt,
+                },
+                tools,
+                MAX_TOOL_TURNS,
+            )
+            .await?
+    } else {
+        runner
+            .complete(ArenaDecisionRequest {
+                provider_id: provider_id.clone(),
+                model_id: model_id.clone(),
+                system_prompt: system_prompt.to_string(),
+                prompt,
+            })
+            .await?
+    };
 
     let value = parse_model_json(&raw)?;
     let spec: RawChallengeSpec = serde_json::from_value(value)
@@ -308,6 +449,72 @@ mod tests {
         let spec: RawChallengeSpec = serde_json::from_value(value).expect("spec");
         assert_eq!(spec.name, "Euro Defense Primes");
         assert_eq!(spec.universe, vec!["RHM.DE", "BA.L"]);
+    }
+
+    #[test]
+    fn tool_loop_guidance_names_the_tools_and_strict_json() {
+        // The tool-path system prompt must tell the model exactly which
+        // tools exist, that the screener is structural-only, and that the
+        // final message is still strict JSON (parse_model_json depends on it).
+        assert!(TOOL_LOOP_GUIDANCE.contains("screen_stocks"));
+        assert!(TOOL_LOOP_GUIDANCE.contains("search_symbol"));
+        assert!(TOOL_LOOP_GUIDANCE.contains("no P/E"));
+        assert!(TOOL_LOOP_GUIDANCE.contains("strict"));
+        // The base prompts stay tool-free (single-shot models see them alone).
+        assert!(!GENERATE_SYSTEM_PROMPT.contains("screen_stocks"));
+        assert!(!ENHANCE_SYSTEM_PROMPT.contains("screen_stocks"));
+        // Both paths think in company names first.
+        assert!(GENERATE_SYSTEM_PROMPT.contains("company names first"));
+        assert!(ENHANCE_SYSTEM_PROMPT.contains("company names first"));
+    }
+
+    #[tokio::test]
+    async fn search_symbol_tool_definition_is_well_formed() {
+        // Only the definition is exercised — no service call happens.
+        let tool = UniverseSymbolSearch {
+            quote_service: Arc::new(crate::env::test_env::MockQuoteService::default()),
+        };
+        let def = tool.definition(String::new()).await;
+        assert_eq!(def.name, "search_symbol");
+        assert_eq!(ToolDyn::name(&tool), "search_symbol");
+        assert_eq!(def.parameters["required"], serde_json::json!(["query"]));
+        assert_eq!(def.parameters["properties"]["query"]["type"], "string");
+    }
+
+    #[tokio::test]
+    async fn search_symbol_tool_call_returns_compact_json() {
+        let mock = crate::env::test_env::MockQuoteService::default();
+        *mock.search_results.write().unwrap() =
+            vec![wealthfolio_core::quotes::SymbolSearchResult {
+                symbol: "NVDA".to_string(),
+                long_name: "NVIDIA Corporation".to_string(),
+                exchange: "NMS".to_string(),
+                ..Default::default()
+            }];
+        let tool = UniverseSymbolSearch {
+            quote_service: Arc::new(mock),
+        };
+        let out = tool
+            .call(r#"{"query": "Nvidia"}"#.to_string())
+            .await
+            .expect("tool output");
+        let value: serde_json::Value = serde_json::from_str(&out).expect("json");
+        assert_eq!(value["results"][0]["symbol"], "NVDA");
+        assert_eq!(value["results"][0]["name"], "NVIDIA Corporation");
+    }
+
+    #[test]
+    fn symbol_search_output_is_compact_and_capped() {
+        let result = |symbol: &str| wealthfolio_core::quotes::SymbolSearchResult {
+            symbol: symbol.to_string(),
+            ..Default::default()
+        };
+        let many: Vec<_> = (0..10).map(|i| result(&format!("T{i}"))).collect();
+        let value = symbol_search_output(many);
+        let results = value["results"].as_array().expect("results");
+        assert_eq!(results.len(), SYMBOL_TOOL_RESULTS);
+        assert_eq!(results[0]["symbol"], "T0");
+        assert!(results[0].get("score").is_none(), "compact view only");
     }
 
     #[test]

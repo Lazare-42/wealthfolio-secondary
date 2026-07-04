@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use rig::{client::CompletionClient, completion::Prompt};
+use rig::{client::CompletionClient, completion::Prompt, tool::ToolDyn};
 use wealthfolio_core::ai_arena::{AiArenaDecisionRunner, ArenaDecisionRequest};
 use wealthfolio_core::errors::{Error as CoreError, Result as CoreResult};
 
@@ -25,6 +25,18 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
     }
 
     pub(crate) async fn complete(&self, request: ArenaDecisionRequest) -> Result<String, AiError> {
+        self.complete_with_tools(request, Vec::new(), 0).await
+    }
+
+    /// Like [`Self::complete`], but attaches rig tools and allows up to
+    /// `max_turns` model-↔-tool round trips before the final answer. With an
+    /// empty tool list and `max_turns == 0` this is exactly `complete`.
+    pub(crate) async fn complete_with_tools(
+        &self,
+        request: ArenaDecisionRequest,
+        tools: Vec<Box<dyn ToolDyn>>,
+        max_turns: usize,
+    ) -> Result<String, AiError> {
         let provider_service = ProviderService::new(self.env.clone());
         let api_key = provider_service.get_api_key(&request.provider_id)?;
         let provider_url = provider_service.get_provider_url(&request.provider_id);
@@ -67,6 +79,8 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
                     &system_prompt,
                     &prompt,
                     temperature,
+                    tools,
+                    max_turns,
                 )
                 .await
             }
@@ -78,6 +92,8 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
                     &system_prompt,
                     &prompt,
                     temperature,
+                    tools,
+                    max_turns,
                 )
                 .await
             }
@@ -89,6 +105,8 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
                     &system_prompt,
                     &prompt,
                     temperature,
+                    tools,
+                    max_turns,
                 )
                 .await
             }
@@ -100,6 +118,8 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
                     &system_prompt,
                     &prompt,
                     temperature,
+                    tools,
+                    max_turns,
                 )
                 .await
             }
@@ -111,6 +131,8 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
                     &system_prompt,
                     &prompt,
                     temperature,
+                    tools,
+                    max_turns,
                 )
                 .await
             }
@@ -122,6 +144,8 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
                     &system_prompt,
                     &prompt,
                     temperature,
+                    tools,
+                    max_turns,
                 )
                 .await
             }
@@ -130,26 +154,47 @@ impl<E: AiEnvironment> AiArenaLlmRunner<E> {
 }
 
 /// Run a single non-streaming prompt against any provider client, applying
-/// temperature only when the resolved provider tuning supplies one.
+/// temperature only when the resolved provider tuning supplies one. With a
+/// non-empty `tools` list, the rig agent may take up to `max_turns` tool
+/// round trips before its final text answer (0 disables multi-turn — the
+/// historical single-shot behavior).
+#[allow(clippy::too_many_arguments)]
 async fn prompt_once<C: CompletionClient>(
     client: C,
     model_id: &str,
     system_prompt: &str,
     prompt: &str,
     temperature: Option<f64>,
+    tools: Vec<Box<dyn ToolDyn>>,
+    max_turns: usize,
 ) -> Result<String, AiError> {
-    let mut agent = client
+    let builder = client
         .agent(model_id)
         .preamble(system_prompt)
         .max_tokens(ARENA_MAX_TOKENS);
-    if let Some(t) = temperature {
-        agent = agent.temperature(t);
+    if tools.is_empty() {
+        let mut builder = builder;
+        if let Some(t) = temperature {
+            builder = builder.temperature(t);
+        }
+        builder
+            .build()
+            .prompt(prompt)
+            .max_turns(max_turns)
+            .await
+            .map_err(|e| AiError::Provider(e.to_string()))
+    } else {
+        let mut builder = builder.tools(tools);
+        if let Some(t) = temperature {
+            builder = builder.temperature(t);
+        }
+        builder
+            .build()
+            .prompt(prompt)
+            .max_turns(max_turns)
+            .await
+            .map_err(|e| AiError::Provider(e.to_string()))
     }
-    agent
-        .build()
-        .prompt(prompt)
-        .await
-        .map_err(|e| AiError::Provider(e.to_string()))
 }
 
 #[async_trait]
