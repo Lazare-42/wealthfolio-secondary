@@ -16,6 +16,7 @@
 //! the safety net for every ticker.
 
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use rig::completion::ToolDefinition;
@@ -82,8 +83,16 @@ const MAX_TOOL_TURNS: usize = 6;
 /// Symbol-search tool results shown to the model per query.
 const SYMBOL_TOOL_RESULTS: usize = 5;
 
+/// Per-call cap on the screener `limit` argument inside the tool loop.
+const ARENA_SCREENER_CALL_LIMIT: u64 = 25;
+/// Cumulative screener hits fed back to the model across one generation loop.
+const ARENA_SCREENER_HIT_BUDGET: usize = 100;
+
 /// Maximum theme length accepted at the crates/ai boundary.
 const MAX_THEME_CHARS: usize = 2000;
+/// Post-parse caps on model-provided text fields.
+const MAX_NAME_CHARS: usize = 100;
+const MAX_DESCRIPTION_CHARS: usize = 1000;
 /// Maximum number of tickers accepted in a user draft.
 const MAX_DRAFT_TICKERS: usize = 40;
 /// Total candidates (draft first, then model) validated per request.
@@ -283,6 +292,114 @@ impl ToolDyn for UniverseSymbolSearch {
     }
 }
 
+/// Wraps the shared `screen_stocks` tool for the arena generation loop only,
+/// bounding how much screener output can flow back into the model's context:
+/// each call's `limit` argument is capped at [`ARENA_SCREENER_CALL_LIMIT`],
+/// and once a cumulative [`ARENA_SCREENER_HIT_BUDGET`] hits have been
+/// returned across the loop, further calls get a budget-exhausted notice
+/// instead of provider data. Chat and MCP use the unwrapped tool and are
+/// unaffected.
+struct BudgetedScreenStocks {
+    inner: RigAgentTool,
+    remaining_hits: AtomicUsize,
+}
+
+impl BudgetedScreenStocks {
+    fn new(inner: RigAgentTool) -> Self {
+        Self {
+            inner,
+            remaining_hits: AtomicUsize::new(ARENA_SCREENER_HIT_BUDGET),
+        }
+    }
+}
+
+/// Cap the screener `limit` argument at `cap` (also applied when absent, so
+/// the tool's own default cannot exceed the remaining budget). Unparseable
+/// or non-object args pass through untouched so the inner tool reports its
+/// usual schema error; a present-but-non-integer `limit` is likewise left
+/// for the inner tool to reject.
+fn cap_screener_limit(args: &str, cap: u64) -> String {
+    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(args) else {
+        return args.to_string();
+    };
+    let Some(object) = value.as_object_mut() else {
+        return args.to_string();
+    };
+    match object.get("limit").map(serde_json::Value::as_u64) {
+        Some(Some(requested)) => {
+            object.insert("limit".to_string(), serde_json::json!(requested.min(cap)));
+        }
+        Some(None) => {}
+        None => {
+            object.insert("limit".to_string(), serde_json::json!(cap));
+        }
+    }
+    value.to_string()
+}
+
+/// Truncate a `screen_stocks` output payload to at most `max_hits` hits,
+/// fixing `count` to match. Returns the (possibly rewritten) payload and the
+/// number of hits it now carries (0 for error or non-screener payloads).
+fn truncate_screener_hits(output: &str, max_hits: usize) -> (String, usize) {
+    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(output) else {
+        return (output.to_string(), 0);
+    };
+    let Some(hits) = value.get_mut("hits").and_then(|h| h.as_array_mut()) else {
+        return (output.to_string(), 0);
+    };
+    hits.truncate(max_hits);
+    let count = hits.len();
+    value["count"] = serde_json::json!(count);
+    (value.to_string(), count)
+}
+
+impl ToolDyn for BudgetedScreenStocks {
+    fn name(&self) -> String {
+        ToolDyn::name(&self.inner)
+    }
+
+    fn definition<'a>(&'a self, prompt: String) -> WasmBoxedFuture<'a, ToolDefinition> {
+        self.inner.definition(prompt)
+    }
+
+    fn call<'a>(&'a self, args: String) -> WasmBoxedFuture<'a, Result<String, ToolError>> {
+        Box::pin(async move {
+            let remaining = self.remaining_hits.load(Ordering::Relaxed);
+            if remaining == 0 {
+                // Answer as data (not a hard tool error) so the model moves
+                // on with the candidates it already has.
+                return Ok(serde_json::json!({
+                    "error": "screen_stocks result budget exhausted for this request — \
+                              do not call it again; work with the candidates you already have"
+                })
+                .to_string());
+            }
+            let capped = cap_screener_limit(&args, ARENA_SCREENER_CALL_LIMIT.min(remaining as u64));
+            let output = self.inner.call(capped).await?;
+            let (output, returned) = truncate_screener_hits(&output, remaining);
+            self.remaining_hits.fetch_sub(returned, Ordering::Relaxed);
+            Ok(output)
+        })
+    }
+}
+
+/// Whether a failed tool-loop generation should be retried once via the
+/// single-shot path. Config errors (invalid input, missing API key) would
+/// fail identically without tools, so they surface immediately; anything
+/// else (provider rejecting the tools payload, max-turns exhaustion, tool
+/// failures bubbling up) gets one tool-free retry.
+fn should_retry_single_shot(error: &AiError) -> bool {
+    !matches!(error, AiError::InvalidInput(_) | AiError::MissingApiKey(_))
+}
+
+/// Truncate to at most `max_chars` characters (char-boundary safe).
+fn truncate_chars(value: &str, max_chars: usize) -> &str {
+    match value.char_indices().nth(max_chars) {
+        Some((idx, _)) => &value[..idx],
+        None => value,
+    }
+}
+
 /// Generate or enhance an arena challenge spec using the AI Assistant's
 /// configured default provider and model. With only a theme, generates a
 /// fresh spec; with a draft, enhances it (keeping user tickers).
@@ -307,26 +424,44 @@ pub async fn generate_challenge_spec<E: AiEnvironment + 'static>(
     let raw = if capabilities.tools {
         let agent_env: Arc<dyn AgentEnvironment> = env.clone();
         let tools: Vec<Box<dyn ToolDyn>> = vec![
-            Box::new(RigAgentTool::new(
+            Box::new(BudgetedScreenStocks::new(RigAgentTool::new(
                 Arc::new(wealthfolio_agent_tools::tools::ScreenStocks),
                 agent_env,
-            )),
+            ))),
             Box::new(UniverseSymbolSearch {
                 quote_service: env.quote_service(),
             }),
         ];
-        runner
+        let tool_result = runner
             .complete_with_tools(
                 ArenaDecisionRequest {
                     provider_id: provider_id.clone(),
                     model_id: model_id.clone(),
                     system_prompt: format!("{system_prompt}{TOOL_LOOP_GUIDANCE}"),
-                    prompt,
+                    prompt: prompt.clone(),
                 },
                 tools,
                 MAX_TOOL_TURNS,
             )
-            .await?
+            .await;
+        match tool_result {
+            Ok(raw) => raw,
+            Err(error) if should_retry_single_shot(&error) => {
+                log::warn!(
+                    "Arena challenge tool-loop generation failed ({error}); \
+                     retrying once via the single-shot path"
+                );
+                runner
+                    .complete(ArenaDecisionRequest {
+                        provider_id: provider_id.clone(),
+                        model_id: model_id.clone(),
+                        system_prompt: system_prompt.to_string(),
+                        prompt,
+                    })
+                    .await?
+            }
+            Err(error) => return Err(error),
+        }
     } else {
         runner
             .complete(ArenaDecisionRequest {
@@ -375,8 +510,8 @@ pub async fn generate_challenge_spec<E: AiEnvironment + 'static>(
     .await?;
 
     Ok(GeneratedArenaChallengeSpec {
-        name: spec.name.trim().to_string(),
-        description: spec.description.trim().to_string(),
+        name: truncate_chars(spec.name.trim(), MAX_NAME_CHARS).to_string(),
+        description: truncate_chars(spec.description.trim(), MAX_DESCRIPTION_CHARS).to_string(),
         universe,
         dropped,
         provider_id,
@@ -515,6 +650,117 @@ mod tests {
         assert_eq!(results.len(), SYMBOL_TOOL_RESULTS);
         assert_eq!(results[0]["symbol"], "T0");
         assert!(results[0].get("score").is_none(), "compact view only");
+    }
+
+    #[test]
+    fn truncate_chars_is_char_boundary_safe() {
+        assert_eq!(truncate_chars("short", MAX_NAME_CHARS), "short");
+        assert_eq!(truncate_chars("abcdef", 3), "abc");
+
+        // Multibyte characters: counts chars, never splits one.
+        let name = "é".repeat(MAX_NAME_CHARS + 50);
+        let capped = truncate_chars(&name, MAX_NAME_CHARS);
+        assert_eq!(capped.chars().count(), MAX_NAME_CHARS);
+        assert_eq!(capped, "é".repeat(MAX_NAME_CHARS));
+
+        let description = "🚀".repeat(MAX_DESCRIPTION_CHARS + 1);
+        assert_eq!(
+            truncate_chars(&description, MAX_DESCRIPTION_CHARS)
+                .chars()
+                .count(),
+            MAX_DESCRIPTION_CHARS
+        );
+    }
+
+    #[test]
+    fn tool_loop_failures_retry_single_shot_except_config_errors() {
+        // Provider/tool failures (e.g. max turns, tools payload rejected)
+        // fall back to the single-shot path.
+        assert!(should_retry_single_shot(&AiError::Provider(
+            "MaxDepthError: (6) turns".to_string()
+        )));
+        assert!(should_retry_single_shot(&AiError::ToolExecutionFailed(
+            "boom".to_string()
+        )));
+        // Config errors would fail identically single-shot — surface them.
+        assert!(!should_retry_single_shot(&AiError::InvalidInput(
+            "bad request".to_string()
+        )));
+        assert!(!should_retry_single_shot(&AiError::MissingApiKey(
+            "openai".to_string()
+        )));
+    }
+
+    #[test]
+    fn cap_screener_limit_caps_defaults_and_passes_through() {
+        let get_limit = |args: &str| -> serde_json::Value {
+            serde_json::from_str::<serde_json::Value>(args).expect("json")["limit"].clone()
+        };
+
+        // Oversized requests are capped.
+        let capped = cap_screener_limit(r#"{"sector":"Technology","limit":100}"#, 25);
+        assert_eq!(get_limit(&capped), serde_json::json!(25));
+        assert!(capped.contains("Technology"), "other args preserved");
+
+        // Smaller requests pass through.
+        let capped = cap_screener_limit(r#"{"limit":5}"#, 25);
+        assert_eq!(get_limit(&capped), serde_json::json!(5));
+
+        // An absent limit is pinned to the cap (the tool's own default may
+        // exceed the remaining budget).
+        let capped = cap_screener_limit("{}", 10);
+        assert_eq!(get_limit(&capped), serde_json::json!(10));
+
+        // Invalid limit and unparseable args are left for the inner tool
+        // to reject with its usual error.
+        let capped = cap_screener_limit(r#"{"limit":"lots"}"#, 25);
+        assert_eq!(get_limit(&capped), serde_json::json!("lots"));
+        assert_eq!(cap_screener_limit("not json", 25), "not json");
+    }
+
+    #[test]
+    fn truncate_screener_hits_truncates_and_fixes_count() {
+        let output = serde_json::json!({
+            "count": 3,
+            "hits": [{"symbol": "A"}, {"symbol": "B"}, {"symbol": "C"}]
+        })
+        .to_string();
+
+        let (truncated, returned) = truncate_screener_hits(&output, 2);
+        assert_eq!(returned, 2);
+        let value: serde_json::Value = serde_json::from_str(&truncated).expect("json");
+        assert_eq!(value["count"], 2);
+        assert_eq!(value["hits"].as_array().expect("hits").len(), 2);
+        assert_eq!(value["hits"][1]["symbol"], "B");
+
+        // Under-budget output is untouched.
+        let (kept, returned) = truncate_screener_hits(&output, 100);
+        assert_eq!(returned, 3);
+        let value: serde_json::Value = serde_json::from_str(&kept).expect("json");
+        assert_eq!(value["count"], 3);
+
+        // Error payloads carry no hits and consume no budget.
+        let (out, returned) = truncate_screener_hits(r#"{"error":"nope"}"#, 2);
+        assert_eq!(returned, 0);
+        assert!(out.contains("nope"));
+    }
+
+    #[tokio::test]
+    async fn budgeted_screener_refuses_once_budget_is_exhausted() {
+        // With the budget at zero the wrapper answers from data without ever
+        // touching the inner tool (whose mock quote service would panic).
+        let tool = BudgetedScreenStocks {
+            inner: RigAgentTool::new(
+                Arc::new(wealthfolio_agent_tools::tools::ScreenStocks),
+                Arc::new(crate::env::test_env::MockEnvironment::new()),
+            ),
+            remaining_hits: AtomicUsize::new(0),
+        };
+        let out = tool.call("{}".to_string()).await.expect("tool output");
+        assert!(out.contains("budget exhausted"));
+
+        // Name/definition still pass through to the shared tool.
+        assert_eq!(ToolDyn::name(&tool), "screen_stocks");
     }
 
     #[test]
