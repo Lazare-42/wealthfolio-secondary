@@ -25,6 +25,12 @@ interface SwipablePageProps {
   title?: string;
   mobileActionsPlacement?: "below" | "header";
   /**
+   * Optional content rendered between the pill navigation and the active view
+   * (desktop), or above the swipable views (mobile). Spans all tabs — useful
+   * for onboarding banners.
+   */
+  banner?: React.ReactNode;
+  /**
    * When set, the most recently selected view is remembered in localStorage
    * under this key. Used as the fallback when the URL has no `?tab=` param,
    * so navigating back to this page restores the previously chosen tab.
@@ -160,6 +166,7 @@ export function SwipablePage({
   withMobileNavOffset = true,
   title,
   mobileActionsPlacement = "below",
+  banner,
   persistKey,
 }: SwipablePageProps) {
   const isMobile = useIsMobileViewport();
@@ -206,8 +213,17 @@ export function SwipablePage({
       }
 
       // Update URL - this is the single source of truth
-      // SwipableView will sync automatically via selectedIndex prop
-      setSearchParams({ tab: nextView }, { replace: true });
+      // SwipableView will sync automatically via selectedIndex prop.
+      // Merge into existing params so tab switches don't wipe unrelated
+      // query params (deep-link filters, entity ids, ...).
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("tab", nextView);
+          return next;
+        },
+        { replace: true },
+      );
       onViewChange?.(nextView);
 
       if (persistKey) {
@@ -261,6 +277,8 @@ export function SwipablePage({
               )}
             </div>
 
+            {banner && <div className="shrink-0 px-3 pb-2">{banner}</div>}
+
             <div className="min-h-0 flex-1 overflow-hidden">
               <SwipableView
                 initialIndex={currentIndex}
@@ -304,6 +322,8 @@ export function SwipablePage({
               {/* Actions slot - renders current view's actions */}
               <div className="flex items-center gap-2">{currentActions}</div>
             </div>
+
+            {banner && <div className="shrink-0 px-2 pb-3 lg:px-4">{banner}</div>}
 
             {/* Content - relative for absolute positioned actions within */}
             <div
