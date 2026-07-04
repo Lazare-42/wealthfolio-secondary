@@ -32,12 +32,15 @@ export default function ChallengeCreatePage() {
   const [generatedSpec, setGeneratedSpec] = useState<GeneratedArenaChallengeSpec | null>(null);
 
   const applySpec = (spec: GeneratedArenaChallengeSpec) => {
+    // The backend guarantees a non-empty universe (it errors otherwise);
+    // never overwrite name/description while silently keeping a stale one.
+    if (spec.universe.length === 0) return;
     setGeneratedSpec(spec);
     setForm((current) => ({
       ...current,
       name: spec.name || current.name,
       description: spec.description || current.description,
-      universe: spec.universe.length > 0 ? spec.universe.join(", ") : current.universe,
+      universe: spec.universe.join(", "),
     }));
   };
 
@@ -45,24 +48,36 @@ export default function ChallengeCreatePage() {
     generateChallengeSpecMutation.mutate({ theme: theme.trim() }, { onSuccess: applySpec });
   };
 
+  // Only fields the user actually edited count as draft content — prefilled
+  // defaults (name, universe) are not user intent, so Enhance omits them and
+  // a theme-only enhance behaves like Generate.
+  const draft = {
+    name: form.name.trim() === defaultChallengeForm.name ? "" : form.name.trim(),
+    description: form.description.trim(),
+    universe:
+      splitSymbols(form.universe).join(",") ===
+      splitSymbols(defaultChallengeForm.universe).join(",")
+        ? []
+        : splitSymbols(form.universe),
+  };
   const draftHasContent =
-    Boolean(form.name.trim()) ||
-    Boolean(form.description.trim()) ||
-    splitSymbols(form.universe).length > 0;
+    Boolean(draft.name) || Boolean(draft.description) || draft.universe.length > 0;
 
   const enhanceWithAi = () => {
     generateChallengeSpecMutation.mutate(
-      {
-        theme: theme.trim() || undefined,
-        draft: {
-          name: form.name.trim(),
-          description: form.description.trim(),
-          universe: splitSymbols(form.universe),
-        },
-      },
+      { theme: theme.trim() || undefined, draft },
       { onSuccess: applySpec },
     );
   };
+
+  // Shown next to both AI actions so the note sits adjacent to whichever
+  // action (Generate or Enhance) produced it.
+  const droppedNote =
+    generatedSpec && generatedSpec.dropped.length > 0 ? (
+      <p className="text-muted-foreground text-xs">
+        Dropped unresolvable symbols: {generatedSpec.dropped.join(", ")}
+      </p>
+    ) : null;
 
   const createChallenge = () => {
     createChallengeMutation.mutate(toCreateChallengeRequest(form), {
@@ -112,11 +127,7 @@ export default function ChallengeCreatePage() {
                   ? `Generated with ${generatedSpec.providerId} · ${generatedSpec.modelId}`
                   : "Uses your AI Assistant provider"}
               </p>
-              {generatedSpec && generatedSpec.dropped.length > 0 ? (
-                <p className="text-muted-foreground text-xs">
-                  Dropped unresolvable symbols: {generatedSpec.dropped.join(", ")}
-                </p>
-              ) : null}
+              {droppedNote}
             </CardContent>
           </Card>
 
@@ -151,6 +162,7 @@ export default function ChallengeCreatePage() {
                 Enhance keeps your name, intent, and tickers, sharpens the thesis, and adds
                 complementary symbols.
               </p>
+              {droppedNote}
             </CardContent>
           </Card>
 
