@@ -15,7 +15,8 @@ import { formatMoney, statusVariant } from "./formatters";
 export function TradesTable({ trades }: { trades: ArenaTrade[] }) {
   return (
     <div className="max-h-[560px] overflow-auto rounded-md border">
-      <Table>
+      {/* min-w only when populated so wide rows scroll instead of crushing columns */}
+      <Table className={trades.length > 0 ? "min-w-[36rem]" : undefined}>
         <TableHeader>
           <TableRow>
             <TableHead>Symbol</TableHead>
@@ -34,7 +35,10 @@ export function TradesTable({ trades }: { trades: ArenaTrade[] }) {
               <TableCell>
                 <Badge variant={statusVariant(trade.status)}>{trade.status}</Badge>
               </TableCell>
-              <TableCell className="text-muted-foreground max-w-80 truncate">
+              <TableCell
+                className="text-muted-foreground max-w-80 truncate"
+                title={trade.rejectionReason ?? trade.rationale ?? undefined}
+              >
                 {trade.rejectionReason ?? trade.rationale ?? ""}
               </TableCell>
             </TableRow>

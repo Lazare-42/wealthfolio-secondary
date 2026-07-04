@@ -21,7 +21,8 @@ export function RunsTable({
 }) {
   return (
     <div className="max-h-[560px] overflow-auto rounded-md border">
-      <Table>
+      {/* min-w only when populated so wide rows scroll instead of crushing columns */}
+      <Table className={runs.length > 0 ? "min-w-[36rem]" : undefined}>
         <TableHeader>
           <TableRow>
             <TableHead>Agent</TableHead>
@@ -39,10 +40,13 @@ export function RunsTable({
               <TableCell>
                 <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
               </TableCell>
-              <TableCell className="text-muted-foreground">
+              <TableCell className="text-muted-foreground whitespace-nowrap">
                 {new Date(run.startedAt).toLocaleString()}
               </TableCell>
-              <TableCell className="text-muted-foreground max-w-80 truncate">
+              <TableCell
+                className="text-muted-foreground max-w-80 truncate"
+                title={run.error ?? undefined}
+              >
                 {run.error ?? ""}
               </TableCell>
             </TableRow>

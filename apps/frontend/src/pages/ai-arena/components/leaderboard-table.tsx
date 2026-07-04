@@ -42,7 +42,8 @@ export function LeaderboardTable({
 
   return (
     <div className="max-h-[560px] overflow-auto rounded-md border">
-      <Table>
+      {/* min-w only when populated so the 7 columns scroll instead of crushing */}
+      <Table className={participantRows.length > 0 ? "min-w-[40rem]" : undefined}>
         <TableHeader>
           <TableRow>
             <TableHead className="w-14">Rank</TableHead>
