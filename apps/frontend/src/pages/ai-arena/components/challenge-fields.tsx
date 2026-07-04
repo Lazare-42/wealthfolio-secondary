@@ -1,5 +1,21 @@
+import { useState } from "react";
+
 import type { CreateArenaChallengeRequest } from "@/lib/types";
+import { Icons } from "@wealthfolio/ui";
+import { Button } from "@wealthfolio/ui/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@wealthfolio/ui/components/ui/collapsible";
 import { Input } from "@wealthfolio/ui/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@wealthfolio/ui/components/ui/select";
 import { Textarea } from "@wealthfolio/ui/components/ui/textarea";
 
 import { Field } from "./field";
@@ -63,6 +79,8 @@ export function ChallengeFields({
   form: ChallengeFormState;
   onChange: (form: ChallengeFormState) => void;
 }) {
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
   return (
     <div className="space-y-3">
       <Field label="Name">
@@ -78,55 +96,95 @@ export function ChallengeFields({
           className="min-h-16"
         />
       </Field>
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="Market">
-          <Input
-            value={form.market}
-            onChange={(event) => onChange({ ...form, market: event.target.value })}
-          />
-        </Field>
-        <Field label="Cadence">
-          <Input
-            value={form.runCadence}
-            onChange={(event) => onChange({ ...form, runCadence: event.target.value })}
-          />
-        </Field>
-      </div>
-      <Field label="Universe">
+      <Field label="Market" help="AI Arena currently supports US stocks only — more markets later.">
+        <Select value={form.market} onValueChange={(market) => onChange({ ...form, market })}>
+          <SelectTrigger disabled>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="us-stock">US stocks</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field
+        label="Universe"
+        help="Tickers, comma or space separated — leave empty for an open universe."
+      >
         <Input
           value={form.universe}
           onChange={(event) => onChange({ ...form, universe: event.target.value })}
         />
       </Field>
-      <div className="grid grid-cols-3 gap-2">
-        <Field label="Cash">
-          <Input
-            type="number"
-            value={form.initialCash}
-            onChange={(event) => onChange({ ...form, initialCash: event.target.value })}
-          />
-        </Field>
-        <Field label="Max %">
-          <Input
-            type="number"
-            value={form.maxPositionPct}
-            onChange={(event) => onChange({ ...form, maxPositionPct: event.target.value })}
-          />
-        </Field>
-        <Field label="DD %">
-          <Input
-            type="number"
-            value={form.maxDrawdownPct}
-            onChange={(event) => onChange({ ...form, maxDrawdownPct: event.target.value })}
-          />
-        </Field>
-      </div>
-      <Field label="Time">
-        <Input
-          value={form.scheduledTimeLocal}
-          onChange={(event) => onChange({ ...form, scheduledTimeLocal: event.target.value })}
-        />
-      </Field>
+
+      <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            className="text-muted-foreground hover:text-foreground flex w-full items-center justify-between px-0 py-1 hover:bg-transparent"
+          >
+            <span className="text-sm font-medium">Advanced</span>
+            <Icons.ChevronDown
+              className={`h-4 w-4 transition-transform ${advancedOpen ? "rotate-180" : ""}`}
+            />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-3 pt-2">
+          <h4 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+            Risk &amp; rules
+          </h4>
+          <Field label="Initial cash">
+            <Input
+              type="number"
+              value={form.initialCash}
+              onChange={(event) => onChange({ ...form, initialCash: event.target.value })}
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Max position size (%)" help="Largest single position as % of portfolio.">
+              <Input
+                type="number"
+                value={form.maxPositionPct}
+                onChange={(event) => onChange({ ...form, maxPositionPct: event.target.value })}
+              />
+            </Field>
+            <Field label="Disqualify at drawdown (%)">
+              <Input
+                type="number"
+                value={form.maxDrawdownPct}
+                onChange={(event) => onChange({ ...form, maxDrawdownPct: event.target.value })}
+              />
+            </Field>
+          </div>
+          <h4 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+            Schedule
+          </h4>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Cadence" help="Scheduled auto-runs currently fire on daily cadence only.">
+              <Select
+                value={form.runCadence}
+                onValueChange={(runCadence) => onChange({ ...form, runCadence })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Run time">
+              <Input
+                type="time"
+                value={form.scheduledTimeLocal}
+                onChange={(event) => onChange({ ...form, scheduledTimeLocal: event.target.value })}
+              />
+            </Field>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }
