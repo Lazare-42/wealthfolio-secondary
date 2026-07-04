@@ -277,8 +277,9 @@ async fn mcp_pat_lifecycle() {
 
     let session = mcp_initialize(&server, &pat).await;
 
-    // tools/list -> the read-only catalog: 16 read tools + get_import_mapping
-    // (also activities:read) = 17.
+    // tools/list -> the read-only catalog: 25 read tools, minus the 3 gated
+    // on scenarios:read (list/get portfolio scenario, compare_saved_scenario),
+    // plus get_import_mapping (activities:read) = 23.
     let response = mcp_post(
         &server,
         Some(&pat),
@@ -439,8 +440,10 @@ async fn mcp_pat_lifecycle() {
 
 /// A write/suggest-scoped token sees the draft, suggest, commit, AND import
 /// tools via `tools/list` — proving scope-gated visibility extends past the
-/// read-only catalog. (Read-only tokens see 17; the full MCP catalog is
-/// 16 read + get_import_mapping + 5 draft/suggest + 2 commit + 2 import = 26.)
+/// read-only catalog. (Read-only tokens see 23; this token — which still
+/// lacks the scenarios scopes — sees 22 read (25 minus 3 scenarios:read-gated)
+/// + 5 draft/suggest (7 minus 2 scenarios:write-gated) + 2 commit
+/// + 3 import = 32.)
 #[tokio::test]
 async fn mcp_write_scoped_token_sees_write_tools() {
     let server = spawn_server(true, false).await;
