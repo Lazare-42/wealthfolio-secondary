@@ -64,7 +64,18 @@ export function LeaderboardTable({
             >
               <TableCell>{entry.rank ?? "-"}</TableCell>
               <TableCell>
-                <div className="font-medium">{entry.agentName}</div>
+                {/* Real button so keyboard users can reach it — the row
+                    onClick is a pointer-only convenience. */}
+                <button
+                  type="button"
+                  className="focus-visible:ring-ring cursor-pointer rounded-sm text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-2"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSelectParticipant(entry.participantId);
+                  }}
+                >
+                  {entry.agentName}
+                </button>
                 {entry.disqualifiedReason && (
                   <div className="text-destructive text-xs">{entry.disqualifiedReason}</div>
                 )}
