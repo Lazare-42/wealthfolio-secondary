@@ -15,19 +15,7 @@ import {
   useArenaTrades,
   useCompanyTheses,
 } from "@/hooks/use-ai-arena";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@wealthfolio/ui/components/ui/alert-dialog";
 import { Button } from "@wealthfolio/ui/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@wealthfolio/ui/components/ui/tooltip";
 import {
   Select,
   SelectContent,
@@ -37,6 +25,7 @@ import {
 } from "@wealthfolio/ui/components/ui/select";
 import { Icons, Skeleton } from "@wealthfolio/ui";
 
+import { ArenaActions } from "./components/arena-actions";
 import { ArenaTab } from "./components/arena-tab";
 import { OnboardingChecklist } from "./components/onboarding-checklist";
 import { PortfolioTab } from "./components/portfolio-tab";
@@ -298,62 +287,11 @@ export default function AiArenaPage() {
       actions: (
         <>
           {challengeSelect}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => mutations.runDueMutation.mutate()}
-                disabled={mutations.runDueMutation.isPending}
-              >
-                {mutations.runDueMutation.isPending ? (
-                  <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Icons.Clock className="mr-2 h-4 w-4" />
-                )}
-                Run due
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              Run every scheduled agent whose challenge run time is due.
-            </TooltipContent>
-          </Tooltip>
-          <AlertDialog>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!selectedChallengeId || mutations.settleChallengeMutation.isPending}
-                  >
-                    <Icons.CheckCircle className="mr-2 h-4 w-4" />
-                    Settle
-                  </Button>
-                </AlertDialogTrigger>
-              </TooltipTrigger>
-              <TooltipContent>Finalize scores and close this challenge.</TooltipContent>
-            </Tooltip>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Settle this challenge?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Finalize scores and close this challenge. Agents can no longer run in it.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() =>
-                    selectedChallengeId &&
-                    mutations.settleChallengeMutation.mutate(selectedChallengeId)
-                  }
-                >
-                  Settle
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <ArenaActions
+            selectedChallengeId={selectedChallengeId}
+            runDueMutation={mutations.runDueMutation}
+            settleChallengeMutation={mutations.settleChallengeMutation}
+          />
         </>
       ),
     },
