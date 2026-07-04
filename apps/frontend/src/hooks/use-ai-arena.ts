@@ -2,6 +2,7 @@ import {
   createArenaAgent,
   createArenaChallenge,
   createCompanyThesis,
+  generateArenaChallengeSpec,
   getArenaAgents,
   getArenaChallenges,
   getArenaLeaderboard,
@@ -122,6 +123,17 @@ export function useAiArenaMutations() {
     onError: () => toast.error("Failed to create challenge."),
   });
 
+  // Pure generation call - no query-key invalidation needed.
+  const generateChallengeSpecMutation = useMutation({
+    mutationFn: (theme: string) => generateArenaChallengeSpec(theme),
+    onError: (error) =>
+      toast.error(
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to generate challenge with AI.",
+      ),
+  });
+
   const joinChallengeMutation = useMutation({
     mutationFn: (input: { challengeId: string; agentId: string }) =>
       joinArenaChallenge(input.challengeId, input.agentId),
@@ -173,6 +185,7 @@ export function useAiArenaMutations() {
   return {
     createAgentMutation,
     createChallengeMutation,
+    generateChallengeSpecMutation,
     joinChallengeMutation,
     runAgentMutation,
     runDueMutation,

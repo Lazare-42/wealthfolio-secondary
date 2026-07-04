@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { useAiArenaMutations } from "@/hooks/use-ai-arena";
-import type { CreateArenaChallengeRequest } from "@/lib/types";
+import type { CreateArenaChallengeRequest, GeneratedArenaChallengeSpec } from "@/lib/types";
 import { Icons } from "@wealthfolio/ui";
 import { Badge } from "@wealthfolio/ui/components/ui/badge";
 import { Button } from "@wealthfolio/ui/components/ui/button";
@@ -48,12 +48,32 @@ const defaultChallengeForm: ChallengeFormState = {
 
 export function ChallengeForm({
   createChallengeMutation,
+  generateChallengeSpecMutation,
   onCreated,
 }: {
   createChallengeMutation: ReturnType<typeof useAiArenaMutations>["createChallengeMutation"];
+  generateChallengeSpecMutation: ReturnType<
+    typeof useAiArenaMutations
+  >["generateChallengeSpecMutation"];
   onCreated: (challengeId: string) => void;
 }) {
   const [challengeForm, setChallengeForm] = useState<ChallengeFormState>(defaultChallengeForm);
+  const [theme, setTheme] = useState("");
+  const [generatedSpec, setGeneratedSpec] = useState<GeneratedArenaChallengeSpec | null>(null);
+
+  const generateWithAi = () => {
+    generateChallengeSpecMutation.mutate(theme.trim(), {
+      onSuccess: (spec) => {
+        setGeneratedSpec(spec);
+        setChallengeForm((form) => ({
+          ...form,
+          name: spec.name || form.name,
+          description: spec.description || form.description,
+          universe: spec.universe.length > 0 ? spec.universe.join(", ") : form.universe,
+        }));
+      },
+    });
+  };
 
   const createChallenge = () => {
     const payload: CreateArenaChallengeRequest = {
@@ -80,6 +100,37 @@ export function ChallengeForm({
         <Badge variant="outline">Long only</Badge>
       </div>
       <div className="space-y-3">
+        <Field label="Theme">
+          <Textarea
+            value={theme}
+            onChange={(event) => setTheme(event.target.value)}
+            placeholder='e.g. "European defense primes" or "profitable small-cap uranium"'
+            className="min-h-16"
+          />
+        </Field>
+        <Button
+          className="w-full"
+          variant="outline"
+          onClick={generateWithAi}
+          disabled={!theme.trim() || generateChallengeSpecMutation.isPending}
+        >
+          {generateChallengeSpecMutation.isPending ? (
+            <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Icons.Sparkles className="mr-2 h-4 w-4" />
+          )}
+          Generate with AI
+        </Button>
+        <p className="text-muted-foreground text-xs">
+          {generatedSpec
+            ? `Generated with ${generatedSpec.providerId} · ${generatedSpec.modelId}`
+            : "Uses your AI Assistant provider"}
+        </p>
+        {generatedSpec && generatedSpec.dropped.length > 0 ? (
+          <p className="text-muted-foreground text-xs">
+            Dropped unresolvable symbols: {generatedSpec.dropped.join(", ")}
+          </p>
+        ) : null}
         <Field label="Name">
           <Input
             value={challengeForm.name}

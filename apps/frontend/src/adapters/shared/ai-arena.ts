@@ -10,6 +10,7 @@ import type {
   CreateArenaAgentRequest,
   CreateArenaChallengeRequest,
   CreateCompanyThesisRequest,
+  GeneratedArenaChallengeSpec,
   RunArenaAgentRequest,
 } from "@/lib/types";
 import { invoke, logger } from "./platform";
@@ -48,6 +49,17 @@ export const createArenaChallenge = async (
     return await invoke<ArenaChallenge>("create_arena_challenge", { challenge });
   } catch (error) {
     logger.error("Error creating arena challenge.");
+    throw error;
+  }
+};
+
+export const generateArenaChallengeSpec = async (
+  theme: string,
+): Promise<GeneratedArenaChallengeSpec> => {
+  try {
+    return await invoke<GeneratedArenaChallengeSpec>("generate_arena_challenge_spec", { theme });
+  } catch (error) {
+    logger.error("Error generating arena challenge spec.");
     throw error;
   }
 };

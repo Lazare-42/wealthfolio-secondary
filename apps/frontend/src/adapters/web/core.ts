@@ -46,6 +46,7 @@ export const COMMANDS: CommandMap = {
   create_arena_agent: { method: "POST", path: "/ai-arena/agents" },
   get_arena_challenges: { method: "GET", path: "/ai-arena/challenges" },
   create_arena_challenge: { method: "POST", path: "/ai-arena/challenges" },
+  generate_arena_challenge_spec: { method: "POST", path: "/ai-arena/challenges/generate" },
   join_arena_challenge: { method: "POST", path: "/ai-arena/challenges" },
   get_arena_participants: { method: "GET", path: "/ai-arena/challenges" },
   run_arena_agent: { method: "POST", path: "/ai-arena/runs" },
@@ -571,6 +572,11 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
     case "create_arena_challenge": {
       const { challenge } = payload as { challenge: Record<string, unknown> };
       body = JSON.stringify(challenge);
+      break;
+    }
+    case "generate_arena_challenge_spec": {
+      const { theme } = payload as { theme: string };
+      body = JSON.stringify({ theme });
       break;
     }
     case "join_arena_challenge": {

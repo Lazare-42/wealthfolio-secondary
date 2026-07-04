@@ -182,6 +182,15 @@ export interface CreateArenaChallengeRequest {
   endAt?: string | null;
 }
 
+export interface GeneratedArenaChallengeSpec {
+  name: string;
+  description: string;
+  universe: string[];
+  dropped: string[];
+  providerId: string;
+  modelId: string;
+}
+
 export interface ArenaParticipant {
   id: string;
   challengeId: string;

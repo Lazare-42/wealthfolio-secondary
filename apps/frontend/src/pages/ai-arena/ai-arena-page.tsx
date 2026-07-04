@@ -170,6 +170,7 @@ export default function AiArenaPage() {
             />
             <ChallengeForm
               createChallengeMutation={mutations.createChallengeMutation}
+              generateChallengeSpecMutation={mutations.generateChallengeSpecMutation}
               onCreated={setSelectedChallengeId}
             />
           </div>
