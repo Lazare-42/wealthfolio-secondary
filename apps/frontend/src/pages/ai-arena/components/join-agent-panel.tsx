@@ -18,11 +18,16 @@ export function JoinAgentPanel({
             key={agent.id}
             variant="outline"
             size="sm"
-            className="w-full justify-start"
+            className="h-auto w-full justify-start py-2"
             onClick={() => onJoin(agent.id)}
           >
-            <Icons.Plus className="mr-2 h-4 w-4" />
-            {agent.name}
+            <Icons.Plus className="mr-2 h-4 w-4 shrink-0" />
+            <span className="min-w-0 text-left">
+              <span className="block truncate">{agent.name}</span>
+              <span className="text-muted-foreground block truncate text-xs font-normal">
+                {agent.providerId} · {agent.modelId}
+              </span>
+            </span>
           </Button>
         ))}
       </div>

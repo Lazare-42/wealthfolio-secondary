@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
+import { SwipablePage, type SwipablePageView } from "@/components/page";
 import { useAiProviders } from "@/features/ai-assistant/hooks/use-ai-providers";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import {
@@ -14,7 +15,6 @@ import {
   useArenaTrades,
   useCompanyTheses,
 } from "@/hooks/use-ai-arena";
-import { Badge } from "@wealthfolio/ui/components/ui/badge";
 import { Button } from "@wealthfolio/ui/components/ui/button";
 import {
   Select,
@@ -23,32 +23,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@wealthfolio/ui/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@wealthfolio/ui/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@wealthfolio/ui/components/ui/tabs";
 import { Icons, Skeleton } from "@wealthfolio/ui";
 
-import { AgentForm } from "./components/agent-form";
-import { EmptyRow } from "./components/empty-row";
-import { JoinAgentPanel } from "./components/join-agent-panel";
+import { ArenaTab } from "./components/arena-tab";
 import { OnboardingChecklist } from "./components/onboarding-checklist";
-import { decimal, formatMoney, formatPct } from "./components/formatters";
-import { LeaderboardTable } from "./components/leaderboard-table";
-import { Metric } from "./components/metric";
-import { ParticipantButton } from "./components/participant-button";
-import { RunsTable } from "./components/runs-table";
-import { ThesesList } from "./components/theses-list";
-import { ThesisForm } from "./components/thesis-form";
-import { TradesTable } from "./components/trades-table";
+import { PortfolioTab } from "./components/portfolio-tab";
+import { SetupTab } from "./components/setup-tab";
+
+const TAB_PERSIST_KEY = "ai-arena-page-tab";
 
 export default function AiArenaPage() {
   const navigate = useNavigate();
+  const [, setSearchParams] = useSearchParams();
   const { data: providersResponse } = useAiProviders();
   const { data: agents = [], isLoading: agentsLoading } = useArenaAgents();
   const { data: challenges = [], isLoading: challengesLoading } = useArenaChallenges();
@@ -124,6 +110,40 @@ export default function AiArenaPage() {
     }
   }, [participants, selectedParticipantId]);
 
+  // Switch tab (the URL is SwipablePage's source of truth) and optionally
+  // scroll to an anchor once the newly selected view has rendered.
+  const goToTab = useCallback(
+    (tab: string, anchorId?: string) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("tab", tab);
+          return next;
+        },
+        { replace: true },
+      );
+      try {
+        window.localStorage.setItem(TAB_PERSIST_KEY, JSON.stringify(tab));
+      } catch {
+        // Persistence is best-effort.
+      }
+      if (anchorId) {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            document
+              .getElementById(anchorId)
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+        });
+      }
+    },
+    [setSearchParams],
+  );
+
+  const hasProvider = enabledProviders.some(
+    (provider) => provider.type === "local" || provider.hasApiKey,
+  );
+
   const isLoading = agentsLoading || challengesLoading;
 
   if (isLoading) {
@@ -135,25 +155,114 @@ export default function AiArenaPage() {
     );
   }
 
-  return (
-    <div className="flex h-full min-h-0 flex-col gap-4 p-4 lg:p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Icons.Brain className="text-primary h-5 w-5" />
-            <h1 className="text-xl font-semibold tracking-normal">AI Arena</h1>
-          </div>
-          <div className="text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
-            <span>{agents.length} agents</span>
-            <span>{challenges.length} challenges</span>
-            <span>{trades.length} paper trades</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" onClick={() => navigate("/ai-arena/challenges/new")}>
-            <Icons.PlusCircle className="mr-2 h-4 w-4" />
-            New challenge
-          </Button>
+  // Computed fallback tab — the URL `?tab=` param and the persisted tab
+  // (handled inside SwipablePage) both take precedence over this.
+  const defaultTab =
+    !hasProvider || agents.length === 0 || challenges.length === 0 ? "setup" : "arena";
+
+  const challengeSelect = (
+    <Select
+      value={selectedChallengeId}
+      onValueChange={(challengeId) => {
+        setSelectedChallengeId(challengeId);
+        setSelectedParticipantId("");
+      }}
+    >
+      <SelectTrigger className="h-8 w-48 text-sm">
+        <SelectValue placeholder="No challenges" />
+      </SelectTrigger>
+      <SelectContent>
+        {challenges.map((challenge) => (
+          <SelectItem key={challenge.id} value={challenge.id}>
+            {challenge.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  const participantSelect = (
+    <Select value={selectedParticipantId} onValueChange={setSelectedParticipantId}>
+      <SelectTrigger className="h-8 w-48 text-sm">
+        <SelectValue placeholder="No participants" />
+      </SelectTrigger>
+      <SelectContent>
+        {participants.map((participant) => (
+          <SelectItem key={participant.id} value={participant.id}>
+            {agentsById.get(participant.agentId)?.name ?? participant.agentId}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  const views: SwipablePageView[] = [
+    {
+      value: "setup",
+      label: "Setup",
+      icon: Icons.Settings2,
+      content: (
+        <SetupTab
+          enabledProviders={enabledProviders}
+          agents={agents}
+          challenges={challenges}
+          createAgentMutation={mutations.createAgentMutation}
+          onOpenChallenge={(challengeId) => {
+            setSelectedChallengeId(challengeId);
+            setSelectedParticipantId("");
+            goToTab("arena");
+          }}
+          onNewChallenge={() => navigate("/ai-arena/challenges/new")}
+        />
+      ),
+      actions: (
+        <Button size="sm" onClick={() => navigate("/ai-arena/challenges/new")}>
+          <Icons.PlusCircle className="mr-2 h-4 w-4" />
+          New challenge
+        </Button>
+      ),
+    },
+    {
+      value: "arena",
+      label: "Arena",
+      icon: Icons.Brain,
+      content: (
+        <ArenaTab
+          challenge={selectedChallenge}
+          agents={agents}
+          agentsById={agentsById}
+          participants={participants}
+          availableAgents={availableAgents}
+          selectedParticipantId={selectedParticipantId}
+          leaderboardEntries={leaderboard?.entries ?? []}
+          trades={trades}
+          runs={runs}
+          onSelectParticipant={setSelectedParticipantId}
+          onOpenParticipant={(participantId) => {
+            setSelectedParticipantId(participantId);
+            goToTab("portfolio");
+          }}
+          onJoin={(agentId) =>
+            selectedChallengeId &&
+            mutations.joinChallengeMutation.mutate({
+              challengeId: selectedChallengeId,
+              agentId,
+            })
+          }
+          onRunParticipant={(participant) =>
+            mutations.runAgentMutation.mutate({
+              challengeId: participant.challengeId,
+              agentId: participant.agentId,
+              runType: "manual",
+            })
+          }
+          isRunningParticipant={() => mutations.runAgentMutation.isPending}
+          onGoToSetup={() => goToTab("setup", "arena-agent-form")}
+        />
+      ),
+      actions: (
+        <>
+          {challengeSelect}
           <Button
             variant="outline"
             size="sm"
@@ -178,231 +287,47 @@ export default function AiArenaPage() {
             <Icons.CheckCircle className="mr-2 h-4 w-4" />
             Settle
           </Button>
-        </div>
-      </header>
+        </>
+      ),
+    },
+    {
+      value: "portfolio",
+      label: "Portfolio",
+      icon: Icons.Wallet,
+      content: (
+        <PortfolioTab
+          portfolio={portfolio}
+          hasParticipants={participants.length > 0}
+          theses={theses}
+          createThesisMutation={mutations.createThesisMutation}
+          challengeId={selectedChallengeId || undefined}
+          agentId={selectedParticipant?.agentId}
+        />
+      ),
+      actions: (
+        <>
+          {challengeSelect}
+          {participantSelect}
+        </>
+      ),
+    },
+  ];
 
-      <OnboardingChecklist
-        hasProvider={enabledProviders.some(
-          (provider) => provider.type === "local" || provider.hasApiKey,
-        )}
-        hasAgent={agents.length > 0}
-        hasChallenge={challenges.length > 0}
-        hasParticipant={hasJoinedOnce || participants.length > 0}
-        hasRun={hasRunOnce || runs.length > 0}
-      />
-
-      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[360px_minmax(0,1fr)_420px]">
-        <section className="border-border bg-card min-h-0 overflow-auto rounded-md border">
-          <div className="border-border border-b p-4">
-            <h2 className="text-sm font-semibold">Setup</h2>
-          </div>
-          <div className="space-y-6 p-4">
-            <div id="arena-agent-form">
-              <AgentForm
-                enabledProviders={enabledProviders}
-                createAgentMutation={mutations.createAgentMutation}
-              />
-            </div>
-            <div className="border-border border-t pt-5">
-              <h3 className="mb-3 text-sm font-medium">Challenge</h3>
-              <Button className="w-full" onClick={() => navigate("/ai-arena/challenges/new")}>
-                <Icons.PlusCircle className="mr-2 h-4 w-4" />
-                New challenge
-              </Button>
-              <p className="text-muted-foreground mt-2 text-xs">
-                Design a challenge — with AI help — on its own page.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <main className="border-border bg-card min-h-0 overflow-hidden rounded-md border">
-          <div className="border-border flex flex-wrap items-center justify-between gap-3 border-b p-4">
-            <div className="min-w-0">
-              <h2 className="truncate text-sm font-semibold">
-                {selectedChallenge?.name ?? "No challenge"}
-              </h2>
-              {selectedChallenge ? (
-                <div className="text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                  <span>{selectedChallenge.market}</span>
-                  <span>{formatMoney(selectedChallenge.initialCash)}</span>
-                  <span>max {decimal.format(selectedChallenge.maxPositionPct)}%</span>
-                  <span>{selectedChallenge.universe.join(", ") || "open universe"}</span>
-                </div>
-              ) : (
-                <p className="text-muted-foreground mt-1 text-xs">
-                  Create a challenge in Setup to start a match — agents trade paper money against
-                  its universe.
-                </p>
-              )}
-            </div>
-            <Select
-              value={selectedChallengeId}
-              onValueChange={(challengeId) => {
-                setSelectedChallengeId(challengeId);
-                setSelectedParticipantId("");
-              }}
-            >
-              <SelectTrigger className="min-w-52">
-                <SelectValue placeholder="No challenges" />
-              </SelectTrigger>
-              <SelectContent>
-                {challenges.map((challenge) => (
-                  <SelectItem key={challenge.id} value={challenge.id}>
-                    {challenge.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid min-h-0 gap-0 lg:grid-cols-[260px_minmax(0,1fr)]">
-            <aside
-              id="arena-participants"
-              className="border-border min-h-0 border-b p-4 lg:border-b-0 lg:border-r"
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-medium">Participants</h3>
-                <Badge variant="outline">{participants.length}</Badge>
-              </div>
-              <div className="space-y-2">
-                {participants.map((participant) => {
-                  const agent = agentsById.get(participant.agentId);
-                  return (
-                    <ParticipantButton
-                      key={participant.id}
-                      participant={participant}
-                      agent={agent}
-                      selected={participant.id === selectedParticipantId}
-                      onSelect={() => setSelectedParticipantId(participant.id)}
-                      onRun={() =>
-                        mutations.runAgentMutation.mutate({
-                          challengeId: participant.challengeId,
-                          agentId: participant.agentId,
-                          runType: "manual",
-                        })
-                      }
-                      running={mutations.runAgentMutation.isPending}
-                    />
-                  );
-                })}
-                {participants.length === 0 && (
-                  <div className="text-muted-foreground rounded-md border border-dashed p-3 text-sm">
-                    {!selectedChallengeId
-                      ? "Select or create a challenge to add participants."
-                      : agents.length === 0
-                        ? "No agents yet. Add one in Setup, then join it here."
-                        : "Join an agent below to enter it in this match."}
-                  </div>
-                )}
-              </div>
-
-              {selectedChallengeId && availableAgents.length > 0 && (
-                <JoinAgentPanel
-                  availableAgents={availableAgents}
-                  onJoin={(agentId) =>
-                    mutations.joinChallengeMutation.mutate({
-                      challengeId: selectedChallengeId,
-                      agentId,
-                    })
-                  }
-                />
-              )}
-            </aside>
-
-            <Tabs defaultValue="leaderboard" className="min-h-0 p-4">
-              <TabsList className="mb-4">
-                <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
-                <TabsTrigger value="trades">Trades</TabsTrigger>
-                <TabsTrigger value="runs">Runs</TabsTrigger>
-              </TabsList>
-              <TabsContent value="leaderboard" className="m-0">
-                <LeaderboardTable
-                  entries={leaderboard?.entries ?? []}
-                  participants={participants}
-                  agentsById={agentsById}
-                  onSelectParticipant={setSelectedParticipantId}
-                />
-              </TabsContent>
-              <TabsContent value="trades" className="m-0">
-                <TradesTable trades={trades} />
-              </TabsContent>
-              <TabsContent value="runs" className="m-0">
-                <RunsTable runs={runs} agentsById={agentsById} />
-              </TabsContent>
-            </Tabs>
-          </div>
-        </main>
-
-        <section className="border-border bg-card min-h-0 overflow-auto rounded-md border">
-          <div className="border-border border-b p-4">
-            <h2 className="text-sm font-semibold">Portfolio</h2>
-          </div>
-          <div className="space-y-5 p-4">
-            {portfolio ? (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <Metric label="Value" value={formatMoney(portfolio.totalValue)} />
-                  <Metric label="Return" value={formatPct(portfolio.returnPct)} />
-                  <Metric label="Cash" value={formatMoney(portfolio.cash)} />
-                  <Metric label="Drawdown" value={formatPct(-Math.abs(portfolio.maxDrawdownPct))} />
-                </div>
-                <div>
-                  <h3 className="mb-2 text-sm font-medium">Positions</h3>
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Symbol</TableHead>
-                          <TableHead className="text-right">Qty</TableHead>
-                          <TableHead className="text-right">Value</TableHead>
-                          <TableHead className="text-right">P/L</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {portfolio.positions.map((position) => (
-                          <TableRow key={position.symbol}>
-                            <TableCell className="font-medium">{position.symbol}</TableCell>
-                            <TableCell className="text-right">
-                              {decimal.format(position.quantity)}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatMoney(position.marketValue)}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatPct(position.unrealizedPnlPct)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {portfolio.positions.length === 0 && (
-                          <EmptyRow colSpan={4} label="No positions" />
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="text-muted-foreground rounded-md border border-dashed p-4 text-sm">
-                {participants.length === 0
-                  ? "No participants yet — join an agent to a challenge to build a paper portfolio."
-                  : "Select a participant to view its cash, positions, return, and drawdown."}
-              </div>
-            )}
-
-            <ThesisForm
-              createThesisMutation={mutations.createThesisMutation}
-              challengeId={selectedChallengeId || undefined}
-              agentId={selectedParticipant?.agentId}
-            />
-
-            <div className="border-border border-t pt-5">
-              <h3 className="mb-3 text-sm font-medium">Recent theses</h3>
-              <ThesesList theses={theses} />
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
+  return (
+    <SwipablePage
+      title="AI Arena"
+      views={views}
+      defaultView={defaultTab}
+      persistKey={TAB_PERSIST_KEY}
+      banner={
+        <OnboardingChecklist
+          hasProvider={hasProvider}
+          hasAgent={agents.length > 0}
+          hasChallenge={challenges.length > 0}
+          hasParticipant={hasJoinedOnce || participants.length > 0}
+          hasRun={hasRunOnce || runs.length > 0}
+        />
+      }
+    />
   );
 }
