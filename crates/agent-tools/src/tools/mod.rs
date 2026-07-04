@@ -29,6 +29,7 @@ pub mod provenance;
 pub mod record_activities;
 pub mod record_activity;
 pub mod scenarios;
+pub mod screener;
 pub mod valuation;
 
 pub use accounts::{AccountDto, GetAccounts, GetAccountsArgs, GetAccountsOutput};
@@ -76,6 +77,7 @@ pub use performance::{
     PerformanceDataQualityOutput, PerformanceReturnsOutput, PerformanceRiskOutput,
 };
 pub use portfolios::{GetPortfolios, GetPortfoliosArgs, GetPortfoliosOutput, PortfolioDto};
+pub use screener::{ScreenStocks, ScreenStocksArgs, ScreenStocksOutput, ScreenerHitDto};
 pub use valuation::{
     GetValuationHistory, GetValuationHistoryArgs, GetValuationHistoryOutput, ValuationPointDto,
 };
@@ -158,6 +160,7 @@ pub fn v1_read_tools() -> Vec<Arc<dyn AgentTool>> {
         Arc::new(GetPortfolioScenario),
         Arc::new(CompareSavedScenario),
         Arc::new(CompareBasket),
+        Arc::new(ScreenStocks),
     ]
 }
 
@@ -242,6 +245,7 @@ mod tests {
                 "get_portfolio_scenario",
                 "compare_saved_scenario",
                 "compare_basket",
+                "screen_stocks",
             ]
         );
     }

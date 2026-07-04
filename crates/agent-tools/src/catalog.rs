@@ -226,7 +226,7 @@ mod tests {
         assert!(names.contains(&"prepare_activity_import"));
         assert!(names.contains(&"commit_activity_import"));
         // Read-only token still sees exactly the shared read tools.
-        assert_eq!(crate::tools::v1_read_tools().len(), 24);
+        assert_eq!(crate::tools::v1_read_tools().len(), 25);
     }
 
     #[tokio::test]

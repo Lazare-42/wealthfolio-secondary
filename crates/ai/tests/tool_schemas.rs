@@ -26,7 +26,7 @@ use wealthfolio_ai::tools::{
     GetIncome, GetPerformance, GetPortfolioScenario, GetQuote, GetSymbolPerformance,
     GetValuationHistory, ImportCsvTool, ListAssetTaxonomies, ListCategorizationContext,
     ListPortfolioScenarios, PrepareAssetClassification, ProposeCategories, RecordActivities,
-    RecordActivity, RigAgentTool, SearchActivities, SearchMarketSymbols,
+    RecordActivity, RigAgentTool, ScreenStocks, SearchActivities, SearchMarketSymbols,
 };
 
 fn env() -> Arc<MockEnvironment> {
@@ -220,6 +220,12 @@ async fn snapshot_get_portfolio_scenario() {
 #[tokio::test]
 async fn snapshot_compare_saved_scenario() {
     let snapshot = schema_snapshot_dyn(&adapted(CompareSavedScenario)).await;
+    insta::assert_json_snapshot!(snapshot);
+}
+
+#[tokio::test]
+async fn snapshot_screen_stocks() {
+    let snapshot = schema_snapshot_dyn(&adapted(ScreenStocks)).await;
     insta::assert_json_snapshot!(snapshot);
 }
 

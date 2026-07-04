@@ -1,0 +1,59 @@
+---
+source: crates/ai/tests/tool_schemas.rs
+expression: snapshot
+---
+{
+  "name": "screen_stocks",
+  "parameters": {
+    "properties": {
+      "betaMax": {
+        "type": "number"
+      },
+      "betaMin": {
+        "type": "number"
+      },
+      "country": {
+        "type": "string"
+      },
+      "dividendMin": {
+        "type": "number"
+      },
+      "exchange": {
+        "type": "string"
+      },
+      "industry": {
+        "type": "string"
+      },
+      "isActivelyTrading": {
+        "type": "boolean"
+      },
+      "isEtf": {
+        "type": "boolean"
+      },
+      "limit": {
+        "maximum": 100,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "marketCapMax": {
+        "type": "number"
+      },
+      "marketCapMin": {
+        "type": "number"
+      },
+      "priceMax": {
+        "type": "number"
+      },
+      "priceMin": {
+        "type": "number"
+      },
+      "sector": {
+        "type": "string"
+      },
+      "volumeMin": {
+        "type": "number"
+      }
+    },
+    "type": "object"
+  }
+}
