@@ -88,7 +88,10 @@ pub const SYSTEM_PROMPT: &str = include_str!("system_prompt.txt");
 
 // Re-export main types for convenience
 pub use arena_runner::AiArenaLlmRunner;
-pub use arena_universe::{generate_challenge_spec, GeneratedArenaChallengeSpec};
+pub use arena_universe::{
+    generate_challenge_spec, DraftChallenge, GenerateChallengeSpecRequest,
+    GeneratedArenaChallengeSpec,
+};
 pub use chat::{ChatConfig, ChatService};
 pub use env::{AgentEnvironment, AiEnvironment};
 pub use error::AiError;

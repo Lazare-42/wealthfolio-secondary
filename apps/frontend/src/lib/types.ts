@@ -182,6 +182,18 @@ export interface CreateArenaChallengeRequest {
   endAt?: string | null;
 }
 
+export interface DraftArenaChallenge {
+  name: string;
+  description: string;
+  universe: string[];
+}
+
+/** Generate a spec from a theme, enhance a draft, or both (at least one). */
+export interface GenerateArenaChallengeSpecRequest {
+  theme?: string;
+  draft?: DraftArenaChallenge;
+}
+
 export interface GeneratedArenaChallengeSpec {
   name: string;
   description: string;

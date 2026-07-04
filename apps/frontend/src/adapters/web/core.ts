@@ -575,8 +575,11 @@ export const invoke = async <T>(command: string, payload?: Record<string, unknow
       break;
     }
     case "generate_arena_challenge_spec": {
-      const { theme } = payload as { theme: string };
-      body = JSON.stringify({ theme });
+      const { theme, draft } = payload as {
+        theme?: string | null;
+        draft?: Record<string, unknown> | null;
+      };
+      body = JSON.stringify({ theme: theme ?? null, draft: draft ?? null });
       break;
     }
     case "join_arena_challenge": {

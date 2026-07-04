@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tauri::State;
 
 use crate::context::ServiceContext;
-use wealthfolio_ai::GeneratedArenaChallengeSpec;
+use wealthfolio_ai::{DraftChallenge, GenerateChallengeSpecRequest, GeneratedArenaChallengeSpec};
 use wealthfolio_core::ai_arena::{
     ArenaAgent, ArenaChallenge, ArenaLeaderboard, ArenaParticipant, ArenaPortfolio, ArenaRun,
     ArenaTrade, CompanyThesis, CreateArenaAgentRequest, CreateArenaChallengeRequest,
@@ -56,11 +56,12 @@ pub async fn create_arena_challenge(
 
 #[tauri::command]
 pub async fn generate_arena_challenge_spec(
-    theme: String,
+    theme: Option<String>,
+    draft: Option<DraftChallenge>,
     state: State<'_, Arc<ServiceContext>>,
 ) -> Result<GeneratedArenaChallengeSpec, String> {
     let env = state.ai_chat_service().env().clone();
-    wealthfolio_ai::generate_challenge_spec(env, &theme)
+    wealthfolio_ai::generate_challenge_spec(env, GenerateChallengeSpecRequest { theme, draft })
         .await
         .map_err(|e| format!("Failed to generate challenge: {}", e))
 }

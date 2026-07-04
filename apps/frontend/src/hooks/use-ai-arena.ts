@@ -21,6 +21,7 @@ import type {
   CreateArenaAgentRequest,
   CreateArenaChallengeRequest,
   CreateCompanyThesisRequest,
+  GenerateArenaChallengeSpecRequest,
   RunArenaAgentRequest,
 } from "@/lib/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -125,7 +126,7 @@ export function useAiArenaMutations() {
 
   // Pure generation call - no query-key invalidation needed.
   const generateChallengeSpecMutation = useMutation({
-    mutationFn: (theme: string) => generateArenaChallengeSpec(theme),
+    mutationFn: (request: GenerateArenaChallengeSpecRequest) => generateArenaChallengeSpec(request),
     onError: (error) =>
       toast.error(
         error instanceof Error && error.message

@@ -10,18 +10,12 @@ use axum::{
     Json, Router,
 };
 use serde::Deserialize;
-use wealthfolio_ai::{AiError, GeneratedArenaChallengeSpec};
+use wealthfolio_ai::{AiError, GenerateChallengeSpecRequest, GeneratedArenaChallengeSpec};
 use wealthfolio_core::ai_arena::{
     ArenaAgent, ArenaChallenge, ArenaLeaderboard, ArenaParticipant, ArenaPortfolio, ArenaRun,
     ArenaTrade, CompanyThesis, CreateArenaAgentRequest, CreateArenaChallengeRequest,
     CreateCompanyThesisRequest, RunArenaAgentRequest,
 };
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GenerateChallengeSpecRequest {
-    theme: String,
-}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -62,7 +56,7 @@ async fn generate_challenge_spec(
     Json(payload): Json<GenerateChallengeSpecRequest>,
 ) -> ApiResult<Json<GeneratedArenaChallengeSpec>> {
     let env = state.ai_chat_service.env().clone();
-    let spec = wealthfolio_ai::generate_challenge_spec(env, &payload.theme)
+    let spec = wealthfolio_ai::generate_challenge_spec(env, payload)
         .await
         .map_err(|e| match e {
             AiError::InvalidInput(_) | AiError::MissingApiKey(_) => {

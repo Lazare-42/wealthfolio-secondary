@@ -62,17 +62,20 @@ export function ChallengeForm({
   const [generatedSpec, setGeneratedSpec] = useState<GeneratedArenaChallengeSpec | null>(null);
 
   const generateWithAi = () => {
-    generateChallengeSpecMutation.mutate(theme.trim(), {
-      onSuccess: (spec) => {
-        setGeneratedSpec(spec);
-        setChallengeForm((form) => ({
-          ...form,
-          name: spec.name || form.name,
-          description: spec.description || form.description,
-          universe: spec.universe.length > 0 ? spec.universe.join(", ") : form.universe,
-        }));
+    generateChallengeSpecMutation.mutate(
+      { theme: theme.trim() },
+      {
+        onSuccess: (spec) => {
+          setGeneratedSpec(spec);
+          setChallengeForm((form) => ({
+            ...form,
+            name: spec.name || form.name,
+            description: spec.description || form.description,
+            universe: spec.universe.length > 0 ? spec.universe.join(", ") : form.universe,
+          }));
+        },
       },
-    });
+    );
   };
 
   const createChallenge = () => {
