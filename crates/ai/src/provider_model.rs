@@ -126,9 +126,11 @@ impl ProviderTuningOverrides {
     /// Remove provider-specific overrides that should not reach runtime params.
     pub fn sanitized_for_provider(mut self, provider_id: &str) -> Self {
         if provider_id == "anthropic" {
-            // Claude rejects top_k/top_p on current Anthropic models. Users may
+            // Claude rejects top_k/top_p on current Anthropic models, and newer
+            // models (e.g. claude-opus-4-7) also 400 on `temperature`. Users may
             // still have these as orphaned overrides from older catalogs, so
             // drop them before merging to avoid rebuilding unsupported params.
+            self.temperature = None;
             self.extra_option_overrides.remove("top_k");
             self.extra_option_overrides.remove("top_p");
         }
@@ -612,6 +614,7 @@ mod tests {
     #[test]
     fn sanitized_for_provider_removes_unsupported_anthropic_sampling_overrides() {
         let overrides = ProviderTuningOverrides {
+            temperature: Some(0.5),
             extra_option_overrides: HashMap::from([
                 ("top_k".to_string(), json!(0)),
                 ("top_p".to_string(), json!(1.0)),
@@ -622,6 +625,7 @@ mod tests {
 
         let sanitized = overrides.sanitized_for_provider("anthropic");
 
+        assert!(sanitized.temperature.is_none());
         assert!(!sanitized.extra_option_overrides.contains_key("top_k"));
         assert!(!sanitized.extra_option_overrides.contains_key("top_p"));
         assert_eq!(
@@ -633,6 +637,7 @@ mod tests {
     #[test]
     fn sanitized_for_provider_preserves_other_provider_sampling_overrides() {
         let overrides = ProviderTuningOverrides {
+            temperature: Some(0.5),
             extra_option_overrides: HashMap::from([
                 ("top_k".to_string(), json!(40)),
                 ("top_p".to_string(), json!(0.9)),
@@ -642,6 +647,7 @@ mod tests {
 
         let sanitized = overrides.sanitized_for_provider("ollama");
 
+        assert_eq!(sanitized.temperature, Some(0.5));
         assert_eq!(
             sanitized.extra_option_overrides.get("top_k"),
             Some(&json!(40))
