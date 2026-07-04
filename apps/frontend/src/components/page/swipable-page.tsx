@@ -325,14 +325,21 @@ export function SwipablePage({
 
             {banner && <div className="shrink-0 px-2 pb-3 lg:px-4">{banner}</div>}
 
-            {/* Content - relative for absolute positioned actions within */}
+            {/* Content - relative for absolute positioned actions within.
+                All views stay mounted (hidden when inactive) so in-progress
+                form state and scroll positions survive tab switches, mirroring
+                the mobile SwipableView behavior. */}
             <div
               className={cn(
                 "relative grow overflow-y-auto pt-8 md:pt-2",
                 withPadding && "px-2 pb-2 lg:px-4 lg:pb-4",
               )}
             >
-              {views.find((v) => v.value === currentView)?.content}
+              {views.map((v) => (
+                <div key={v.value} className={cn("h-full", v.value !== currentView && "hidden")}>
+                  {v.content}
+                </div>
+              ))}
             </div>
           </div>
         )}
