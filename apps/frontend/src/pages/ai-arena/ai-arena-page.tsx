@@ -35,6 +35,7 @@ import { Icons, Skeleton } from "@wealthfolio/ui";
 
 import { AgentForm } from "./components/agent-form";
 import { EmptyRow } from "./components/empty-row";
+import { OnboardingChecklist } from "./components/onboarding-checklist";
 import { decimal, formatMoney, formatPct, statusVariant } from "./components/formatters";
 import { LeaderboardTable } from "./components/leaderboard-table";
 import { Metric } from "./components/metric";
@@ -163,16 +164,26 @@ export default function AiArenaPage() {
         </div>
       </header>
 
+      <OnboardingChecklist
+        hasProvider={enabledProviders.some((provider) => provider.hasApiKey)}
+        hasAgent={agents.length > 0}
+        hasChallenge={challenges.length > 0}
+        hasParticipant={participants.length > 0}
+        hasRun={runs.length > 0}
+      />
+
       <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[360px_minmax(0,1fr)_420px]">
         <section className="border-border bg-card min-h-0 overflow-auto rounded-md border">
           <div className="border-border border-b p-4">
             <h2 className="text-sm font-semibold">Setup</h2>
           </div>
           <div className="space-y-6 p-4">
-            <AgentForm
-              enabledProviders={enabledProviders}
-              createAgentMutation={mutations.createAgentMutation}
-            />
+            <div id="arena-agent-form">
+              <AgentForm
+                enabledProviders={enabledProviders}
+                createAgentMutation={mutations.createAgentMutation}
+              />
+            </div>
             <div className="border-border border-t pt-5">
               <h3 className="mb-3 text-sm font-medium">Challenge</h3>
               <Button className="w-full" onClick={() => navigate("/ai-arena/challenges/new")}>
@@ -227,7 +238,10 @@ export default function AiArenaPage() {
           </div>
 
           <div className="grid min-h-0 gap-0 lg:grid-cols-[260px_minmax(0,1fr)]">
-            <aside className="border-border min-h-0 border-b p-4 lg:border-b-0 lg:border-r">
+            <aside
+              id="arena-participants"
+              className="border-border min-h-0 border-b p-4 lg:border-b-0 lg:border-r"
+            >
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-medium">Participants</h3>
                 <Badge variant="outline">{participants.length}</Badge>
