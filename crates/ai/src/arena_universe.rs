@@ -27,8 +27,9 @@ Rules: \
 - name: a short, punchy challenge name (max 6 words). \
 - description: 2-4 sentences expanding the theme into an investable thesis, \
 stating what is in and out of scope. \
-- universe: 10-30 liquid, exchange-listed stock or equity-ETF tickers that fit the theme, \
-as plain ticker symbols (e.g. \"AAPL\", or \"RHM.DE\" for non-US listings).";
+- universe: 10-30 liquid, US-listed, USD-priced stock or equity-ETF tickers \
+that fit the theme, as plain US ticker symbols (e.g. \"AAPL\", \"NVDA\"). \
+The arena supports US listings only — no foreign exchange suffixes.";
 
 const ENHANCE_SYSTEM_PROMPT: &str =
     "You improve draft paper-trading stock challenges for an investment app. \
@@ -41,8 +42,20 @@ Rules: \
 - description: improve and expand the draft into a crisp 2-4 sentence investable thesis, \
 stating what is in and out of scope. \
 - universe: KEEP every user-provided ticker, then add complementary liquid, \
-exchange-listed stock or equity-ETF tickers up to about 30 total, \
-as plain ticker symbols (e.g. \"AAPL\", or \"RHM.DE\" for non-US listings).";
+US-listed, USD-priced stock or equity-ETF tickers up to about 30 total, \
+as plain US ticker symbols (e.g. \"AAPL\", \"NVDA\"). \
+The arena supports US listings only — no foreign exchange suffixes.";
+
+/// Maximum theme length accepted at the crates/ai boundary.
+const MAX_THEME_CHARS: usize = 2000;
+/// Maximum number of tickers accepted in a user draft.
+const MAX_DRAFT_TICKERS: usize = 40;
+/// Total candidates (draft first, then model) validated per request.
+const MAX_CANDIDATES: usize = 40;
+/// Validation stops once this many symbols resolve.
+const MAX_UNIVERSE: usize = 30;
+/// Concurrent symbol lookups during validation.
+const LOOKUP_CONCURRENCY: usize = 4;
 
 /// A user's draft challenge to enhance.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -110,6 +123,26 @@ fn build_prompts(
         .filter(|theme| !theme.is_empty());
     let draft = request.draft.as_ref().filter(|draft| !draft.is_empty());
 
+    if let Some(theme) = theme {
+        if theme.chars().count() > MAX_THEME_CHARS {
+            return Err(AiError::InvalidInput(format!(
+                "theme is too long (max {MAX_THEME_CHARS} characters)"
+            )));
+        }
+    }
+    if let Some(draft) = draft {
+        let ticker_count = draft
+            .universe
+            .iter()
+            .filter(|t| !t.trim().is_empty())
+            .count();
+        if ticker_count > MAX_DRAFT_TICKERS {
+            return Err(AiError::InvalidInput(format!(
+                "draft universe is too large (max {MAX_DRAFT_TICKERS} tickers)"
+            )));
+        }
+    }
+
     match (theme, draft) {
         (theme, Some(draft)) => {
             let mut prompt = String::new();
@@ -168,8 +201,10 @@ pub async fn generate_challenge_spec<E: AiEnvironment>(
     let spec: RawChallengeSpec = serde_json::from_value(value)
         .map_err(|e| AiError::Provider(format!("Model returned an unexpected JSON shape: {e}")))?;
 
-    // Validate against the market-data symbol search. User-provided draft
-    // tickers go first so they are always kept when they resolve.
+    // Validate against the market-data symbol search, matching results the
+    // same way trade-time resolution does (canonical_symbol fallback OR raw
+    // symbol — see core ai_arena service::resolve_allowed_price). User-provided
+    // draft tickers go first so they are always kept when they resolve.
     let mut candidates: Vec<String> = request
         .draft
         .map(|draft| draft.universe)
@@ -177,29 +212,26 @@ pub async fn generate_challenge_spec<E: AiEnvironment>(
     candidates.extend(spec.universe);
 
     let quote_service = env.quote_service();
-    let mut seen: HashSet<String> = HashSet::new();
-    let mut universe = Vec::new();
-    let mut dropped = Vec::new();
-    for raw_ticker in candidates {
-        let ticker = raw_ticker.trim().to_uppercase();
-        if ticker.is_empty() || !seen.insert(ticker.clone()) {
-            continue;
+    let (universe, dropped) = validate_universe(candidates, |ticker| {
+        let quote_service = quote_service.clone();
+        async move {
+            quote_service
+                .search_symbol_with_currency(&ticker, Some("USD"))
+                .await
+                .map(|results| {
+                    results.iter().any(|result| {
+                        result
+                            .canonical_symbol
+                            .as_deref()
+                            .unwrap_or(result.symbol.as_str())
+                            .eq_ignore_ascii_case(&ticker)
+                            || result.symbol.eq_ignore_ascii_case(&ticker)
+                    })
+                })
+                .unwrap_or(false)
         }
-        let resolved = quote_service
-            .search_symbol_with_currency(&ticker, None)
-            .await
-            .map(|results| {
-                results
-                    .iter()
-                    .any(|result| result.symbol.eq_ignore_ascii_case(&ticker))
-            })
-            .unwrap_or(false);
-        if resolved {
-            universe.push(ticker);
-        } else {
-            dropped.push(ticker);
-        }
-    }
+    })
+    .await?;
 
     Ok(GeneratedArenaChallengeSpec {
         name: spec.name.trim().to_string(),
@@ -209,6 +241,60 @@ pub async fn generate_challenge_spec<E: AiEnvironment>(
         provider_id,
         model_id,
     })
+}
+
+/// Trim, uppercase, and dedupe candidates (order-preserving, so draft tickers
+/// listed first keep their keep-priority), cap them at [`MAX_CANDIDATES`],
+/// then resolve each through `lookup` with bounded concurrency, stopping once
+/// [`MAX_UNIVERSE`] symbols resolve. Errors when nothing resolves so callers
+/// never get an `Ok` spec with an empty universe (e.g. during a market-data
+/// outage).
+async fn validate_universe<F, Fut>(
+    candidates: Vec<String>,
+    lookup: F,
+) -> Result<(Vec<String>, Vec<String>), AiError>
+where
+    F: Fn(String) -> Fut,
+    Fut: std::future::Future<Output = bool>,
+{
+    use futures::StreamExt;
+
+    let mut seen: HashSet<String> = HashSet::new();
+    let candidates: Vec<String> = candidates
+        .into_iter()
+        .map(|t| t.trim().to_uppercase())
+        .filter(|t| !t.is_empty() && seen.insert(t.clone()))
+        .take(MAX_CANDIDATES)
+        .collect();
+
+    let lookup = &lookup;
+    // `buffered` keeps result order == candidate order, so draft tickers
+    // (listed first) keep priority even with concurrent lookups.
+    let mut results = futures::stream::iter(candidates.into_iter().map(|ticker| {
+        let resolved = lookup(ticker.clone());
+        async move { (ticker, resolved.await) }
+    }))
+    .buffered(LOOKUP_CONCURRENCY);
+
+    let mut universe = Vec::new();
+    let mut dropped = Vec::new();
+    while let Some((ticker, resolved)) = results.next().await {
+        if resolved {
+            universe.push(ticker);
+            if universe.len() >= MAX_UNIVERSE {
+                break;
+            }
+        } else {
+            dropped.push(ticker);
+        }
+    }
+
+    if universe.is_empty() {
+        return Err(AiError::Provider(
+            "could not validate any universe symbols — market data may be unavailable".to_string(),
+        ));
+    }
+    Ok((universe, dropped))
 }
 
 #[cfg(test)]
@@ -267,6 +353,83 @@ mod tests {
             build_prompts(&GenerateChallengeSpecRequest::default()),
             Err(AiError::InvalidInput(_))
         ));
+    }
+
+    #[test]
+    fn rejects_oversized_inputs() {
+        let long_theme = GenerateChallengeSpecRequest {
+            theme: Some("x".repeat(MAX_THEME_CHARS + 1)),
+            draft: None,
+        };
+        assert!(matches!(
+            build_prompts(&long_theme),
+            Err(AiError::InvalidInput(_))
+        ));
+
+        let big_draft = GenerateChallengeSpecRequest {
+            theme: None,
+            draft: Some(DraftChallenge {
+                universe: (0..MAX_DRAFT_TICKERS + 1)
+                    .map(|i| format!("T{i}"))
+                    .collect(),
+                ..Default::default()
+            }),
+        };
+        assert!(matches!(
+            build_prompts(&big_draft),
+            Err(AiError::InvalidInput(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_universe_caps_candidates_and_universe() {
+        let looked_up = Arc::new(std::sync::Mutex::new(0usize));
+        let candidates: Vec<String> = (0..60).map(|i| format!("T{i}")).collect();
+        let counter = looked_up.clone();
+        let (universe, dropped) = validate_universe(candidates, move |_ticker| {
+            let counter = counter.clone();
+            async move {
+                *counter.lock().unwrap() += 1;
+                true
+            }
+        })
+        .await
+        .expect("universe");
+
+        // Stops once MAX_UNIVERSE resolve, in stable candidate order.
+        assert_eq!(universe.len(), MAX_UNIVERSE);
+        assert_eq!(universe.first().map(String::as_str), Some("T0"));
+        assert_eq!(universe.last().map(String::as_str), Some("T29"));
+        assert!(dropped.is_empty());
+        // Never validates more than the candidate cap.
+        assert!(*looked_up.lock().unwrap() <= MAX_CANDIDATES);
+    }
+
+    #[tokio::test]
+    async fn validate_universe_dedupes_and_keeps_draft_first_order() {
+        let candidates = vec![
+            " aapl ".to_string(),
+            "MSFT".to_string(),
+            "AAPL".to_string(),
+            "".to_string(),
+            "bad".to_string(),
+        ];
+        let (universe, dropped) =
+            validate_universe(candidates, |ticker| async move { ticker != "BAD" })
+                .await
+                .expect("universe");
+        assert_eq!(universe, vec!["AAPL", "MSFT"]);
+        assert_eq!(dropped, vec!["BAD"]);
+    }
+
+    #[tokio::test]
+    async fn validate_universe_errors_when_nothing_resolves() {
+        let result = validate_universe(vec!["AAPL".to_string()], |_| async { false }).await;
+        assert!(matches!(result, Err(AiError::Provider(_))));
+
+        // No candidates at all is also an error, never an empty Ok universe.
+        let result = validate_universe(Vec::new(), |_| async { true }).await;
+        assert!(matches!(result, Err(AiError::Provider(_))));
     }
 
     #[test]
